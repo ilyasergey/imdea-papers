@@ -1,0 +1,51 @@
+\begin{figure}[t]
+%
+\centering
+\begin{tabular}{c@{\hfill}c}
+%
+\begin{minipage}[t]{.5\textwidth}
+\[
+\begin{array}{ll}
+\num{1}~ & ~~ \esc{write}\ (p,\, v)\ \{\\ 
+\num{2}~ & ~~~~~ \lat\,\actwrite{p}{v}; \aux{register}(p,v)\rat;\\
+\num{3}~ & ~~~~~ \lat\, b \tbnd \act{read}(S);\ \aux{check}(p,b) \rat;\\
+\num{4}~ & ~~~~~ \kw{if}\ b\\
+\num{5}~ & ~~~~~ \kw{then}\ \lat\,%
+                           \actwrite{\aleksfwdp{p}}{v};\ \aux{forward}(p)\rat; \\
+\num{5'}~           & ~~~~ \lat\,\aux{finalize}(p)\rat\}
+\end{array}
+\]
+\end{minipage}
+%
+&
+%
+\begin{minipage}[t]{.5\textwidth}
+\[
+\begin{array}{rl}
+\num{6}~  & \esc{scan} () : ( A \times A )~ \{ \\ 
+\num{7}~  & ~~~ \lat\,\actwrite{\s}{\esc{true}};\ \aux{set}(\esc{true}) \rat;\\  
+\num{8}~  & ~~~ \lat\,\actwrite{\fx}{\bot};\ \aux{clear}(\x)\rat;\\
+\num{9}~  & ~~~ \lat\,\actwrite{\fy}{\bot};\ \aux{clear}(\y)\rat;\\
+\num{10}~ & ~~~ \var{vx} \tbnd \lat \act{read}(\x) \rat ; \\
+\num{11}~ & ~~~ \var{vy} \tbnd \lat \act{read}(\y) \rat;  \\
+\num{12}~ & ~~~ \lat\,\actwrite{\s}{\esc{false}};\ \aux{set}(\esc{false})\rat;\\
+\num{13}~ & ~~~ \var{ox} \tbnd \lat \act{read}(\fx) \rat;\\
+\num{14}~ & ~~~ \var{oy} \tbnd \lat \act{read}(\fy) \rat;\\
+\num{15}~ & ~~~ \var{rx} \tbnd \kw{if}\ (\var{ox} \neq\bot)\
+                \kw{then}\ \var{ox}\ \kw{else}\ \var{vx};\\
+\num{16}~ & ~~~ \var{ry} \tbnd \kw{if}\ (\var{oy} \neq\bot)\
+                \kw{then}\ \var{oy}\ \kw{else}\ \var{vy};\\
+\num{17}~ & ~~~ \lat\,\aux{relink}(\var{rx}, \var{ry});\
+                \kw{return}\ (\var{rx}, \var{ry})\,\rat\}
+\end{array}
+\]
+\end{minipage}
+%
+\end{tabular}
+%
+\caption{Snapshot procedures annotated with auxiliary code.}
+\label{fig:fcsl-snapshot}
+\end{figure}
+
+
+

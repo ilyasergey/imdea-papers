@@ -1,0 +1,10 @@
+\begin{lstlisting}
+Definition coh := 
+  [Pred s | let: H := self s \+ other s in
+            exists p h g ls,
+              [/\ s = tb ->> [self s, joint s, other s], 
+                  joint s = sent :-> p \+ h \+ g,
+                  llist p ls h, [ls in H at last_key H],
+                  stacks_cont H /\ complete H & 
+                  validH s]].  
+\end{lstlisting}

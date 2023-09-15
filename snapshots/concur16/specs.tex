@@ -1,0 +1,29 @@
+% The following version saves a little more space
+\begin{figure}
+%
+\centering
+\[
+\begin{array}{l}
+\mathtt{write}\ (p : \mathtt{ptr}, n : \mathtt{int}) : 
+\!\!\!\begin{array}[t]{l}
+\{\hists = \hempty \wedge h \subseteq \histO
+           \wedge \omega \subseteq {\jleq}\}\\[3pt]
+\{\exists t\ldot\, \hists = t \mapsto (p, n) \wedge h \subseteq \histO \wedge
+  \omega \subseteq {\jleq}\,{\wedge}\, h \subseteq H^{\hbox{}\sqsubsetneq_\ordlist t}\}
+\end{array}\\
+%
+\mathtt{scan} : 
+\!\!\!\begin{array}[t]{l}
+\{\hists = \hempty \wedge\, h \subseteq \histO \wedge\,
+          \omega \subseteq {\jleq}\}\\[3pt]
+          \{\hists = \hempty \wedge\, h \subseteq \histO \wedge\,
+            \omega \subseteq {\jleq} \wedge\, \exists\, t\ldot\, %
+             h \subseteq H^{\hbox{}\sqsubseteq_\ordlist t} \wedge\,
+             \mathsf{chain}\ H^{\hbox{}\sqsubseteq_\ordlist t} \wedge\,
+             r = \mathsf{eval}\ {H^{\hbox{}\sqsubseteq_\ordlist t}}\}
+       \end{array}
+\end{array}
+\]
+\caption{\label{fig:specs} Specification of {\tt write} and {\tt scan}
+  methods.}
+\end{figure}

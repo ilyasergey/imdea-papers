@@ -1,0 +1,143 @@
+% Intro stub
+
+\section{Introduction}
+\label{sc:intro}
+
+
+Formal verification of concurrent data structures commonly requires
+reasoning about temporal position of the so called ``linearization
+points'' of a program.
+
+A linearization point is a concept related to linearizability, a
+standard correctness criteria for concurrent data structures. It is a
+point where a certain operation takes place, \emph{logically}.  In
+other words, even if the operation physically executes across a whole
+interval of moments in time, it is possible and useful to
+\emph{pretend}, for reasoning purposes, that it occurred in one moment
+--- its linearization point. This simplifies the reasoning about
+client programs, which can treat the physical operation as if it were
+indivisible, i.e.~\emph{atomic}.
+
+But, reasoning about linearization point of an operation can be
+tricky. First, one has to decide just how to shrink to a single point
+the whole physical interval in which the operation executed. This
+allows for some leeway. For example, operations that execute during
+overlapping time intervals can be assigned linearization points that
+are ordered arbitrarily. An operation A can be ``linearized'' before
+B, despite B beginning before A physically begins, and ending before A
+physically ends, as long as A and B overlapped.
+
+Worse, a position of a linearization point for a certain procedure may
+not be determined \emph{locally}, but may appear in another procedure
+or thread. Moreover, this position may vary depending on past,
+\emph{or even future}, run-time events. For instance, a linearization
+point of a procedure A, may appear in the procedure B, or in procedure
+C, depending on the value of the pointer $x$ in the third line of
+procedure D.
+
+\is{The above is a soooper-vague example. I'd recommend to show
+  something concrete here, for instance the simple readPair program,
+  outlining the difficulty in reasoning.}  
+%
+\an{Indeed, I'd like an example. But, readpair may be too complicated
+  to put here, no?  Moreover, if I recall correctly, it's
+  linearization points were all in the same procedure. Why not just
+  put a forward pointer here, and say here that an example will be
+  given in Section 2? Alternatively, we introduce readpair here, but
+  say that in Section 2 we'll show an example where distribution of
+  linearization points is even trickier. However, both algorithms will
+  be assignable the same spec.}  
+%
+\an{Can somebody please type up readpair, so we can see how it looks
+  in the intro? We need to make good progress on this paper before we
+  skype next.} \gad{I'm on it}
+
+The contribution of this paper is a novel method for specifying and
+verifying concurrent data structures, which avoids the above problems.
+
+\gad{We should say here that previous/most approaches to reason with
+  non-fixed linearization point do so with a dedicated
+  meta-theory~\cite{Liang-Fend:PLDI13}. More references needed here}
+
+In particular, we circumvent linearizability, in favor of Hoare-style
+specifications in a variant of concurrent separation logic,
+FCSL~\cite{LeyWild-Nanevski:POPL13,Nanevski-al:ESOP14}. We will rely
+on two key features of FCSL to solve the problems. First, FCSL's
+notion of auxiliary state will allow us to track the temporal
+positioning of operations (an equivalent of linearization points in
+linearizability reasoning) in a \emph{local} way. We do so by
+utilizing FCSL abstractions that specify not only what the \emph{self}
+thread (i.e., the thread being specified) does, but also what all the
+\emph{other} threads in the system do collectively.
+
+Second, FCSL abstracts over the specifics of how the state, real or
+auxiliary, of the data structure is implemented. Any structure is
+admissible, as long as it satisfies the algebraic axioms of a
+\emph{Partial Commutative Monoid} (PCM). Heaps with the operation of
+disjoint union are a particular PCM, taken as the default notion of
+state in separation logic. But, we can take other PCMs, such as that
+of \emph{histories} to keep track of the position of linearization
+points. Thus, where separation logic provides effective means for
+reasoning about pointer linking (and re-linking) in \emph{space}, in
+FCSL, exactly the same logical infrastructure will provide us with
+equally effective means for reasoning about linking (and re-linking)
+in \emph{time}, which is precisely what the ordering (and re-ordering)
+of linearization points of a data structure represents.
+
+Shirking from linearizability in favor of Hoare logic has a few
+benefits, in addition of the two listed above\an{In case it's unclear
+  which benefits I'm talking about, it's locality of specs, and
+  effectiveness of reasoning about time.} First, where linearization
+allows that one program is \emph{replaced} by another, which can serve
+as the specification for the first, in FCSL we use Hoare-style specs
+for specification. This leads to a kind of APIs and specifications for
+abstract data types which is standard in sequential programming (e.g.,
+a stack is typically specified by assertions such as that a push
+followed by a pop does not change the stack, etc.), but so far has not
+been used in concurrency. In particular, in this paper, we make the
+first proposal of what we believe to be a canonical API for a
+concurrent snapshot data structure.
+%The API is similar in spirit to the canonical APIs
+%one considers for sequential structures, such as stacks or
+%queues. 
+Second, while linearizability allows replacing a procedure by a
+simpler one in a client program, one still needs to consider the
+composition of these simpler procedures in the client. Linearizability
+offers no help in this process\an{E.g., we may need to introduce
+  auxiliary state into the simpler program, but that may destroy the
+  connectons with the original program}, whereas our method is
+designed precisely with client reasoning in mind.
+%
+Lastly, our approach immediately lends itself to reasoning about
+higher-order programs, whereas scaling linearizability to higher-order
+programs has been tricky, and has so far been completed only for very
+specific scenarios (CITE some Gotsman stuff)\an{May need to temper
+  this statement, to not incense CaReSL guys.}\is{No, we don't have to
+  as they do the refinement reasoning, which is the subject of the
+  listed above problem with giving meaningful specs. This can go to
+  related work.}\an{This sentence would be stronger, if we actually
+  considered some higher-order client. It shouldn't be hard to concoct
+  one in the section on clients.}
+
+We illustrate our method by verifying in detail a particularly
+intricate snapshot algorithm due to Jayanti~\cite{Jayanti+stoc05},
+presented in Section 2. We show how the FCSL auxiliary state should be
+designed in order to verify this example, in Section 3. We make an
+interesting parallel with linearizability, as this auxiliary state has
+to keep track of both beginning and ending times of an operation, for
+the purposes of the proof, although one of the endpoints can be
+omitted in the specs, which we present in the abstract form in Section
+4, along with the commentary of the formal proof. This is the first
+\emph{formal} proof of Jayanti's algorithm. Moreover, the proof is
+mechanized in in Coq. \gad{Actually.. we don't have one yet. This is
+  what bothers me the most at this point.} In Section 4, we illustrate
+that the same specs can be ascribed to at least one more snapshot
+implementation. Following the old adage that a method is a trick which
+worked at least twice, this lends credence to the claim that our
+snapshot API is canonical. We illustrate how the specs works in a
+several simple client program scenarios.
+
+
+
+
+

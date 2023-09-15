@@ -1,0 +1,255 @@
+\documentclass[a4paper,USenglish]{darts}
+\usepackage{microtype}%if unwanted, comment out or use option "draft"
+\bibliographystyle{plainurl}% the recommended bibstyle
+
+% ARTIFACT: Include the following input command here
+\input{artifactcmds}
+
+% Author macros::begin
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ARTIFACT: Please
+% use the same title as the corresponding ECOOP paper and append the
+% text "(Artifact)" ARTIFACT: Add as a footnote the reference to the
+% corresponding ECOOP paper
+\title{Concurrent Data Structures Linked in Time
+  (Artifact)\footnote{This artifact is a companion of the paper:
+    Germ\'{a}n Andr\'{e}s Delbianco, Ilya Sergey, Aleksandar Nanevski
+    and Anindya Banerjee, ``Concurrent Data Structures Linked in
+    Time'', Proceedings of the 31st European Conference on
+    Object-Oriented Programming (ECOOP 2017), June 18-23, 2017,
+    Barcelona, Spain. This research is partially supported by EPSRC
+    grant EP/P009271/1, the ERC consolidator grant
+    Mathador--DLV--724464, and the US National Science Foundation
+    (NSF). Any opinion, findings, and conclusions or recommendations
+    expressed in the material are those of the authors and do not
+    necessarily reflect the views of~NSF.}}
+
+\titlerunning{Concurrent Data Structures Linked in Time (Artifact)}
+
+% ARTIFACT: Authors may not be exactly the same as the ECOOP paper,
+% e.g., you may want to include authors who contributed to the
+% preparation of the artifact, but not to the ECOOP companion paper
+%% Please provide for each author the \author and \affil macro, even
+%% when authors have the same affiliation, i.e. for each author there
+%% needs to be the \author and \affil macro
+
+\author[1,2]{Germ\'{a}n Andr\'{e}s Delbianco} 
+\author[3]{Ilya Sergey}
+\author[1]{Aleksandar Nanevski}
+\author[1]{Anindya Banerjee}
+
+\affil[1]{IMDEA Software Institute, Madrid, Spain\\
+  {\texttt{\{german.delbianco,
+      aleks.nanevski,anindya.banerjee\}@imdea.org}}}
+
+\affil[2]{Universidad Polit\'{e}cnica de Madrid, Spain}
+
+\affil[3]{University College London, United Kingdom\\
+  {\texttt{i.sergey@ucl.ac.uk}}}
+
+\authorrunning{G.\,A. Delbianco and I. Sergey and A. Nanevski and %
+  A. Banerjee}
+
+\Copyright{Germ\'{a}n Andr\'{e}s Delbianco and Ilya Sergey and %
+  Aleksandar Nanevski and Anindya Banerjee}
+
+\keywords{Separation logic, Linearization Points, Concurrent
+  snapshots, FCSL}
+
+%% \subjclass{F.3.1 Specifying and Verifying and Reasoning about
+%%   Programs, D.2.4 Software/Program Verification, F.1.2: Parallelism
+%%   and concurrency, D.1.3 Concurrent Programming}
+
+\subjclass{F.3.1, D.2.4, F.1.2: Parallelism and concurrency, D.1.3}
+
+
+%% \author[1]{Germ\'{a}n Andr\'{e}s Delbianco} \author[2]{Alice
+%% W. Source\footnote{Core artifact developer.}}  \affil[1]{Dummy
+%% University Computing Laboratory, Address/City,
+%% Country\\ \texttt{open@dummyuniversity.org}} \affil[2]{Department
+%% of Informatics, Dummy College, Address/City,
+%% Country\\ \texttt{access@dummycollege.org}}
+%% \authorrunning{J.\,Q. Open and A.\,W. Source} %mandatory. First:
+%% Use abbreviated first/middle names. Second (only in severe cases):
+%% Use first author plus 'et. al.'
+
+%Editor-only macros:: begin (do not touch as
+%author)%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\Volume{3}
+\Issue{2}
+\Article{1}
+
+\RelatedConference{European Conference on Object-Oriented Programming
+  (ECOOP 2017), June 18-23, 2017, Barcelona, Spain}
+% Editor-only macros::end
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This artifact provides the full mechanization in FCSL of the
+developments in the companion paper, ``Concurrent Data Structures
+Linked in Time''. In the latter, we propose a new method, based on a
+separation-style logic, for reasoning about concurrent objects with
+such linearization points. We embrace the dynamic nature of
+linearization points, and encode it as part of the data structure's
+\emph{auxiliary state}, so that it can be dynamically modified in
+place by auxiliary code, as needed when some appropriate run-time
+event occurs. We illustrate the method by verifying (mechanically in
+FCSL) an intricate optimal snapshot algorithm due to Jayanti, as well
+as some clients.
+
+FCSL is the first completely formalized framework for mechanized
+verification of full functional correctness of fine-grained concurrent
+programs. It is implemented as an embedded domain-specific language
+(DSL) in the dependently-typed language of the Coq proof assistant,
+and is powerful enough to reason about programming features such as
+higher-order functions and local thread spawning. By incorporating a
+uniform concurrency model, based on state-transition systems and
+partial commutative monoids, FCSL makes it possible to build proofs
+about concurrent libraries in a thread-local, compositional way, thus
+facilitating scalability and reuse: libraries are verified just once,
+and their specifications are used ubiquitously in client-side
+reasoning.
+\end{abstract}
+
+% ARTIFACT: please stick to the structure of 7 sections provided below
+
+% ARTIFACT: section on the scope of the artifact (what claims of the
+% paper are intended to be backed by this artifact?)
+\begin{scope}
+  The scope of this artifact is to provide the full mechanization of
+  the developments described in the companion paper, ``Concurrent Data
+  Structures Linked in Time''. The mechanization consists in the
+  development of the infrastructure to implement the \emph{``linking
+    in Time''} technique as an FCSL library, the implementation of
+  Jayanti's snapshot object in FCSL, together with the verification of
+  the library methods and the clients presented in the
+  paper. Moreover, for completeness sake, we have bundled this new
+  development together with previous case studies in FCSL. Finally, if
+  you are interested in finding out more details about the
+  implementation of FCSL~\cite{NanevskiLSD+esop14, FCSL:Project} and
+  several previous case
+  studies~\cite{SergeyNB+ESOP15,SergeyNB+PLDI15,SergeyNBD+OOPSLA16},
+  we encourage you to check the FCSL reference
+  manual~\cite{FCSL:Manual}.
+
+\end{scope}
+
+% ARTIFACT: section on the contents of the artifact (code, data, etc.)
+\begin{content}
+
+  This artifact extends the previous release of FCSL with the Coq
+  source files mechanizing the proofs of the developments presented in
+  the associated research paper. For the sake of brevity, we list only
+  the new contributions, and refer the reader to the FCSL user manual
+  for details about previous case studies and the development of FCSL.
+
+\begin{description}
+  
+\item [{\bf \large Folder:}\texttt{Examples/Relink}] The folder
+  \texttt{Examples/Relink} contains the main case study of the {\it
+    Linking in Time} technique for verifying concurrent data
+  structures with non-fixed linearization points introduced in the
+  paper. It consists of several files implementing the verification in
+  FCSL of Jayanti's single writer/single scanner snapshot
+  construction:
+
+\begin{itemize}
+
+ \item \texttt{jayanti\_snapshot.v} --- Preliminaries. Lemmas for
+       reasoning about coloring patterns of histories, and other
+       history invariants.
+
+ \item \texttt{jayanti\_ghoststate.v} --- Implementation of the
+ auxiliary state for the snapshot object, its transitions, invariants
+ and associated invariant preservation proofs.
+
+ \item \texttt{jayanti\_concurroid.v} --- Implementation of the FCSL
+ concurrent resource ---a.k.a. {\it concurroid} for the snapshot.
+
+ \item \texttt{jayanti\_actions.v} --- FCSL atomic actions for the
+ snapshot object concurrent resource.
+
+ \item \texttt{jayanti\_stability.v} --- Assertions used in the proof
+ outline of the main methods and proofs of their stability under FCSL
+ transitions.
+
+ \item \texttt{jayanti\_library.v} --- Implementation and verification
+ of the atomic commands (auxiliary code) and the snapshot library
+ (i.e. scan and write procedures).
+
+ \item \texttt{jayanti\_clients.v} --- Verification of the clients of
+   the snapshot data structure, as presented in Section 4 of the
+   paper.
+\end{itemize}
+
+In the sequel, we relate the different parts of the development with
+their corresponding presentation in the paper:
+
+The files \texttt{jayanti\_ghoststate.v} and
+\texttt{jayanti\_concurroid.v} define the invariants described in
+Section~5, together with the implementation of the concurrent resource
+for the snapshot object. Moreover, in the later file, there is also
+the implementation of the auxiliary code functions (a.k.a transitions
+in FCSL jargon) from Section~6. The proof of the 2-state invariants
+from Invariant~1, and those from Invariant~2, together with the
+definitions of the main assertions (e.g.\ the {\it stable order}
+$\Omega$) are carried out in \texttt{jayanti\_stability.v}. The
+verification of the \texttt{write} and \texttt{scan} files, as
+presented in Section~7, are carried our in the file
+\texttt{jayanti\_library.v}. Finally, the clients in Section~4 are
+implemented and verified in \texttt{jayanti\_clients.v}. We refer the
+reader to the descriptions in the \texttt{README.md} file of the
+project and the FCSL manual for further detail.
+
+  \item [{\bf \large Folder:} \texttt{Core}] Two new libraries were
+    added to the Core of existing FCSL libraries: a new library for
+    {\it relinkable} histories, added to \texttt{histories.v} and an
+    extended theory of algebraic surgery operations for lists, which
+    were necessary to prove the properties of the {\it relink}
+    operation. The latter is implemented in \texttt{seq\_extras.v}
+\end{description}
+\end{content} 
+
+% ARTIFACT: section containing links to sites holding the
+% latest version of the code/data, if any
+\begin{getting}
+% leave empty if the artifact is only available on the DROPS server.
+% otherwise, provide links to the latest version of the artifact
+% (e.g., on github)
+  The latest version of this artifact is available also on the FCSL
+  project website: \url{http://software.imdea.org/fcsl}.
+\end{getting} 
+
+% ARTIFACT: section specifying the platforms on which the artifact is
+% known to work, including requirements beyond the operating system
+% such as large amounts of memory or many processor cores
+\begin{platforms}
+  The artifact is known to work on any platform running Oracle
+  VirtualBox version~5\footnote{\url{https://www.virtualbox.org/}}
+  with at least 5~GB of free space on disk and at least 4~GB of free
+  space in RAM. Alternatively, FCSL can be built from the sources
+  available from the project's webpage. The latter can be done in any
+  system capable of installing and executing
+  Coq~v.8.5pl3\footnote{\url{https://coq.inria.fr/coq-85}}
+  and~Ssreflect~1.6.\footnote{\url{https://math-comp.github.io/math-comp/}}
+\end{platforms}
+
+% ARTIFACT: section specifying the license under which the artifact is
+% made available
+\license{GPLv3 (\url{https://www.gnu.org/licenses/gpl})}
+
+% ARTIFACT: section specifying the md5 sum of the artifact master file
+% uploaded to the Dagstuhl Research Online Publication Server,
+% enabling downloaders to check that the file is the expected version
+% and suffered no damage during download.
+\mdsum{95b0fc97f64958028ef3d1b31a4ffa4e}
+
+% ARTIFACT: section specifying the size of the artifact master file
+% uploaded to the Dagstuhl Research Online Publication Server
+\artifactsize{2.75 GB}
+
+\bibliography{references}
+\end{document}

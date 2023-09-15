@@ -1,0 +1,462 @@
+\section{Formal proof structures}
+\label{sc:formal}
+
+\def\histx{\hist_\x}
+\def\histy{\hist_\y}
+\def\histp{\hist_p}
+\def\ordlist{L}
+\renewcommand{\tleq}{\mathrel{\leq_\ordlist}}
+\renewcommand{\tle}{\mathrel{<_\ordlist}}
+\renewcommand{\jleq}{\mathrel{\sqsubseteq_\ordlist}}
+\newcommand{\E}{E}
+\newcommand{\C}{C}
+\newcommand{\sx}{S_\x}
+\newcommand{\sy}{S_\y}
+\newcommand{\spp}{S_p}
+\newcommand{\wx}{W_\x}
+\newcommand{\wy}{W_\y}
+\newcommand{\wpp}{W_p}
+\newcommand{\admissible}{\mathsf{fine}}
+
+\paragraph{Specification.}
+%
+We record a history of the snapshot data structure as a set of entries
+of the form $t \mapsto (p, v)$. The entry says that at time $t$ (a
+natural number), the value $v$ was written into pointer $p$. Unlike in
+the linearizability proof of the snapshot structure, we need to keep
+only the write events in the history. The scan events do not modify
+the observable by the clients abstract state of the structure, and can
+thus be omitted to simplify the considerations.
+
+We keep the following \emph{auxiliary} variables, which are local to
+each thread: $\histS$ keeps the finished write events of the
+\emph{self} thread, $\histO$ keeps the finished write events of all
+other threads, while $\histJ$ keeps the write events that are in
+progress. When a call to {\tt write} is initiated, an auxiliary code
+will place an appropriate write entry into $\histJ$; when a call
+finishes, the entry is moved from $\histJ$ to $\histS$. When one
+thread changes its own $\histS$, this immediately changes every other
+thread's $\histO$---a discipline provided automatically by FCSL. We
+name by $\hist$ the union $\histS \hunion \histO \hunion \histJ$,
+which is the history of the overall snapshot data structure. The union
+is \emph{disjoint}, as we will enforce an invariant that $\histS$,
+$\histO$ and $\histJ$ do not contain timestamps in common.
+
+The timestamps in $\hist$ determine the \emph{real-time} ordering of write
+events. We record the \emph{logical} ordering in the auxiliary variable
+$\ordlist$. This is a list, storing a permutation of timestamps from
+$\hist$. The permutation corresponds to the logical ordering, and we
+write $t_1 \tleq t_2$ if $t_1$ appears before $t_2$ in $\ordlist$. In
+this sense, $\ordlist$ is the linkage in time for the snapshot
+algorithm, and it will be dynamically modified. The ordering $\tleq$
+is a total order (i.e., a chain), but as $\tleq$ is dynamic, and thus
+subject to change by the algorithm, we introduce further notation and
+name by $\jleq$ a \emph{partial suborder} of $\tleq$ that is
+stable (i.e., it can only grow over time). We will define $\jleq$ later, but we can already use it to
+describe the Hoare triples for {\tt write} and {\tt scan} below. In
+fact, it will be important for client reasoning
+(Section~\ref{sec:clients}) to keep the definition of $\jleq$ hidden,
+so that different snapshot algorithms can provide different
+definitions, without influencing the clients.  
+%
+\begin{equation}
+\begin{array}{l}
+\mathtt{write}\ (p : \mathtt{ptr}, n : \mathtt{int}) : 
+\!\!\!\begin{array}[t]{l}
+\{\hists = \hempty \wedge h \subseteq \histO
+           \wedge \omega \subseteq {\jleq}\}\\[3pt]
+\{\exists t\ldot\, \hists = t \mapsto (p, n) \wedge h \subseteq \histO \wedge
+  \omega \subseteq {\jleq}\,{\wedge}\, h \subseteq H^{\hbox{}\sqsubsetneq_\ordlist t}\}
+\end{array}\\
+%
+\mathtt{scan} : 
+\!\!\!\begin{array}[t]{l}
+\{\hists = \hempty \wedge\, h \subseteq \histO \wedge\,
+          \omega \subseteq {\jleq}\}\\[3pt]
+\{\hists = \hempty \wedge\, h \subseteq \histO \wedge\, \omega \subseteq {\jleq} \wedge\, \exists\, t\ldot\, %
+           h \subseteq H^{\hbox{}\sqsubseteq_\ordlist t} \wedge\,
+           \mathsf{chain}\ H^{\hbox{}\sqsubseteq_\ordlist t} \wedge\, r = \mathsf{eval}\ {H^{\hbox{}\sqsubseteq_\ordlist t}}\}
+\end{array}
+\end{array}
+\label{eq:specs}
+\end{equation}
+%
+These are partial correctness Hoare triples, describing how the
+program changes the state from the precondition (first braces) to the
+postcondition (second braces), possibly influencing the return result
+$r$.
+%
+The expression $H^{\hbox{}\sqsubseteq_\ordlist t}$ selects the entries
+in the history $H$ \emph{up to and including} the timestamp $t$,
+according to the ordering $\sqsubseteq_\ordlist$. Similarly in
+$H^{\hbox{}\sqsubsetneq_\ordlist t}$, except that we exclude $t$.
+%
+
+With that in mind, the spec for {\tt write} says the following. We
+start with the empty self history indicating that the procedure did
+not yet make any writes. We use the variable $h$ to name an arbitrary
+subset of the initial value of $\histO$ (hence, of \emph{completed}
+write events), and the variable $\omega$ for a subset of the initial
+ordering $\jleq$. The postcondition says that when {\tt write}
+terminates, one write event $t \mapsto (p, v)$ has finished, and is
+hence placed into $\histS$.  $\histO$ and $\jleq$ may have changed
+from the previous values, but they still include $h$ and $\omega$ as
+subsets. That is, $\histO$ could \emph{only grow}, because other
+threads could have created new write events. Similarly for $\jleq$:
+other threads could change the ordering in $\ordlist$, but only in a
+way which add more relationships between timestamps in
+$\jleq$. Lastly, the conjunct
+$h \subseteq H^{\hbox{}\sqsubsetneq_\ordlist t}$ says the write events
+that have been completed before the call to {\tt write} (and are hence
+stored in $h$) will be \emph{ordered before} the event $t$ in
+$\sqsubsetneq_\ordlist$. Other threads can permute $L$ to reorder some
+entries, but in $L$, $t$ will remain \emph{strictly} after all the
+entries from $h$.
+
+The spec for {\tt scan} starts with the same precondition. In the
+postcondition, it says that $\histS$ is empty, because {\tt scan}
+itself does not execute write events. However, by the time {\tt scan}
+returns the pair $r$ as a snapshot, we know that there exists a
+timestamp $t$ in the collective history $H$ of the data structure at
+which the snapshot \emph{appears} to be taken. First, the conjunct
+$h \subseteq H^{\hbox{}\sqsubseteq_\ordlist t}$ indicates that the
+snapshot is taken \emph{after} the call to {\tt scan}, because the
+finished events stored in $h$ are ordered before (or at best, at)
+timestamp $t$. Second, the set $H^{\hbox{}\sqsubseteq_\ordlist t}$ is
+a subchain in $\sqsubseteq_\ordlist$ (technically, all its entries are
+ordered in $\sqsubseteq_\ordlist$). Intuitively, the chain provides a
+way to see how the history logically progressed up to the snapshotting
+moment $t$, and moreover, this view will not change in the future in a
+way which invalidates $r$ as a snapshot (since $\sqsubseteq_\ordlist$
+is stable). Finally, if the chain of writes is evaluated in the order
+given by $L$, it produces the snapshot $r$.
+
+\paragraph{Additional auxiliary state.} 
+We require yet further structure to describe the admissible ways in
+which $\ordlist$ can change while respecting the
+specs~(\ref{eq:specs}).
+
+First, we require several variables that will record the code point in
+which an executing writer or a scanner currently are. For example, the
+auxiliary bits $\sx$ and $\sy$ will be set when the scanner has
+cleared the respective forwarding pointer (line~9,
+Figure~\ref{fig:jayanti-snapshot}), and reset upon scanner's
+termination. Variables $\wx$ and $\wy$ will record the writer state,
+and range over the set $\{ \mathsf{Init}, \mathsf{Written}\ t,
+\mathsf{Dirty}\ t, \mathsf{Clean}\ t\}$. Here, $t$ is the timestamp we
+will logically associate with the write event. $\mathsf{Init}$
+indicates that no write is in progress; $\mathsf{Written}\ t$ says
+that writer is in line~2 in Figure~\ref{fig:jayanti-snapshot};
+$\mathsf{Dirty}\ t$ says that line~3 has finished and $b$ is set
+(hence, forwarding in line 5 will occur); $\mathsf{Clean}\ t$ says
+that we do not need to track the writer's state anymore, and it is
+free to exit.
+
+%
+Second, we need to record how events overlap in time. As typical in
+linearizability, events that do not overlap will \emph{not} be reordered
+wrt.~each other. In the proofs, this is required in order to establish
+that the timestamp $t$ in the postcondition of {\tt write} and {\tt
+  scan} always appears after the events in $h$. To address this issue,
+we keep an auxiliary variable $\E$, storing a function that maps each
+timestamp $t$ of a \emph{finished} write events in $\hist$, to a
+timestamp identifying the \emph{ending time} of the event.
+%
+Third, we need to track the visibility of write events with regard to
+an ongoing scan method (i.e., is the write missed by the scan). This
+will inform how events are reordered in $\ordlist$. We do so by
+introducing \emph{colors} for timestamps: $\mathsf{green}$,
+$\mathsf{yellow}$ and $\mathsf{red}$. We keep an auxiliary variable
+$\C$, storing a function that maps each timestamp in $\hist$ to a
+color.
+%
+The intuition behind the colors is as follows. It is always relative
+to the ongoing scan, or the last finished one, if no scans are active.
+%
+\begin{itemize}
+\item Green timestamps identify write events that the scan is
+  guaranteed to see. This includes the events that finished before the
+  scan started. The order of green timestamps in $\ordlist$ is fixed
+  in the following sense: if $\C(t_1) = \mathsf{green}$ and
+  $t_1 \tle t_2$, then $t_2$ will never be reordered before $t_1$ in
+  $\ordlist$.
+
+\item Yellow timestamps are undecided. The scan may or may not see
+  them, hence they may be reorder in $\ordlist$. Due to the
+  single-writer/single-scanner assumption, $\hist$ contains at most
+  one yellow timestamp per pointer.
+
+\item Red timestamps are guaranteed to be missed by the scan. They
+  will be put after the green ones.
+\end{itemize}
+%
+%Color patters turn out to be a very flexible and maleable abstraction
+%in order to reasoning about the state of the resource. \gad{I'm
+%  looking for a formal way of saying that programming/reasoning about
+%  the color lemmas is fun, at least for a FP-minded guy!}
+
+%% In order to prove the correctness of these specs, we introduce the
+%% invariants imposed on our axiliary state, as well as the
+%% implementation in FCSL of the algorithm, decorated with auxiliary code:
+
+\noindent
+%
+We can now define $\jleq$ as follows:
+\begin{equation}
+ t_1 \jleq t_2  = (t_1 = t_2) \vee (E\,(t_1) < t_2) \vee
+ (t_1\tle t_2 \wedge \C(t_1) = \mathsf{green}) \label{def-jleq}
+\end{equation}
+Intuitively, the ordering $t_1 \jleq t_2$ is stable because either the
+events associated with $t_1$ and $t_2$ are equal, or non-overlapping,
+or $t_1$ is green, and hence fixed, as commented previously.
+
+
+\paragraph{Invariants}%
+The following are (selected) properties relevant to the proof of
+specs~\eqref{eq:specs}, that the state (real and auxiliary) of the snapshot
+algorithm satisfies throughout execution.  \an{Some are mostly obvious
+  book-keeping properties, but some are essential. We should present
+  only the important ones.}
+\begin{enumerate}
+
+% Self/other histories record finish writes.
+\item\label{inv:gapless} $\hist$ is gapless, i.e., contains all the timestamps between
+  $0$ and the maximal one. Moreover, each timestamp is associated with
+  either the pointer $x$ or the pointer $y$; if we denote by $\histx$
+  and $\histy$ the entries in $\hist$ writing into $x$ and $y$
+  respectively, then $\hist = \histx \hunion \histy$. \an{removable?}
+
+% Self/other histories record finish writes.
+\item\label{inv:finished} $\histS$ and $\histO$ record finished writes: $\dom{E} =
+  \dom{\histS \hunion \histO}$. \an{removable?}
+
+% Color invariant
+\item\label{inv:color} The colors of the timestamps in $\histx$ and
+  $\histy$ can be described by the regular expression $\GYR$. They
+  start with a prefix of \emph{at least} one green timestamp, followed
+  by \emph{at most} one yellow timestamp, and zero or more reds in the
+  tail. Importantly, there is always a (green) entry describing the
+  initial write into each $x$ and $y$.
+%
+%  i.e. the coloring of each of the pointer-view histories satisfies
+%  the pattern: many (at least one) green, at most one yellow, zero or
+%  more red. \gad{Will I need the refinements?}. This pattern entails
+%  that there is an initial value in each of $\histx$ and $\histy$ and,
+%  moreover, that initial write is {\bf green}. One of those initial
+%  timestamps will be $0$, i.e. $C(0)= green$. In addition, each
+%  pointer-view history is sorted in real time -- naturally sorted--
+%  and its elements don't overlap.
+
+%% Non-Overlapping are sorted
+\item\label{inv:overlap} The ending real time of a finished event
+  appears after the initial real time: $\forall\, t \in
+  \dom{E}\ldot\ t \leq E(t)$. \an{removable?}  Moreover, events that
+  do not overlap in real time are ordered in logical time: $\forall
+  t_1 \in \dom{E}, t_2 \in \dom{\hist}$, if $E(t_1) < t_2$ then $t_1
+  \tle t_2$.
+
+%% Last keys
+\item\label{inv:lastkey} The entry of the last timestamp in $\histx$
+  contains the physical value of $\x$: $\x = \histx (\mathsf{last}\,
+  \histx)$. Similarly for $y$. \an{removable?}
+
+%% Key Inv for fp
+\item\label{inv:forward} If the scanner has cleared $\mathit{fx}$
+  ($\sx = \TT$) but a non-$\bot$ value $v$ has been forwarded since
+  ($\mathit{fx} = v$), then this is recorded by $\histx$:
+  $\exists t\ldot t \mapsto (x, v) \in \histx$. Moreover, $t$ will be
+  considered by the scanner, i.e., $t$ is the last green or the yellow
+  timestamp in $\histx$. Dually for $\y$.
+
+%  For each $\mathtt{p} \in \{\mathtt{x},\mathtt{y}\}$, if $(S_p \wedge
+%  \mathtt{f\_of\ p}= v)$ then exists $t_p$ such that $t_p \hpts (p,v)
+%  \in \hist$ and $t_p$ is the last green or yellow timestamp of
+%  $\hist_{\mathtt{p}}$ i.e. $t_x = \mathsf{last\_green}\ \histx \vee
+%  t_p = \mathsf{yellow\_ts}\ \hist_{\mathtt{p}}$. This property
+%  entails that after the scanner has cleared the forwarding pointers,
+%  if some new value has been forwarded, its timestamp is the last
+%  green or the yellow of the pointer's view-history.
+
+%% Key Inv for p
+\item\label{inv:scanner} If the scanner has cleared $\mathit{fx}$
+  ($\sx = \TT$), but still has not turned off $\s$ (i.e., it is in
+  lines 9-11 in Figure~\ref{fig:jayanti-snapshot}), and $\x = v$ in
+  physical state, then this is recorded by $\histx$:
+  $\exists t\ldot t \mapsto (x, v) \in \histx$. Moreover, $t$ will be
+  considered by the scanner, i.e., $t$ is the last green or the yellow
+  timestamp in $\histx$. Dually for $\y$.
+
+%  For each $\mathtt{p} \in \{\mathtt{x},\mathtt{y}\}$, if $(S_p
+%  \wedge \mathtt{S})$ then exists $t_p$ such that $t_p \hpts (p,v) \in
+%  \hist$ and $t_p$ is, again, the last green or yellow timestamp of
+%  $\hist_{\mathtt{p}}$ i.e. $t_x = \mathsf{last\_green}\ \histx \vee
+%  t_p = \mathsf{yellow\_ts}\ \hist_{\mathtt{p}}$. This property
+%  entails that after the in the scanner has cleared the forwarding
+%  pointers and before it unsets the scanner bit {\tt S}, the current
+%  value of the pointer was committed by the last green or the yellow
+%  timestamp of the pointer's view-history.
+
+%% RedZone invariant
+\item\label{inv:redzone} 
+%
+If $\s = \FF, \sx = \TT, \sy = \TT$, i.e., the scanner is in lines
+12-15 in Figure~\ref{fig:jayanti-snapshot}, then $\hist$ satisfies the
+$\RZ$ pattern. In other words, if a new write events occur at this
+point, it will be colored red, and hence ignored by the scanner.
+
+%If $\wstate{S} = (\FF,\TT,\TT)$ then $\hist$ satisfies the $\RZ$
+%coloring pattern: if there is a red timestamp in $\hist$, then then
+%the {\sf first} red timestamp partitions $\hist$ so that everything
+%before it is yellow or green and everything starting from it is red.
+  
+\end{enumerate}
+%\gad{to do: I'm not sure how deep I should get into the invariants?
+%  Won't know for sure until I finish with the proof sketch. We might
+%  cut down on them later.}
+
+%\gad{Also: I'm thinking of pushing the invariants down together with
+%  the proof sketch, or even fork them together as a separate section
+%  sketching the ``correctness'' of our approach}
+
+\input{fcsl-snapshot}
+
+\paragraph{Implementation}%
+
+Figure~\ref{fig:fcsl-snapshot} now presents the annotation of
+Jayanti's procedures. We use $\langle$ angle braces $\rangle$ to
+enclose a real command with auxiliary code that executes
+simultaneously with it.  Note that it is is precisely this auxiliary
+procedures that describe how the linearization points of Jayanti's
+algorithms are determined, depending on run-time events.
+%
+As customary in Hoare logic, the auxiliary code is \emph{eraseable};
+that is, it only mutates auxiliary variables, but does not modify the
+real state. 
+%
+We name auxiliary code as one would name procedure calls, and proceed
+to describe these procedures. Each of them is essentially a
+straightforward sequence of reads from some auxiliary variables
+followed by assignments of new values to the same variables. Thus
+makes it convenient to present each procedures as a Hoare triple,
+listing in the precondition the variables read, followed by the newly
+assigned values in the postcondition. Unmentioned variables are
+considered unchanged.
+%
+%We present a Hoare-style specification of the auxiliary code so as to
+%provide an intuition on how the system evolves. We present the
+%auxiliary code transitions as if they act only on parts of the state
+%-- e.g. $\wstate{x}$, $\hist$ -- but in fact, they act on the whole
+%state of the resource and each of them is required to preserve the
+%invariants of the joint state described above. We begin with {\tt
+%write}'s auxiliary code:
+\[
+\begin{array}{l@{\, :\ } l}
+%% register
+ \aux{register}(p,v) &
+  \!\!\! \begin{array}[t]{l}
+   \{\ordlist = l,\ \histJ = j,\ \wpp = \mathsf{Init},\, \C = c\}\\ 
+   \{\ordlist = \mathsf{snoc}\ l\ t, \histJ = j \hunion t \hpts (p,v), \wpp = \mathsf{Written}\ t,\\
+   \phantom{\{} C = \mathsf{if}\ \s \& \spp\ \mathsf{then}\ c[t
+                                       \mapsto \mathsf{yellow}]\
+                                       \mathsf{else}\ c[t \mapsto \mathsf{red})]\}\quad\mbox{where $t = \mathsf{fresh}\ \hist$}
+%c \hunion (t \mapsto \mathsf{if}\ \s \& \spp\ \mathsf{then}\ \mathsf{green}\ \mathsf{else}\ \mathsf{yellow})\}\quad\mbox{where $t = \mathsf{fresh}\ \hist$}
+  \end{array} \\[3pt]
+%% checkS
+ \aux{check}(p,b) & \{\wpp = \mathsf{Written}\, t\}\quad
+  \{\wpp = \mathsf{if}\ b\
+  \mathsf{then}\ \mathsf{Dirty}\, t\ \mathsf{else}\ \mathsf{Clean}\, t\}\\
+%% transfer  
+  \aux{forward}(p) &
+  \!\!\! \begin{array}[t]{l}
+   \{\wpp = \mathsf{Dirty}\, t,\, \C = c \}\\ 
+   \{\wpp = \mathsf{Clean}\, t,\, %
+   \C= \mathsf{if}\ \s \& \spp\ \mathsf{then}\ c[t \mapsto \mathsf{green}]\ \mathsf{else}\ c\}
+  \end{array}\\
+%% exit  
+  \aux{finalize}(p) &
+  \!\!\! \begin{array}[t]{l}
+  \{\wpp = \mathsf{Clean}\, t,\ \histS = h,\, %
+  \histJ = j \hunion t \hpts (p,v), E = e \}\\
+  \{\wpp = \mathsf{Init},\, \histS = h \hunion t \hpts (p,v),\, %
+     \histJ = j,\ E = e \hunion t \hpts \mathsf{last}\ \hist \}
+ \end{array}
+\end{array}
+\]
+%
+%% \[
+%% \begin{array}{r c l}
+%% %% register
+%%  \{\ \hist= h,\ \histJ= j,\ \wstate{p} = \mathsf{Init}\}
+%%   & \aux{register}(p,v) &
+%%   \{ \!\!\!
+%%   \begin{array}[t]{l}
+%%    \mathit{let}\ t = \mathsf{fresh}(\hist),\ w = t \hpts (p,v) \\
+%%    \mathit{in}\ \histJ= j \hunion w ,\ \wstate{p} = \mathsf{Written}\ t\\
+%%    \phantom{\mathit{in}}\ \hist = h \hunion (w,
+%%    \mathit{if}\, ({\mathtt S} \wedge S_p)\, \mathit{then}\
+%%     \mathbf{yellow}\ \mathit{else}\ \mathbf{red})\}
+%%   \end{array}\\
+%% %% checkS
+%%   \{\ \wstate{p} = \mathsf{Written}\, t\} & \aux{check}(p,b) &
+%%   \{\ \wstate{p} = \mathit{if}\ b\
+%%   \mathit{then}\ \mathsf{Dirty}\, t\ \mathit{else}\ \mathsf{Clean}\, t\}\\
+%% %% transfer  
+%%   \{\ \wstate{p} = \mathsf{Dirty}\, t,\ \hist = h\} & \aux{forward}(p) &
+%%   \{\!\!\!
+%%   \begin{array}[t]{l}
+%%    \wstate{p} = \mathsf{Clean}\, t,\\
+%%    \hist= \mathit{if}\ ({\mathtt S} \wedge S_p)\,
+%%    \mathit{then}\ (\mathsf{paint}\ [t]\ \mathsf{green}\ h)\ \mathit{else}\ h\}
+%%   \end{array}\\
+%% %% exit  
+%%   \{\!\!\! \begin{array}[t]{l}
+%%     \wstate{p} = \mathsf{Clean}\, t,\ \histS = h, \\
+%%     \histJ = j \hunion t \hpts (p,v), E = e\}
+%%   \end{array}\! & \aux{exit}(p) &
+%%    \{\!\!\! \begin{array}[t]{l}
+%%      \wstate{p} = \mathsf{Init},\ \histS = h \hunion t \hpts (p,v),\\
+%%      \histJ = j,\ E = e \hunion t \hpts \mathsf{max}\ \dom{\hist}\}
+%%    \end{array}
+%% \end{array}
+%% \]
+
+%\ifdefined\nosts{}\else\input{fcsl-sts}\fi
+\noindent
+%
+For example, $\aux{register}(p, v)$ is executed in line~2 in
+Figure~\ref{fig:fcsl-snapshot}, together with the writing of $v$ into
+$p$. It allocates a fresh timestamp $t = \mathsf{fresh}\ H$ which will
+identify this write, and inserts the appropriate entry
+$t \mapsto (p, v)$ into $\histJ$. Next $t$ is added to the end of
+$\ordlist$, hence, $t$ will logically appear as a last, until and
+unless $\ordlist$ is permuted later. The writer state variable $\wpp$
+is changed to indicate that writer finished line~2, with a timestamp
+$t$ allocated. The color of $t$ is set to yellow if $\s \& \spp$. In
+other words, if an active scanner is in lines 7-9, it is not yet
+determined if the write event will be seen or missed by that
+scanner. Otherwise, $t$ is painted red, and thus either no scanner
+exists, or $t$ will definitely be missed.
+%
+In line~3, $\aux{check}(p,b)$, depending on $b$, marks the current
+write as $\mathsf{Dirty}$ (hence, a scan is in progress, and we should
+forward the write), or as $\mathsf{Clean}$, and ready to terminate.
+%
+In line~5, \aux{forward} paints the allocated timestamp green
+(since the scanner is active and in the right lines), because the
+event, being forwarded, will definitely be seen by the scanner.
+%
+$\aux{Finalize}$ moves the current write event from the joint
+history $\histJ$ to the thread's self history $\histS$, thus
+finalizing it. The maximal currently allocated timestamp of $\hist$ is recorded
+in $\E$ as the ending time of the event.
+
+\input{auxiliary}
+\input{proof}
+
+
+
+
+
+
+
+

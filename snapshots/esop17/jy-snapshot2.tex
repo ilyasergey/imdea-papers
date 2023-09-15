@@ -1,0 +1,76 @@
+%%% Macros for Snapshot pointers
+
+%% Jayanti's Snapshot Algorithm
+\newcommand{\fwdp}[1]{(\esc{fwd}~#1)}
+\newcommand{\aleksfwdp}[1]{\esc{fwd}~#1}
+
+\begin{figure}[t]
+%
+\centering
+\begin{tabular}[t]{l@{\ \ \ }l}
+%  
+\begin{minipage}[t]{.4\textwidth}
+\[
+\begin{array}{rl}
+\num{1}~ & \esc{write}\ (p,\, v)\ \{ \\ 
+\num{2}~ & ~~~ \actwrite{p}{v}; \\
+\num{3}~ & ~~~ b \tbnd \act{read}(\s);\\
+\num{4}~ & ~~~ \kw{if}\ b\\
+\num{5}~ & ~~~ \kw{then}\ \actwrite{\fwdp{p}}{v}\}\\
+& \\
+& \\
+& \esc{fwd}\ (p : \esc{ptr})\ \{ \\
+& ~~~ \kw{return}\ (p = x)\ \esc{?}\ \fx \esc{:}\ \fy\ \}
+\end{array}
+\]
+\end{minipage}
+%
+&
+\begin{minipage}[t]{.6\textwidth}
+\[
+\begin{array}{rl}
+\num{6}~  & \esc{scan}\ :\ (A \times A)\ \{\\ 
+\num{7}~  & ~~~~ \actwrite{\s}{\esc{true}};\\
+\num{8}~  & ~~~~ \actwrite{\fx}{\bot};\\
+\num{9}~  & ~~~~ \actwrite{\fy}{\bot}; \\
+\num{10}~ & ~~~~ \var{vx} \tbnd \act{read}(\x);\\
+\num{11}~ & ~~~~ \var{vy} \tbnd \act{read}(\y);\\
+\num{12}~ & ~~~~ \actwrite{\s}{\esc{false}};\\
+\num{13}~ & ~~~~ \var{ox} \tbnd \act{read}(\fx);\\
+\num{14}~ & ~~~~ \var{oy} \tbnd \act{read}(\fy);\\
+\num{15}~ & ~~~~ \var{rx} \tbnd \kw{if}\ (\var{ox} \neq\bot)\ \kw{then}\ \var{ox}\
+                          \kw{else}\ \var{vx};\\  
+\num{16}~ & ~~~~ \var{ry} \tbnd \kw{if}\ (\var{oy} \neq\bot)\ \kw{then}\ \var{oy}\
+                          \kw{else}\ \var{vy};\\  
+\num{17}~ & ~~~~ \kw{return}~(\var{rx},\var{ry})\}\\
+\end{array}
+\]
+\end{minipage}
+%
+\end{tabular}
+%
+\caption{Jayanti's single-scanner/single-writer snapshot algorithm.}
+\label{fig:jayanti-snapshot}
+\end{figure}
+
+% Macros for Line Numbers
+
+\def\lineWrtStarts{1}
+\def\lineWrtWrt{2}
+\def\lineWrtChk{3}
+\def\lineWrtIf{4}
+\def\lineWrtFwd{5}
+\def\lineWrtFnz{5'}
+
+\def\lineScanStarts{6}
+\def\lineScanSetsS{7}
+\def\lineScanClearsX{8}
+\def\lineScanClearsY{9}
+\def\lineScanReadsX{10}
+\def\lineScanReadsY{11}
+\def\lineScanUnsetsS{12}
+\def\lineScanReadsFX{13}
+\def\lineScanReadsFY{14}
+\def\lineScanChoosesRX{15}
+\def\lineScanChoosesRY{16}
+\def\lineScanRelinks{17}

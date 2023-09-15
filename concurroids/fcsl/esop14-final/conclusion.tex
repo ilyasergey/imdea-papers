@@ -1,0 +1,41 @@
+
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+We presented \emph{concurroids}---a novel model for scalable
+shared-memory concurrency verification, based on communicating STS, and
+\SCST---a logic for concurroids.
+
+In the future work, we are going to build a number of concurroids to
+encode common programming patterns. For example, dynamic allocation
+and deallocation of memory can be encoded via an allocator concurroid
+(without extensions of \SCST), and similarly for dynamic allocation
+and deallocation of locks.
+%
+% We also plan to consider other combinators for building and entangling
+% concurroids. In particular, 
+%
+We hope to investigate if concurroids can be endowed with analogues of
+channel relabeling and restriction operators from process algebras, to
+provide finer control over interconnection and closure of external
+transitions.
+%
+Finally, we plan to consider refinement which allows weakening the
+ascribed concurroid $U$ of a program, to a coarser-grained
+concurroid~$V$, if $U$ can be shown to simulate~$V$. One could then
+verify fine-grained concurrent ADTs against $V$, and afterwards hide
+the granularity by switching to $U$.
+
+
+\subsubsection*{Acknowledgments}
+
+We thank Anindya Banerjee, Thomas Dinsdale-Young and the ESOP 2014
+anonymous reviewers for their comments.
+% his thorough proof-reading of
+%the paper draft and providing many insightful comments. We thank
+%Thomas Dinsdale-Young for the comments on the related work and ESOP
+%2014 anonynous reviewers for their feedback. 
+This research was
+partially supported by Spanish MINECO projects TIN2012-39391-C04-01
+Strongsoft, TIN2010-20639 Paran10, AMAROUT grant 
+PCOFUND-GA-2008-229599, and Ramon y Cajal grant RYC-2010-0743.

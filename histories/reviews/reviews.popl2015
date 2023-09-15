@@ -1,0 +1,450 @@
+===========================================================================
+                            popl15 Review #68A
+                     Updated 5 Aug 2014 11:29:25pm EDT
+---------------------------------------------------------------------------
+   Paper #68: Specifying and Verifying Fine-Grained Concurrent Algorithms
+              with Histories and Subjectivity
+---------------------------------------------------------------------------
+
+                      Overall merit: B. OK paper, but I will not champion
+                                        it
+                         Confidence: Y. I am knowledgeable in this area,
+                                        but not an expert
+
+                   ===== Comments for the Authors =====
+
+This paper presents a Hoare-style approach to specifying and verifying fine-grained
+concurrent algorithms and data-structures. The essential idea is to encode the notion
+of a "history" directly into the specification. Thus, the pre-conditions and post-conditions
+in the logic make use of the histories (in place of just state). This leads to what is
+arguably a more natural and intuitive specification (e.g., close in spirit to linearizability-based
+approaches).
+
+The paper shows how the recently proposed FCSL (Fine-grained Concurrent Separation Logic) can
+be used to achieve this. The paper draws an analogy between the treatment of heap by Separation
+Logic and the treatment of histories, which is quite interesting and is the basis for the
+approach presented in the paper.
+
+The paper mostly illustrates the idea and approach by applying it to three examples.
+
+Overall, this is interesting. I like the general presentation style of using examples to
+illustrate the ideas and approach, keeping it concrete and grounded. But I think there is still
+some room for improvement in the presentation, especially in the beginning (section 2).
+
+Other Comments:
+
+* The paper tries too hard in the first page to argue the advantages of the proposed
+approach over the notion of linearizability. This is not quite convincing and may be needless.
+In fact, it would be more convincing if the paper were to show how non-linearizable (with
+respect to simple or standard data-structure semantics) libraries can be handled using
+the proposed approach.
+
+* It would help to clarify upfront what a PCM is ... in particular, to explain what
+assumptions are made about when the "partial" operator is defined. Furthermore, section
+2 uses the disjoint-union operator on histories. What happens if the disjoint-union
+of two histories produces one that is not "continuous"?
+
+* The specification (equation (5)) and explanation in section 2 are a bit confusing.
+In particular, the specification looks as though it is a partial one as it only
+considers the case where the self-history is empty. There is a claim that the frame
+rule allows generalizing it to the case where the self-history is not empty. (This
+is illustrated later in the end of section 3.1.) This appears to be a bit magical,
+Presumably the magic is buried in the PCM structure / FCSL. 
+
+It might be simpler to first illustrate the (apparently) more-complete specification
+(equation (16)) first, and discuss (5) and the frame-rule later on.
+
+It might also help to use different symbols for tau_0 in the precondition and postcondition
+of (5) to stress that they could be different. 
+
+The use of tau to make (5) "stable" also makes it a bit harder to understand first.
+
+===========================================================================
+                            popl15 Review #68B
+                    Updated 26 Aug 2014 11:42:17am EDT
+---------------------------------------------------------------------------
+   Paper #68: Specifying and Verifying Fine-Grained Concurrent Algorithms
+              with Histories and Subjectivity
+---------------------------------------------------------------------------
+
+                      Overall merit: B. OK paper, but I will not champion
+                                        it
+                         Confidence: Y. I am knowledgeable in this area,
+                                        but not an expert
+
+                   ===== Comments for the Authors =====
+
+SUMMARY
+
+The paper addresses the question: how, in a suitable concurrent separation
+logic, can one assign a satisfactory specification to a fine-grained
+concurrent data structure (and prove that this specification is indeed
+satisfied by the implementation)?
+
+The paper begins with the remark that histories (viewed as sets of pairs of a
+timestamp and an action) are very much like heap fragments (which are sets of
+pairs of an address and a value). In particular, histories form a partial
+commmutative monoid (PCM), which means that the usual tools of separation
+logic can be used to reason about histories. In fact, there are several recent
+variants of separation logic where the user can allocate auxiliary state and
+equip it with a PCM of their choosing. This means that modular reasoning about
+histories comes for free, in a sense.
+
+The paper chooses to use FCSL as an off-the-shelf logic in which reasoning
+with histories is possible. FCSL incorporates "subjectivity", which in short
+means that each thread has its own view of the auxiliary state, and is able
+to make assertions about both its own view (the "self" component) and about
+the other thread's view (the "other" component). FCSL also allows shared
+state (the "joint" component), and the evolution of these three components
+is governed by a protocol (a "concurroid") that is fixed beforehand. The
+assertions used in an FCSL proof must be provably stable with respect to
+this protocol.
+
+The paper provides three examples of how FCSL and histories can be used.
+
+One (Section 2) is a simple pair-snapshot data structure and serves as a
+motivating example.
+
+The second example (Section 4) is Treiber's stack, for which the paper
+establishes a history-based specification. The paper uses FCSL's "hide" rule
+to prove that the sequential spec of stacks is a special case of it (which
+means that if Treiber's stack is privately owned by just one thread, then it
+behaves like a sequential stack). Section 4 also gives a typical example of
+concurrent client-side reasoning, a producer/consumer example. The proof
+involves interesting loop invariants (which refer to the history of each
+participant) plus "hiding" (which intuitively argues that the stack is private
+to this particular producer/consumer pair, hence there is no outside
+interference).
+
+The last and most complex example is Hendler et al.'s flat combiner (Section
+5), whose specification is higher-order. In addition to specifying and proving
+the algorithm, there is a little bit of client-side reasoning (Section 5.4),
+where the "push" method of a sequential stack is invoked inside "flatCombine",
+and the resulting spec is (roughly) the same as that of "Treiber-push" -- i.e.
+both approaches are correct ways of implementing a concurrent stack, and the
+client reasons in the same way about them.
+
+The proofs are machine-checked.
+
+EVALUATION
+
+The introduction (Section 1) and the motivating example (Section 2) are very
+well written, in my opinion. The idea that histories should be equipped with
+PCM structure, so that an off-the-shelf separation logic can be used to reason
+about histories, without requiring any ad hoc extension, seems natural and
+compelling.
+
+The basic intuitions of subjectivity (i.e., "self" versus "other" views of the
+auxiliary state) seem relatively simple, and it is a good thing that an
+existing logic (here, FCSL) is used off-the-shelf. That said, FCSL itself
+seems extremely complex. Even though I have (once) read the FCSL paper before,
+I find it difficult to really understand the material in section 3, especially
+the abstract reasoning rules in Section 3.3. Also, even though the proof
+outline in Section 2 seems very simple, some details are really swept under
+the rug and deferred until Section 3, where the "pair-snapshot concurroid" is
+defined. I have some difficulty understanding the big picture; in particular
+Section 2 works with Hoare triples, but Section 3 works with quadruples
+{P}c{Q}@U, where U is a concurroid. I wish this was better explained,
+especially as far as client-side reasoning is concerned.
+
+Section 4 seemed quite interesting to me.
+
+Section 5 I believe should be interesting, but seemed overwhelming to me as a
+non-expert. If I understand correctly, the method flatCombine(f,x) is supposed
+to have the same spec as the equivalent coarse-grained implementation,
+lock();f(x);unlock(). But the specifications of lock() and unlock() are not
+given (they are sketched in a brief and informal manner). That's too bad; I
+would have liked to see the specification and proof outline for the
+coarse-grained implementation, before delving into the details of the
+fine-grained implementation.
+
+The fact that the proofs are machine-checked is quite important in my eyes.
+It would be all too easy to get the details wrong otherwise.
+
+In summary, on the positive side, this seems to be an impressive, and quite
+elegant piece of work.  There is no new, ad hoc extension of concurrent
+separation logic; the work is carried out in the setting of an existing logic,
+FCSL. Perhaps other separation logics that support user-defined PCMs could be
+used as an alternative foundation? The three examples that are developed are
+non-trivial and quite complete (specification, proof, and client-side
+reasoning).
+
+On the negative side, the logic FCSL seems quite complex. Its rules require
+serious study by the reader. Also, its treatment of private state seems
+somewhat strange to me, as it relies on assertions of the form pv |-> h, where
+h is an explicit heap, and this approach seems to require giving up the usual
+benefits of separation logic, where the heap is never explicitly named, and is
+instead described by an assertion. I don't know why the private heap is
+described in this manner. In summary, one may wish for a simpler foundation to
+be adopted in the future.
+
+The paper seems to make an interesting contribution (backed up by
+machine-checked proofs) and I believe it should be accepted.
+
+COMMENTS FOR THE AUTHORS
+
+p.1, second column, "for a class of structures": not sure what this means.
+Does "structure" mean "data structure"?
+
+p.1, "granularity abstraction": this term has not been defined. I assume
+it refers to the idea (explained above) that the client can reason about
+a fine-grained implementation as if it was coarse-grained.
+
+p.2, "histories form a PCM with disjoint union": I assume a history is a
+*sequence* of actions, not a set of actions. So, what does "disjoint union"
+mean for histories? Oh, wait. I suppose a history is a *set* of timestamped
+actions. Then, disjoint union makes sense. Could this be clarified?
+
+p.2, "Histories [...] are finite maps from the natural numbers to [...]". Is
+it obvious that using natural numbers for timestamps is a good choice (or the
+only choice)? Natural numbers are equipped with the successor operation,
+which leads you to require "continuity". Would it make sense to use an
+abstract type of timestamps that does not support successor?
+
+p.2, your explanation of the atomic pair snapshot data structure initially
+looks as if the x and y components are treated in a symmetric manner; but
+actually, the code in Figure 1 relies solely on the version number vx; it
+looks as if vy is completely unused. Equation (4) seems to confirm this. Is
+it indeed the case that vy is unused? Or is it used by some other method?
+
+p.2, "Thus, histories only grow, and only by adding valid snapshots". What
+does "valid" mean here? What would be an invalid snapshot?
+
+p.3, "Inclusion makes the precondition stable [...]": more generally, is there
+an obligation to check that every assertion in Figure 2 is stable?  (I assume
+there is.) But then, stable with respect to what? I suppose the answer is,
+stable with respect to a suitable concurroid, which is hidden here (for
+simplicity) and will be explained in Section 3. Perhaps this should be said.
+
+p.3, "The readX method has the following spec:" Perhaps you could spend a
+couple lines explaining this spec? In particular I wasn't quite sure why
+"tau <= t" in the postcondition makes intuitive sense (I guess a suitable
+witness for t is the most recent timestamp in the input history tau_O).
+
+Figure 2, line 7, I like the way in which tau_1 no longer appears in this
+assertion, as it is subsumed by tau_2, which is a richer history. Nice.
+
+p.4, "labeled components". When a history is identified by a label l, one
+could think of the history as stored in a ghost memory cell whose address is
+l. Thus, instead of saying that l is a "label", you could say it is a "ghost
+memory location". (Some authors have also used the words "region" or "island"
+for a piece of ghost state identified by a unique address.)
+
+p.4, "The self and other portions of any given label have to belong to a
+common PCM". What about the joint portion? Does it also have to belong to some
+PCM?
+
+p.4, "different labels can use different PCMs". So the points-to assertions
+are implicitly parameterized with a PCM?
+
+p.4, "These three basic assertions can be combined by the usual propositional
+connectives [...]". Why does it make sense here to use ordinary conjunction
+instead of separating conjunction?
+
+p.5, in the definition of "wr_x", the "other history" tau_O seems to appear
+out of nowhere (I mean, there is one occurrence of the metavariable tau_O,
+but it is not constrained by an assertion l |->^O tau_O). Puzzling.
+
+Section 3.3 is really quite cryptic, even if the reader has read the FCSL
+paper before (I have).
+
+One thing that isn't clear to me at the end of Section 3 is that there is
+a certain mismatch between Sections 2 and 3. Throughout Section 2, triples
+of the form {P}c{Q} are used. Now, Section 3 reveals that in FCSL, triples
+really are quadruples of the form {P}c{Q}@U. So I assume Section 2 must be
+revisited with the idea that every triple in it is implicitly relative to
+the pair-snapshot concurroid, called "S" in the paper. Thus, the "real"
+spec of readPair is of the form {...} readPair() {...} @ S. Now, if I am
+a client who wishes to use readPair(), how much do I need to know about S?
+Do I need to have access to its concrete definition? (Hopefully not, since
+it reveals implementation details of the pair-snapshot data structure.) Do
+I need to treat S as an "abstract concurroid" whose definition is opaque?
+Or can I somehow "hide" S and perform my client-side reasoning in the empty
+concurroid? I wish this was clarified.
+
+p.6, "Note that pop doesn’t deallocate [...]". If you modified the code of
+pop() to deallocate the node p, would your proof break? (I hope it would!)
+Where/why would it break? Is this explained later on in the paper? My guess is
+that 1- the Treiber concurroid doesn't allow deallocation (as noted in the
+paper); 2- if pop() used deallocate(), then its spec would need to mention
+P-entangled-T instead of just T; 3- but then certain assertions that appear in
+its proof would no longer be stable (not sure why).
+
+p.6, in the definition of the Treiber concurroid, why is the shared heap h_s
+described explicitly (i.e. as a union of several sub-heaps) instead of via a
+separation logic assertion (i.e. as a separating conjunction of several
+predicates, one for each sub-heap)? We seem to be losing some of the usual
+benefits of separation logic here. We end up using a first-order logic
+predicate list(p, l, h) instead of the usual separation logic predicate
+list(p, l).
+
+Similarly, why does (26) on p.7 define Arr_n(a,l,h), instead of
+separation-logic predicate Arr_n(a,l)?
+
+And why do we have to write "pv \mapsto^s h" instead of just writing
+a normal separation logic assertion that describes our private state?
+Again, we seem to be losing some readability (and compatibility with
+standard separation logic). Could this situation be improved?
+
+p.6, why does completeness (no gaps in the history) not appear also in the
+pair-snapshot example? I suppose it is not necessary there.
+
+Figure 4, the proof is clear, except of course the reader would like to
+know how one proves that tryPush admits this specification.
+
+p.7, "which is essentially an elaborated version of (1)". Perhaps you
+could introduce grb also in the precondition, and then argue that, up
+to an appropriate definition of the "abstract points-to" predicate that
+appears in (1), we *really* obtain (1).
+
+p.8, "Note also that the sentinel pointer is returned back to the private
+heap, along with the garbage heap". This seems a little too concrete in
+my eyes. Ideally I would like the proof of "exchange" to be independent
+of the implementation of Treiber's stack -- hence the client should not
+know that there is a sentinel pointer, a garbage heap, etc. It should
+only reason in terms of an abstract predicate that describe a Treiber
+stack. Could you do this? I suppose you can (but the module Treiber needs
+to export an operation new_stack() in addition to push() and pop()).
+
+p.8, "To supply the intuition behind the proof, we first review how ordinary
+locks work with auxiliary state [...]". Could you explicitly give the Hoare
+triples (or quadruples) for lock and unlock? The informal description that
+follows is difficult to understand.
+
+p.8, you write "As in CSL [...]  a lock comes with a resource invariant I
+which relates the auxiliary state to the heap of the shared resource". But
+in CSL, I is just an assertion, which describes the shared resource, period.
+There is no built-in idea of an "auxiliary state" in the reasoning rules for
+locks, is there?
+
+If one were to implement coarseGrainedCombine(f, x) simply as a sequence
+of lock();f(x);unlock(), would one be able to prove exactly the same
+abstract specifications for coarseGrainedCombine and flatCombine?
+
+Footnote 7 on page 9 is cryptic. Exactly what kind of side effects is the
+function f allowed to perform? Can it alter some private state? Can it use
+concurrent data structures (other than the flat combiner at hand)? etc.
+I am somewhat lost.
+
+p.9, "The spec for flatCombine is given wrt. a specific thread id tid".
+You seem to assume tid is a thread-local variable (i.e. each thread has
+its own tid). Ideally one should explain how a new flat combiner is
+initialised, how each participating thread receives its own tid and
+its own proof of NoReq(tid). Ideally this machinery should be somehow
+abstracted away inside the FC module, which would provide only two
+operations new_flat_combiner() and flatCombine(fc, f, x)...
+(Of course the paper is complex enough as it stands. This is just a
+suggestion for future work...)
+
+TYPOS
+
+p.2, "We consider atomic pair snapshot data structure" (singular? plural?)
+
+p.2, "Treiber stack" -> "Treiber's stack" or "a Treiber stack"?
+
+p.2, "we illustrate history-based specification by applying them"
+
+p.3, "it must be t1 <= t2" -> "it must be that t1 <= t2"? (same idiom elsewhere)
+
+p.3, "Such restriction" -> "Such a restriction"
+
+p.4, "If the type used by some label is non-heap, than that label" -> "then"
+
+p.4, "the calling threads has"
+
+p.4, "The concurroids thus bound the moves of the concurrent programs that
+operates on a data structure" -> "operate"?
+
+p.6, "times-tamps" (strange hyphenation?)
+
+p.11, "One can choose arbitrary datatype"
+
+===========================================================================
+                            popl15 Review #68C
+                     Updated 29 Aug 2014 9:35:41am EDT
+---------------------------------------------------------------------------
+   Paper #68: Specifying and Verifying Fine-Grained Concurrent Algorithms
+              with Histories and Subjectivity
+---------------------------------------------------------------------------
+
+                      Overall merit: D. Reject
+                         Confidence: X. I am an expert in this area
+
+                   ===== Comments for the Authors =====
+
+This paper presents a logic for reasoning about concurrent programs
+using histories.  It builds on previous work [19,22] and instantiates
+it with a PCM for histories.  
+
+
+As far as I can see the only real contribution of this paper is a that
+it presents a PCM (Partial Commutative Monoid) that represents
+histories.  That this is exists is hardly surprising: auxiliary state
+has been used to represent histories since its uses by Owicki/Gries
+for proving completeness, and the earlier work [19] claims "subjectivity"
+generalises auxiliary state.  The precise definition you provide is
+new and interesting, but doesn't merit a whole POPL paper. 
+
+
+You claim that you provide granularity abstraction.  But this seems a
+pretty lightweight intrepretation of that.  In fact, when you compare
+to TaDA you say future work is allowing make_atomic apply to commands
+with a single logical action.  
+
+It wasn't clear to me that you specs improve on iCAP/HOCAP in terms
+granularity abstraction either.  They present one spec that can be
+specialised to the obvious sequential spec, and also to the
+specification you give in the introduction (2). [Note this is allowing
+the client to specify the spec, not as you claim a necessary
+restriction on all clients].  Can you provide one spec that is that
+general?  You show you can specialise to the sequential spec, but not
+to (2).
+
+Ultimately it seems to me the granularity abstraction you present is
+just the standard abstraction provided by auxiliary variables. It is
+nicely packaged with previous work [19].
+
+
+I probably would have read this paper more favourably, if it had been
+clear that you aren't getting as much granularity abstraction as
+CaReSL/Jacobs[17]/HOCAP/iCAP/TaDA/L&F, but pitch the level you got as good
+enough, and make a case for that.  As it stands you are overselling,
+and delivering less than the other approaches.
+
+===========================================================================
+                            popl15 Review #68D
+                     Updated 30 Aug 2014 3:27:53am EDT
+---------------------------------------------------------------------------
+   Paper #68: Specifying and Verifying Fine-Grained Concurrent Algorithms
+              with Histories and Subjectivity
+---------------------------------------------------------------------------
+
+                      Overall merit: B. OK paper, but I will not champion
+                                        it
+                         Confidence: Y. I am knowledgeable in this area,
+                                        but not an expert
+
+                   ===== Comments for the Authors =====
+
+This paper adds the notion of histories to a concurrent separation
+logic to enable atomic action specifications of concurrent data
+structures.  The paper observes that histories satisfy the same
+mathematical structure that heaps in traditional separation logic do.
+As a result, concepts such as framing and ownership transfer can be
+transferred to histories to simplify proofs.  Am implementation has
+been done by embedding a simple imperative programming language into
+Coq.  Two case studies, Treiber stack and its client and a flat
+combiner lock, have been proven using Coq.
+
+Histories sound like a good thing to add to enable reasoning about
+atomic actions and to separate client-side reasoning from that about
+the implementation of the concurrent data structure.  The observations
+regarding the correspondence between heaps and histories is also
+interesting.  But, despite the authors' claim to the contrary, the
+approach feels heavyweight to me.  The two case studies, although
+tricky, are small and do not give a good sense of proof automation and
+scalability of the methodology to larger concurrent programs. On
+balance, I am positive because the ability to reason with atomic
+specifications seems fundamentally important.  Also, the authors did
+enough implementation to push two examples through.
+

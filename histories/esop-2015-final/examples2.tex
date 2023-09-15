@@ -1,0 +1,887 @@
+\section{Treiber stack and its client}
+\label{sec:examples}
+
+In this section we illustrate how histories can be used to specify and
+verify the fine-grained data structure of Treiber
+stack~\cite{Treiber:TR}. We also show how the specs can be used by
+clients, where they provide an abstraction that facilitates client
+reasoning as if the structure were coarse-grained.
+
+%%\vspace{-3pt}
+
+\begin{wrapfigure}{r}{4.5cm}
+\centering
+\scriptsize
+%
+\begin{tabular}{l}
+%
+\begin{minipage}[l]{4.5cm}
+~\begin{alltt}
+\num{1} push(e : \(A\)): \Unit \{
+\num{2}  p <- \act{alloc}();
+\num{3}  \textbf{fix} loop() \{
+\num{4}   p1 <- \act{readSentinel}();
+\num{5}   \act{write}(p, (e, p1));
+\num{6}   ok <- \act{tryPush}(p1, p);
+\num{7}   \textbf{if} ok \textbf{then return} ();
+\num{8}   \textbf{else} loop();\}();
+\num{9} \}
+\end{alltt} 
+\end{minipage}
+\\\\\hline \\
+\begin{minipage}[l]{4.5cm}
+\begin{alltt}
+\num{1} pop(): \act{option} \(A\) \{
+\num{2}  p <- \act{readSentinel}();
+\num{3}  \textbf{if} p == null 
+\num{4}  \textbf{then return} \act{None};
+\num{5}  \textbf{else} \{
+\num{6}   (e,p1) <- \act{readNode}(p);
+\num{7}   ok     <- \act{tryPop}(p,p1);
+\num{8}   \textbf{if} ok \textbf{then return} \act{Some} e;
+\num{9}   \textbf{else} pop();\}\}
+\end{alltt}
+\end{minipage}
+%
+\end{tabular} 
+%
+\caption{Treiber stack methods.}
+\label{fig:treiber-code}
+\end{wrapfigure}
+%
+The Treiber stack works as follows. Physically, the stack is kept as a
+singly-linked list in the heap, with a sentinel pointer $\sent$
+pointing to the stack top $\eesc{p1}$. The call to \code{push(e)}
+allocates a node $\eesc{p}$ that is supposed to go to the top of
+stack, and attempts to link the node into the stack, by changing the
+sentinel to $\eesc{p}$. Clearly, this operation should not succeed if
+some interfering thread has in the meantime changed the top by pushing
+or popping elements. Thus \code{push} applies a CAS read-modify-write
+operation~\cite{Herlihy-Shavit:08}, which atomically reads $\sent$,
+compares its contents with $\eesc{p1}$, and if the two are equal (\ie,
+if the stack's top has not changed), writes $\eesc{p}$ into $\sent$,
+thus en-linking the new top. Otherwise, \code{push} is restarted.
+%
+$\code{pop()}$ behaves similarly. It reads the first node $\code{p}$,
+pointed to by $\sent$, and obtains its value $\eesc{e}$ and pointer
+$\eesc{p1}$ to the next node. Then it tries to de-link $\code{p}$, by
+changing the sentinel to $\eesc{p1}$ using a CAS to identify
+interference. Note that \code{pop} does not deallocate the de-linked
+node $\eesc{p}$ (this is enforced by the design of the appropriate
+concurroid as we will soon see), which thus remains in the data
+structure as garbage. This is by design, to prevent the ABA
+problem~\cite[\S10]{Herlihy-Shavit:08}: if $\eesc{p}$ is deallocated,
+then some other \code{push} may allocate it again, and place it back
+on top of the stack. A procedure that observed $\eesc{p}$ on top of
+the stack, but has not performed its CAS yet may thus be fooled as
+follows. Its CAS may encounter $\eesc{p}$ on top of the stack, and
+proceed as if the stack had not changed, producing invalid results.
+
+The described code of the Treiber stack operations is given in
+Figure~\ref{fig:treiber-code}, where we used descriptive names for the
+atomic operations. Instead of CAS, we used \aact{tryPush} and
+\aact{tryPop}, and instead of pointer \aact{read}, we used
+\aact{readSentinel} and \aact{readNode}. The reason for the
+descriptive names is that the atomic operations in FCSL operate not
+only on concrete heap pointers, but on auxiliary state as well. In the
+particular case of Treiber, the auxiliary state will be histories,
+which \aact{tryPush} and \aact{tryPop} change in different ways, even
+though they both operationally perform a CAS. Similarly,
+\aact{readSentinel} and \aact{readNode} deduce different facts about
+the histories, even though they both simply read from a pointer.
+%
+We elide here any further discussion on how the atomic operations are
+specified and verified in FCSL (it can be found
+in~\cite{Nanevski-al:ESOP14}
+and~\cite[Appendix~C]{Sergey-al:ESOP15ext}). Instead, whenever needed,
+we simply state the Hoare specs for the atomics and proceed to use
+them in proof outlines, as if the atomics were ordinary procedures. Of
+course, our Coq files contain proofs that all such Hoare triples are
+valid.
+
+\newcommand{\tbinv}{I}
+
+\paragraph{Treiber concurroid.}
+Given a label $\htb$, the sentinel pointer $\sent$, and the type $A$
+of the stack elements, the state space of the Treiber concurroid
+$\tbcon$ is described as follows. Its auxiliary self/other components
+are histories $\histS$ and $\histO$ that store mathematical sequences
+$l$ corresponding to the logical contents of the stack at various
+timestamps. The joint component contains a heap $h_s$ storing a
+sentinel $\sent$ pointing to a linked list, a heap~$h$ implementing
+the list, and a garbage section $\garb$ of de-linked nodes.
+%
+% \footnote{We will be using explicit heap (or general PCM)
+%   variables, such as $h_s$, in predicates and specs, as it has to be
+%   done in Coq anyway, since Coq lacks support for contexts of
+%   bunches~\cite{Nanevski-al:POPL10}.}
+%
+%\footnote{Here and further, we will be freely using explicit
+%  heap (or general PCM) variables, such as $h_s$, in predicates and
+%  specs, because it allows us to avoid introducing state modlities in
+%  the presence of several concurroids and self/joint/other state as
+%  well as stating a number of laws relating such modalities with other
+%  assertion connectives. Moreover, working with heap variables has to
+%  be done in Coq anyway, since Coq lacks support for BI contexts, as
+%  argued in~\cite{Nanevski-al:POPL10}.}
+%
+
+\[
+\tag{\normalsize{\arabic{tags}}}\refstepcounter{tags}\label{eq:tb-states} 
+{\small
+\begin{array}{rcl} 
+W_{\tbcon} & \eqdef & \exists \histS~\histO~h_s\ldot \htb \spts \histS \aand
+\htb \opts \histO \aand \htb \jpts h_s \aand \tbinv~(\histS \hunion
+\histO)~h_s\\[3pt]
+\tbinv~\hist~h_s & \eqdef &
+\exists p~h~\garb~l\ldot h_s = (\sent \hpts p) \hunion h \hunion \garb
+\aand \llist(p, l, h) \aand\hbox{}\\
+&& \complete(\hist) \aand \mathsf{continuous}(\hist) \aand \cont(\hist) \aand \inat{l}{\hist}{\last{\hist}}
+\end{array}
+}
+\]
+%
+The auxiliary predicates are:
+%
+%%\vspace{-10pt}
+%
+\[
+%\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:tb-preds}
+\hspace{-5pt}
+{\small
+\begin{array}{r@{\ }c@{\ }l}
+\llist(p, l, h) & \eqdef & 
+p = \Null \aand l = \nil \aand h = \hempty ~\oor \\
+&& \exists e\ p'\ l'\ h'\ldot l = e::l' \aand h = p\hpts(e, p') \hunion h' \aand
+\llist(p',l',h')\\[2pt]
+\complete(\hist) & \eqdef &
+\exists l_0\ldot \hist(0) = (l_0, l_0) \aand
+\forall t\ldot t < |\dom{\hist}| \Rightarrow t \in \dom{\hist}
+\\[2pt]
+\cont(\hist) & \eqdef &
+\forall t \in \dom{\hist}\ldot t > 0 ~\Rightarrow \exists l~e\ldot \hist(t) = (l,e::l) \oor \hist(t)
+= (e::l,e)
+\end{array}
+}
+\]
+%
+%
+In particular: (1) the overall history $\histS \hunion \histO$ is
+complete, \ie no gaps exist between timestamps (this property was
+irrelevant for the pair snapshot structure, but essential for stacks
+to ensure the absence of the ABA-problem); (2) aside from the
+initialization in timestamp $0$, the history only stores events
+corresponding to pushing or popping, and (3) the last recorded state
+in the history captures the current contents of the stack. For
+simplicity, we disable reasoning about the structure's inherent memory
+leak by not relating histories to $\garb$ in \eqref{eq:tb-states}.
+
+The transitions of $\tbcon$ allow for popping and pushing only. 
+%
+\[ 
+{ 
+\small
+\hspace{-3pt}
+  \begin{array}{r@{\ }c@{\ }l@{\ \ }c}
+    \taupop & \eqdef &\htb \jpts \sent \hpts p \hunion h \hunion
+    \garb \aand \htb \spts \histS  \aand h = (p \hpts (e, p')\hunion h') \aand \llist(p, (e::l), h) &
+    \rightsquigarrow 
+    \\
+    & &\htb \jpts \sent \hpts p' \hunion h' \hunion (p \hpts (e,
+    p') \hunion \garb) \aand \htb \spts \histS \hunion \tfr{\histS \hunion \histO} \hpts
+    (e::l, l) 
+    \\[3pt]
+    \alphapush_{p', e, p} & \eqdef &\htb \jpts \sent \hpts p \hunion h \hunion
+    \garb \aand \htb \spts \histS \aand \llist(p, l, h) &  \rightsquigarrow 
+    \\
+    & & \htb \jpts \sent \hpts p' \hunion (p' \hpts (e, p) \hunion h) \hunion
+    \garb \aand \htb \spts \histS \hunion \tfr{\histS \hunion \histO} \hpts
+    (l, e::l) 
+    \end{array}
+}\]
+%
+In $\taupop$, the sentinel pointer is swapped from used-to-be head $p$
+to its next one, $p'$, whereas $(p \hpts -)$ logically joins the
+garbage. The transition $\alphapush$ describes how a heap of the shape
+$p' \hpts (e, p)$, describing the node to be pushed, is acquired and
+placed at the top of the stack. It is an external transition, which
+means it only fires when entangled with a concurroid from which the
+heap $p' \hpts (e, p)$ can be taken away. In our case, that will be
+the concurroid $\privcon$ for private state. 
+%
+Indeed, both transitions preserve the state invariant
+$I$~\eqref{eq:tb-states}.
+%
+Importantly, $\tbcon$ does not have a release transition; once a memory
+chunk is in the joint state, it never leaves, capturing that $\tbcon$
+does not allow deallocation.
+%
+%Another important stability property, derivable from the above
+%transitions, is that no pointer except $\sent$ in the joint part of
+%$\tbcon$ ever changes its value.
+
+
+\paragraph{Method specs.}
+We give the following history-based specs.
+%
+\[
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:stack-spec}
+{\small
+\begin{array}{c}
+\hspace{-5pt}
+\begin{array}{r@{\ }c@{\ }l}
+\spec{
+  \begin{array}{c}
+    \hpriv \spts \hempty ~\sep \\
+    \histso{\htb}{\hempty, -, \hist}
+  \end{array}
+} &\eesc{push}(e)& 
+\spec{
+  \begin{array}{c}
+    \exists t~l\ldot \hpriv \spts \hempty ~\sep\\
+   \histso{\htb}{t \hpts  (l,e::l), -, \hist} \aand \hist < t
+  \end{array}
+}@\privcon \entangle \tbcon
+\end{array}
+\\\\ 
+\begin{array}{c}
+\spec{
+  \begin{array}{l}
+    \histso{\htb}{\hempty, -, \hist}
+  \end{array}
+} \\
+\eesc{pop}()
+\\
+\spec{
+  \begin{array}{c}
+    \exists e~t~l\ldot \res = \Some e \aand 
+    \histso{\htb}{t \hpts (e::l,l), -, \hist} \aand
+    \hist < t \oor \hbox{}\\
+    \exists \histO~t\ldot \res = \None \aand \histso{\htb}{\hempty, \histO, \hist} \aand \tani{\nil}{\histO}{t}\\
+  \end{array}
+}@\tbcon
+\end{array}
+\end{array}
+}
+\]
+%
+%\hspace{-5pt}
+%
+\begin{wrapfigure}[17]{r}{6.8cm} 
+%\vspace{-8pt}
+\centering
+\begin{minipage}[l]{6.8cm}
+\[
+{\scriptsize
+\hspace{-5pt}
+~~\begin{array}{r@{\ \ }ll}
+  \Num{1}& \sspec{~~\hpriv \spts \hempty ~\sep~ \histso{\htb}{\hempty, -, \hist}~~} & 
+  \\
+  \Num{2} &  ~\esc{p <- [\act{alloc}()];}~ & 
+  \\
+  \Num{3} & \sspec{~~\hpriv \spts \esc{p} \hpts - ~\sep~ \histso{\htb}{\hempty, -, \hist}~~}
+  \\
+  \Num{4} &  ~\esc{\textbf{fix} loop() \{}~ & 
+  \\
+  \Num{5}& \sspec{~~\hpriv \spts \esc{p} \hpts - ~\sep~ \histso{\htb}{\hempty, -, \hist}~~}
+  \\
+  \Num{6} &  ~\esc{p1 <- [\act{readSentinel}()];}~ & 
+  \\
+  \Num{7}& \sspec{~~
+     \hpriv \spts \esc{p} \hpts - ~\sep~
+     \histso{\htb}{\hempty, -, \hist}
+  ~~} 
+  \\
+  \Num{8} &  ~\esc{[\act{write}(p, (e, p1))];}~ & 
+  \\
+  \Num{9}& \sspec{~~
+     \hpriv \spts \esc{p} \hpts (\esc{e}, \esc{p1}) ~\sep~
+     \histso{\htb}{\hempty, -, \hist} 
+  ~~} 
+  \\
+  \Num{10} &  ~\esc{ok <- \act{tryPush}(p1, p);}~ & 
+  \\[1pt]
+  \Num{11}& \spec{
+    \begin{array}{l}
+     \esc{ok} \aand \exists t\ l\ldot \hpriv \spts \hempty ~\sep~
+     \histso{\htb}{t \hpts (l,e::l), -, \hist}\aand 
+     \hist < t~\oor\\
+     \neg\esc{ok} \aand 
+     \hpriv \spts \esc{p} \hpts (\esc{e}, \esc{p1}) ~\sep~ \histso{\htb}{\hempty, -, \hist}
+    \end{array}
+  } 
+  \\
+  \Num{12} &  ~\esc{\textbf{if} ok \textbf{then return} ();}~ & 
+  \\
+  \Num{13}&\sspec{~~\exists t\ l\ldot
+     \hpriv \spts \hempty  ~\sep~\histso{\htb}{t \hpts (l,e::l), -, \hist} \aand \hist < t ~~}
+  \\
+  \Num{14} &  ~\esc{\textbf{else}}~ & 
+  \\
+  \Num{15} &  
+  \sspec{~~\hpriv \spts \esc{p} \hpts - ~\sep~ \histso{\htb}{\hempty, -, \hist}~~}& 
+  \\
+  \Num{16} &  ~\esc{loop();\}();}~ & 
+  \\
+  \Num{17}&\sspec{~~\exists t\ l\ldot
+     \hpriv \spts \hempty  ~\sep~ \histso{\htb}{t \hpts (l,e::l), -, \hist} \aand \hist < t ~~}
+\end{array}
+}
+\]
+\end{minipage}
+\caption{A proof outline of Treiber's \code{push} method.}
+\label{fig:push-proof}
+\end{wrapfigure}
+%
+A call to \code{push} runs with empty private heap and history, thus
+by framing, it can run with any private heap and history. After
+termination, the self history is incremented by a singleton exposing
+that a push event has been executed at a time stamp $t$; $\hist < t$
+indicates that the push event appeared strictly after the events
+preceding the call. The spec for \code{pop} is slightly more
+complicated as \code{pop} checks for stack emptiness, but ultimately
+proceeds in the similar manner. \code{push} works over the entangled
+concurroid $\privcon \entangle\tbcon$, as it needs to allocate memory;
+\code{pop} works over $\tbcon$ only, as it does not deallocate.
+
+Verification of \code{push} and \code{pop} implementations relies on
+the specifications of the atomic actions \aact{alloc} and
+\aact{write}, which are specific to the $\privcon$ concurroid.
+%
+\[
+{\small
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:alloc-spec}
+\begin{array}{r@{\ }c@{\ }l}
+\sspec{~
+    \hpriv \spts \hempty
+~} &\aact{alloc}()& 
+\sspec{~
+    \hpriv \spts  \res \hpts -
+~}@\privcon
+\\[2pt]
+\sspec{~\hpriv \spts x \hpts - ~}
+&
+\aact{write}(x, e)
+&
+\sspec{~\hpriv \spts x \hpts e~}@\privcon
+\end{array}
+}
+\]
+%
+In Figure~\ref{fig:push-proof}, we present the proof outline for
+\code{push} (the proof for \code{pop} can be found in the Coq
+files). It is mostly self-explanatory, so we only point out a few
+technicalities.  The actions \aact{alloc} and \aact{write} have to be
+explicitly injected into $\privcon \entangle \tbcon$, by means of the
+coercion $[-]$, introduced in Section~\ref{sec:background}. Similarly
+for \aact{readSentinel}, whose concurroid is $\tbcon$. Somewhat
+surprisingly, the call to \aact{readSentinel} in line 6 is irrelevant
+for the (partial) correctness of \aact{tryPush}; thus, line 7 does not
+say anything about \eesc{p1}.\footnote{Though, taking a random
+  \eesc{p1} here will affect liveness, as \code{push} will keep
+  looping until it finds the chosen \eesc{p1} at the top of the
+  stack.}
+%
+The proof rule for \code{fix} allows assuming the spec of a procedure
+in the proof of the body, and is presented
+in~\cite[Appendix~D]{Sergey-al:ESOP15ext}.
+%
+The \aact{tryPush} action appears in the proof outline with its
+precise specification; that is, line 9 contains its precondition, and
+11 contains the postcondition, describing that a successful outcome of
+\aact{tryPush} removed a heap from $\privcon$, moved it to the joint
+heap of $\tbcon$, and updated the history, following the $\alphapush$
+transition.
+
+
+\paragraph{Recovering sequential specifications.}\label{sec:rest-seq}
+%
+We next show that the subjective spec~\eqref{eq:stack-spec} is a
+generalization of the canonical sequential
+spec~\eqref{eq:seqstack-spec}. In particular, if there is no
+interference from other threads, \eqref{eq:stack-spec} can be reduced
+to~\eqref{eq:seqstack-spec}. The mechanism for achieving the reduction
+relies on the self/other dichotomy, thus substantiating our point that
+the dichotomy is important for precise reasoning with histories.
+
+\begin{wrapfigure}{r}{6.0cm}
+%\vspace{-10pt} 
+\centering
+\[
+{\scriptsize
+\hspace{-5pt}
+\begin{array}{r@{\ \ }l}
+  \Num{1}& \sspec{\exists p~h\ldot \hpriv \spts (\sent \hpts p \hunion h) \aand \llist(p, l, h)} 
+  \\
+  \Num{2} & \sspec{\Psi\ \hempty\ \hempty~\sep~\left(\Phi(\hempty)
+      \wand \histso{\htb}{0 \hpts (l, l), -, -} \right) }
+
+  \\[2.5pt]
+  \Num{3} &  ~\mathsf{hide}_{\Phi, \hempty}~\esc{\{} ~  
+  \\
+  \Num{4} & 
+  \sspec{~\hpriv \spts \hempty ~\sep~ 
+    \histso{\htb}{0 \hpts (l, l), -, -}  ~} 
+  \\[2.5pt]
+  \Num{5} &  ~\esc{push}(e); ~  
+  \\
+  \Num{6} &
+  \spec{\begin{array}{l}
+      \exists t~l'\ldot \hpriv \spts \hempty ~\sep\\
+    \histso{\htb}{0 \hpts (l, l) \hunion t \hpts (l', e::l'), -, -}
+   \end{array}} ~~~~~\esc{\}} 
+  \\[2.5pt]
+  \Num{7} &
+  \spec{\begin{array}{l}
+  \exists \hist\ldot \Psi~\hist~\hempty~\sep \\
+   (\Phi(\hist) \wand \exists t~l'\ldot \histso{\htb}{0 \hpts  (l, l)
+     \hunion t \hpts  (l', e::l'), -, -})
+ \end{array}} 
+  \\[3.5pt]
+  \Num{8} &
+  \spec{\begin{array}{l}
+          \exists t~l'~\hist\ldot\hist = 0 \hpts (l, l) \hunion t \hpts (l', e::l') \aand \hbox{}\\
+          \mathsf{complete}(\hist) \aand \mathsf{continuous}(\hist) \aand \Psi~\hist~\hempty
+         \end{array}}
+       \\[2.5pt]
+  \Num{9} &
+  \sspec{~\exists \hist\ldot \hist = 0 \hpts (l, l) \hunion 1 \hpts (l, e::l) \aand \Psi~\hist~\hempty}\\
+  \Num{10}& \sspec{~\exists p'~h\ldot \hpriv \spts (\sent \hpts p' \hunion h \hunion -) \aand \llist(p', e::l, h)~}
+\end{array}
+}
+\]
+%\vspace{-5pt}
+\caption{Proof of sequential spec for \code{push}.}
+\label{fig:seq-proof}
+\end{wrapfigure}
+%
+To this end, we use the $\mathsf{hide}$ constructor from
+Section~\ref{sec:background}. It introduces a concurroid in a
+delimited scope, and prohibits the environment threads from
+interfering on it. The heap for the introduced concurroid is
+appropriated from the private heap. In the case of \code{push}, we
+will appropriate a heap storing the sentinel and the linked list of
+the stack, install the $\tbcon$ concurroid over this heap, perform
+\code{push} with interference disabled, then return the heap back to
+private heaps. We will derive the following specification, which is
+essentially an elaborated version of~\eqref{eq:seqstack-spec}, modulo
+the memory leak inherent to Treiber stack (hence $\garb$ in the
+postcondition).
+%
+%%\vspace{-3pt}
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:seq}
+{\small
+\begin{array}{c}
+\sspec{~\exists p~h\ldot \hpriv \spts (\sent \hpts p \hunion h) \aand
+  \llist(p, l, h)~} 
+\\[3pt]
+\mathsf{hide}_{\Phi, \hempty}\ \esc{\{}~\code{push}(e);~\esc{\}}
+\\[3pt]
+\sspec{~\exists p~h~\garb\ldot \hpriv \spts (\sent \hpts p \hunion h \hunion \garb) \aand \llist(p, e::l, h)~} @\privcon
+\end{array}
+}
+\]
+% 
+The self/other dichotomy affords explicit access to other-owned
+histories, so that we can define the following predicate $\Phi$
+stating that other-histories remain empty within the scope of
+$\mathsf{hide}$.
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:phi}
+{\small
+\hspace{-13pt}
+\begin{array}{c}
+\Phi(\hist) \eqdef \exists l\ldot \htb \spts ((0 \hpts (l, l)) \hunion
+\hist) \aand \htb \opts \hempty \aand W_{\tbcon}
+\end{array}
+}
+\]
+%
+Inside hide, the stack is initialized (the history contains the
+singleton $0 \hpts (l, l)$), there is no interference ($\htb \opts
+\hempty$), and the state is a valid one for $\tbcon$ (\ie, it is
+captured by the definition~\eqref{eq:tb-states}).
+
+One can prove that if the histories are erased from any state in
+$\Phi(\hist)$, the remaining concrete heap consists of $\sent$ and the
+stack. Moreover, the contents of the stack is the last entry of
+$\hist$ (or $l$ if $\hist$ is empty). In other words, using
+$\Psi$~\eqref{eq:hide-rule}, defined in Section~\ref{sec:background}:
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:phieq}
+{\small
+\begin{array}{c}
+\Psi~\hist~\hempty \iff \exists p~h\ldot \hpriv \spts (\sent \hpts p \hunion h \hunion -) \aand \llist(p, l', h)  
+\end{array}
+}
+\]
+where $l' = \hist[\mathsf{last}(\hist)]$ (or $l' = l$ if $\hist$ is
+empty).
+
+The derivation is in Figure~\ref{fig:seq-proof}, and we comment on the
+main points. In line~2, the right conjunct uses the property inherent
+in $\Psi$, that $\Phi(\hempty)$ erases to the heap storing $l$. Thus,
+this is the $l$ that appears in the consequent of $\wand$. In line~7,
+the second conjunct implies that the history $\hist$, whose existence
+obtains from the rule for hiding~\eqref{eq:hide-rule}, must be the
+self-history returned by \code{push}. Hence, it is equal to $0 \hpts
+(l, l) \hunion t \hpts (l', e::l')$ for some $t$ and $l'$. But, we
+also know that $\hist$ must be complete (no gaps between timestamps)
+and continuous. Hence $t = 1$ and $l' = l$ in line~9, which derives
+the postcondition by~\eqref{eq:phieq}.
+
+\paragraph{A stack client.}
+%
+We next illustrate how the specs (\ref{eq:stack-spec}) are exploited
+by the \emph{concurrent} clients of Treiber stack to abstract from the
+fine-grained nature of Treiber's implementation.
+%
+% and view each effect as if it appeared atomically.
+%
+The example code in Figure~\ref{fig:client} presents two procedures,
+\code{produce} and \code{consume}, that communicate via a common
+Treiber stack~$\htb$. \code{produce} pushes onto the stack the
+elements of its array \code{ap} in order, whereas \code{consume} pops
+from the stack, to fill its array \code{ac}. Both arrays are of equal
+size $n$. The procedure \code{exchange} runs \code{produce} and
+\code{consume} concurrently. We will prove that after \code{exchange}
+terminates, \code{ap} has been copied to \code{ac}, modulo element
+permutation. The inference will only use the specs
+(\ref{eq:stack-spec}) but not the code of stack methods, thus
+obtaining a coarse-grained view of effects provided by histories.
+
+\begin{figure}[t!]
+{\centering
+%
+\begin{tabular}{l@{\ \ }|l@{\ \ }|l}
+%
+\begin{minipage}[l]{3.4cm}
+{\scriptsize
+\begin{alltt}
+\num{1} produce(n: \(\nat\), i: \(\nat\)) \{
+\num{2}  \textbf{if} i == n
+\num{3}  \textbf{then return} ();
+\num{4}  \textbf{else} \{
+\num{5}   e <- ap[i];
+\num{6}   push\(\sb{\htb}\)(e);
+\num{7}   produce(i + 1);
+\num{8}  \}
+\num{9} \}
+
+\end{alltt} 
+}
+\end{minipage}
+& 
+%
+\begin{minipage}[l]{3.5cm}
+{\scriptsize
+\begin{alltt}
+\num{ 1} consume(n: \(\nat\), i: \(\nat\)) \{
+\num{ 2}  \textbf{if} i == n
+\num{ 3}  \textbf{then return} ();
+\num{ 4}  \textbf{else} \{
+\num{ 5}   r <- pop\(\sb{\htb}\)();
+\num{ 6}   \textbf{if} r == \textsf{Some} e
+\num{ 7}   \textbf{then} \{
+\num{ 8}    ac[i] := e;
+\num{ 9}    consume(i + 1);\}
+\num{10}   \textbf{else} consume(i);\}\}
+\end{alltt} 
+}
+\end{minipage}
+&
+\begin{minipage}[l]{3.7cm}
+{\scriptsize
+\begin{alltt}
+\num{ 1} exchange(n: \(\nat\)): \Unit \{ 
+\num{ 2}  \textsf{hide}\(\sb{\Phi,\hempty}\) \{ 
+\num{ 3}    produce(n, 0); \(||\) consume(n, 0); 
+\num{ 4}  \}
+\num{ 5} \} 
+
+
+
+
+
+\end{alltt}
+}
+\end{minipage}
+%
+\end{tabular}
+}
+\caption{A parallel stack-based producer/consumer program.}
+\label{fig:client}
+\end{figure}
+%
+
+We use several auxiliary predicates. First, $\Array{a}{n}{l}{h}$
+defines an array of size $n$ as a sequence of consecutive pointers in
+the heap $h$, starting from pointer $a$, and storing elements of the
+list $l$:
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:array}
+{\small
+\begin{array}{rcl}
+\Array{a}{n}{l}{h} & \eqdef & \size{l} = n \aand h = \Hunion{i < n} (a + i)
+\hpts l(i)
+\end{array}
+}
+\]
+%
+Next, the predicates $\mathsf{Pushed}$ and $\mathsf{Popped}$ extract
+the lists of pushed and popped elements from a stack history $\hist$.
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:pp}
+{\small
+\begin{array}{rcl}
+\Pushed{\hist}{l} & \eqdef & l \eqm \mset{e ~|~
+  \exists t~l\ldot t \hpts (l, e::l) \in \hist 
+  \oor 0\hpts (l, l) \in \hist \aand e \in l}
+\\[3pt]
+\Popped{\hist}{l} & \eqdef &  l \eqm \mset{e ~|~ \exists t~ l\ldot t \hpts
+  (e::l, l) \in \hist}
+\end{array}
+}
+\]
+%
+%\hspace{-4pt}
+%
+The notation $\mset{-}$ stands for multisets, and $\eqm$ is multiset
+equality, which we conflate with list equality modulo permutation.
+%
+We can now ascribe the following specs to \code{produce} and
+\code{consume}:
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:pcspecs}
+{\small
+\begin{array}{c}
+\hspace{-5pt}
+\spec{
+\begin{array}{c}
+\Prod(h_p, l_{<i}) \aand 
+  \Array{\esc{ap}}{n}{l}{h_p} 
+\end{array}
+} 
+~~\eesc{produce}(n, i)~~
+\spec{
+\begin{array}{c}
+\Prod(h_p, l) \aand 
+  \Array{\esc{ap}}{n}{l}{h_p} 
+\end{array}
+}%@\privcon\entangle(\tbcon \apart \acon)
+%
+\\[7pt]
+%
+\spec{
+\begin{array}{c}
+\exists h_c~l\ldot \Cons(h_c, l_{<i}) \aand \Array{\esc{ac}}{n}{l}{h_c} 
+\end{array}
+} 
+~~\eesc{consume}(n, i)~~
+\spec{
+\begin{array}{c}
+\exists h_c~l\ldot \Cons(h_c, l) \aand \Array{\esc{ac}}{n}{l}{h_c} 
+\end{array}
+}%@\privcon\entangle\tbcon
+\end{array}}
+\]
+%
+%\hspace{-5pt}
+%
+both over the $\privcon \entangle \tbcon$ concurroid. $\Prod$ and
+$\Cons$ are defined as follows:
+%
+%%\vspace{-3pt}
+%
+\[
+%\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:pcpreds}
+{\small
+\def\arraystretch{1.3}
+\begin{array}{r@{\ }c@{\ }l}
+\Prod(h_p, l)&\eqdef&
+   \hpriv \spts h_p ~\sep~ \htb \spts \histS \aand 
+   \Pushed{\histS}{l}  \aand  \Popped{\histS}{\nil}
+\\
+\Cons(h_c, l)&\eqdef&
+   \hpriv \spts h_c ~\sep~ \htb \spts \histS \aand
+   \Pushed{\histS}{\nil}  \aand  \Popped{\histS}{l},
+\end{array}
+}
+%\vspace{-3pt}
+\]
+%
+so they essentially describe the producer/consumer loop invariants;
+%
+$l_{<i}$ is a prefix of $l$ for elements with indices less than $i$.
+%
+The specs~\eqref{eq:pcspecs} show that \code{produce} pushes all the
+elements from \code{ap}, and \code{consume} fills \code{ac} with
+elements of some sequence of the length~$n$. The proofs of both specs
+(available in our Coq development) derive easily from
+(\ref{eq:stack-spec}) after these are framed to allow running in
+arbitrary initial self heap and history.
+%
+% We omit the proofs here, but provide them in the Coq files.
+
+
+
+The interesting part of the example is proving \code{exchange}, where
+we compose \code{produce} and \code{consume} in parallel, and then use
+hiding to infer that the \code{ap} and \code{ac} arrays in the end
+contain the same elements, modulo permutation. The proof outline is in
+Figure~\ref{fig:pc-proof}, and it relies on the following important
+lemmas about histories.
+%
+%The following two lemmas hold for histories wrt.  $\mathsf{Pushed}$
+%and $\mathsf{Popped}$.
+%
+%%\vspace{1mm}
+%
+\begin{lemma}
+\label{lm:pushpop1}
+%
+$\Pushed{\hist_1}{l_1}$ $\aand$ $\Popped{\hist_1}{\nil}$ $\aand$
+$\Popped{\hist_2}{l_2} \aand \Pushed{\hist_2}{\nil} \implies
+\Pushed{\hist_1 \hunion \hist_2}{l_1} \aand \Popped{\hist_1 \hunion
+  \hist_2}{l_2} $.
+\end{lemma}
+%
+\begin{lemma}
+\label{lm:pushpop2}
+If $\complete(\hist)$ and $\cont(\hist)$ then $\Pushed{\hist}{l_1}
+\aand \Popped{\hist}{l_2}$ $\aand$\\ $|l_1|~=~|l_2| \implies l_1 \Eqm
+l_2$.
+\end{lemma} 
+%
+%%\vspace{-1mm}
+
+\begin{wrapfigure}{r}{6.9cm}
+%\vspace{-10pt}
+{\scriptsize
+\begin{gather*}
+\spec{
+\begin{array}{c}
+\hpriv \spts h_p \hunion h_c \hunion \sent \hpts \Null \aand 
+  \Array{\esc{ap}}{n}{l}{h_p}  \aand
+  \Array{\esc{ac}}{n}{-}{h_c}
+   \end{array}
+}
+%@\privcon \entangle \acon
+\\[-3pt]
+\mathsf{hide}_{\Phi, \hempty}~\esc{\{} 
+\\[-3pt] 
+\spec{
+\begin{array}{c}
+\hpriv \spts h_p \hunion h_c \aand \Array{\esc{ap}}{n}{l}{h_p}  \aand
+\Array{\esc{ac}}{n}{-}{h_c} ~\sep~\\
+\htb \spts 0 \hpts (\nil, \nil) \aand \htb \opts \hempty
+\end{array}}
+%@\privcon \entangle \acon \entangle \tbcon
+%& \text{by \textsc{Hide}}
+\\
+\!\!\!\!\!\!\!\!\!\!\!\!\!\!\!\spec{\left(
+\begin{array}{c}
+\hpriv \spts h_p \aand \Array{\esc{ap}}{n}{l}{h_p} \\
+~\sep~ \htb \spts 0 \hpts (\nil, \nil)      
+\end{array}
+\right) \ssep 
+\left(
+\begin{array}{c}
+  \hpriv \spts h_c \aand
+  \Array{\esc{ac}}{n}{-}{h_c} \\
+~\sep~ \htb \spts \hempty      
+\end{array}
+\right)}
+% & \text{by def. } \ssep
+\\
+\begin{array}{r||l}
+\spec{\Prod(h_p, l_{<0}) \aand
+  \Array{\esc{ap}}{n}{l}{h_p}}
+&
+\spec{\exists l'\ldot~\Cons(h_c, l'_{<0}) \aand
+  \Array{\esc{ac}}{n}{l'}{h_c}}
+\\
+\esc{produce}(n, 0); & \esc{consume}(n, 0); 
+\\
+\spec{\Prod(h_p, l) \aand
+  \Array{\esc{ap}}{n}{l}{h_p}}
+&
+\spec{\exists h'_c~l'\ldot~\Cons(h_c, l') \aand
+  \Array{\esc{ac}}{n}{l'}{h'_c}}
+\end{array}
+\\
+~~~~\spec{\left(
+\begin{array}{c}
+\Prod(h_p, l) \aand \Array{\esc{ap}}{n}{l}{h_p}
+\end{array}
+\right) \ssep 
+\left(
+\begin{array}{c}
+\exists h'_c~l'\ldot~\Cons(h_c, l') \aand \Array{\esc{ac}}{n}{l'}{h'_c}
+\end{array}
+\right)}
+\\
+\spec{
+\begin{array}{c}
+\exists h'_c~l'\ldot 
+\hpriv \spts h_p \hunion h_c % \hunion \sent \hpts - \hunion -) \aand
+\aand
+\Array{\esc{ap}}{n}{l}{h_p}
+\aand \Array{\esc{ac}}{n}{l'}{h'_c} \\
+~\sep~\exists \histS, \htb \spts \histS \aand \Pushed{\histS}{l} \aand \Popped{\histS}{l'}   
+\aand \htb \opts \hempty
+\end{array}
+}~~~\esc{\}}
+\\[-4pt]
+\spec{
+\begin{array}{c}
+\exists h'_c~l'\ldot
+  \hpriv \spts h_p \hunion h'_c \hunion (\sent \hpts -) \hunion -
+  \aand \hbox{}\\
+  \Array{\esc{ap}}{n}{l}{h_p}
+  \aand \Array{\esc{ac}}{n}{l'}{h'_c} \aand l \eqm l'
+\end{array}
+}
+%@\privcon \entangle \acon
+\end{gather*}}
+%\vspace{-10pt}
+\caption{Proof outline for producer/consumer.}
+\label{fig:pc-proof}
+\end{wrapfigure}
+%
+The proof outline in Figure~\ref{fig:pc-proof} starts in the
+concurroid $\privcon$, which extends to $\privcon\entangle\tbcon$ in
+the scope of $\mathsf{hide}$. The invariant $\Phi$ of $\mathsf{hide}$
+is the one we already used, defined in~\eqref{eq:phi}. It introduces a
+Treiber stack structure with an initial history $0 \hpts (\nil,
+\nil)$. Also, the heaplet $\sent~\hpts~\code{null}$ with the sentinel
+pointer has been donated to the state space of the Treiber stack, so
+it is removed from the private heap.
+%
+Next, the self-heap and history are split via $\ssep$; the parts are
+given to \code{produce} and \code{consume}, respectively, according to
+the parallel composition rule~\eqref{eq:parcom}. Next, we reason out
+of specifications~\eqref{eq:pcspecs} for producer/consumer and combine
+the subjective views back via $\ssep$ upon joining of the parallel
+threads: we thus derive that the contents of \code{ap} and
+\code{ac}, are $l$ and $l'$ respectively. By unfolding the definitions of $\mathsf{Pr}$
+and $\mathsf{Cn}$, and using Lemma~\ref{lm:pushpop1}, we derive
+$\Pushed{\histS}{l} \aand \Popped{\histS}{l'}$, where $\histS$ is the
+combined history of \code{produce} and \code{consume}.
+%
+Finally, $\histS$ is complete and stack-like (since other-history is
+provably $\hempty$ thanks to hiding). Moreover, both $l$ and $l'$ have size 
+$n$, as ensured by the assertion $\AAArray_n$ constraining both of them.
+Thus, in the last assertion, we can use Lemma~\ref{lm:pushpop2} to obtain the 
+desired equality of $l$ and $l'$ modulo permutation. 
+%
+Note also that the sentinel pointer is returned back to the private
+heap, along with the garbage heap (existentially abstracted by the $-$
+placeholder).
+
+

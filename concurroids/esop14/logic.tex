@@ -1,0 +1,422 @@
+\section{Language and logic}\label{sec:logic}
+
+In this section we discuss the language and the logic, and in
+particular, with the notions of injection and retraction.\is{Those
+  haven't been given any intuition in the previous sections. \frownie}
+
+In the tradition of axiomatic program logics, the language of SCLP
+splits into purely functional expressions $e$ ($v$ when the expression
+is a value), and commands $C$ with the effects of divergence, state,
+concurrency. We also include procedures $F$, for commands with
+arguments.
+
+In the forthcoming sections, we will semantically interpret the syntax
+into CiC, thus shallowly embedding it into CiC. That justifies us in
+freely using all of CiC as the purely functional fragment of SCLP (in
+particular, the inductive types, as well as abtract types and
+predicates). We will use these additional features in our examples in
+Section~\ref{sec:examples}. In this section, we confine ourselves to
+treating the side-effecting fragment of commands and procedure, as it
+is this fragment that's relevant for concurrency. 
+
+The syntax is as follows. 
+
+\[
+\begin{array}{rcl}
+C & ::= & x \leftarrow C_1; C_2 \mid C_1 \parallel C_2 \mid \mathsf{if}\ e\ \mathsf{then}\ C_1\ \mathsf{else}\ C_2 \mid F(e) \mid \hbox{}\\
+& & \mathsf{ret}\ v \mid \mathsf{act}\ a \mid \mathsf{inject}\ S\ C \mid \mathsf{retract}\ S\ C\\
+F & ::= & f \mid \mathsf{fix}\ f\ldot x\ldot C
+\end{array}
+\]
+
+\paragraph{Description of commands}
+Commands and procedures include primitive actions $a$, a monadic unit
+$\mathsf{ret}\ v$ that returns $v$ and termintes, a monadic bind
+(i.e., sequential composition) $x \leftarrow C_1; C_2$ that runs $C_1$
+then substitutes its result $v_1$ for $x$ to run $C_2$ (we write $C_1;
+C_2$ when $x \not\in \mathsf{FV}(C_2)$), fork-join parallel
+composition $C_1 \parallel C_2$, a conditional, a procedure
+application $F(e)$, a procedure variable $f$, a fixed-point construct
+for recursion. In the injection construct $\mathsf{inject}\ S\ C$, and
+retraction $\mathsf{retract}\ S C$, $S$ is the structure of
+side-conditions.\footnote{I have to make this precise.}
+
+
+\paragraph{Assertions}
+
+We assume our assertions are \emph{higher-order logic} predicates over
+states.\is{What does it mean exactly?} Thus, we do not present a
+separate syntax for them, and do not give the definition of the
+$\models$ relation. In fact, we use $\models$ as a notational
+convenience, and, for a given state $s$, we write $s \models p$
+interchangeably with $p\ s$.
+
+We overload the standard logical connectives and quantifiers to work
+over states in a pointwise manner. For example, as customary in
+separation logic, given two state predicates $p$ and $q$, we write $p
+\aand q$ for the predicate that is the characteristic function of the
+set $\{s ~|~ s \models p \aand s \models q\}$. When we need to
+differentiate, we write $\aand_p$ for the conjunction over predicates,
+and keep $\aand$ for the usual conjunction of propositions, and
+similarly for disjunction, implication, and quantifiers.
+
+Given a state $s$, we write $\mathsf{this}\ s$ for the characteristic
+function of $\{s' ~|~ s = s'\}$.
+
+Given state predicates $p_1$ and $p_2$, we define $p_1 \sstar p_2$ as
+follows. Given a state $s$, $s \models p_1 \sstar p_2$ iff there
+exist components $lp_1$, $lp_2$, $sh$ and $ep$, such that
+\[s = [self=lp_1 \otimes lp_2, joint=sh,  other=ep]\] and
+\[[self = lp_1, joint=sh, other=ep \otimes lp_2] \models p_1\]
+and
+\[[self = lp_2, joint=sh, other=ep \otimes lp_1] \models p_2.\]
+
+
+Given state predicates $p_1$ and $p_2$, we define $p_1 \odot p_2$ as
+follows. Given a state $s$, $s \models p_1 \odot p_2$ iff there exists
+$s_1$ and $s_2$ such that $s = s_1 \oplus s_2$ and $s_1 \models p_1$
+and $s_2 \models p_2$.
+
+One can see that $\odot$ is similar to the usual separation logic $*$,
+in that it separates the states into portions which are
+\emph{label}-disjoint. However, it doesn't do so for the components
+that may be stored into self, other and joint portion associated with
+such labels. We use $\sstar$ to perform such field-wise splitting.
+\an{When working with states with only one label (e.g. the coherent
+  states of the $\mathsf{priv}$ concurroid), it is $\odot$ that may be
+  viewed as a generalization of separation logic $\sstar$. Do I need
+  to elaborate on this?}\is{Yes, please, do. So far I miss the full
+  intuition of $\odot$ defined through $\oplus$. At least, you need to
+  say how to extend the PCM structure to the arbitrary states (and if
+  it's indeed the case, why do you need a separate operator $\odot$
+  then?)}
+
+\paragraph{Specifications}
+
+A command $C$ satisfies the Hoare tuple $\stconcTy{p}{C}{A}{q}{V}$ if
+its effect on states respects the internal transition of the
+concurroid $V$, is memory-safe when executed from a state satisfying
+$p$, and concurrently with {\em any} environment that also respects
+the transitions of $V$. Furthermore, if $C$ terminates, it returns a
+value of type $A$ in a state satisfying $q$. $q$ may use dedicated
+variable $\mathsf{res}$ of type $A$ to name the return result.
+
+We use a {\em procedure tuple},
+$\forall{x}{:}{B}\ldot\stconcTy{p}{F\,(x)}{A}{q}{V}$, to specify a
+potentially recursive procedure $F$ taking an argument $x$ of type $B$
+to a result of type $A$. The assertions $p$ and $q$ may depend on
+$x$. We use Cartesian products $A_1\,{\times}\,A_2$ for functions with
+more than one argument, but curry the function for readability.
+
+The \SCSL judgments are {\em hypothetical} under a context $\Gamma$
+that maps \emph{program variables} $x$ to their type and
+\emph{procedure variables} $f$ to their specification. Each
+specification is allowed to depend on the variables declared to the
+left.  
+%
+\[
+\figsize
+\Gamma ::= \cdot\mid  \Gamma, \mathit{x}{:}A \mid \Gamma,\forall \mathit{x}{:} B. \stconcTy{p}{\mathit{f} (\mathit{x})}{A}{q}{V}
+\]
+%
+$\Gamma$ does not bind logical variables. In first-order Hoare logics,
+logical variables are implicitly universally quantified with global
+scope. In \SCSL, we limit their scope to the Hoare tuples in which
+they appear.  This is required for specifying recursive procedures,
+where a logical variable may be instantiated differently in each
+recursive call~\cite{Kleymann:FAC99}.  We also assume a formation
+requirement on Hoare tuples $\mathsf{FLV}(p) \supseteq
+\mathsf{FLV}(q)$, \ie, that all free logical variables of the
+postcondition also appear in the precondition.
+
+We use an additional hypothetical judgment $\Gamma \vdash a :
+\mathsf{action}\ V\ A$ for actions to denote that $a$ is an action
+associated with the concurroid $V$\footnote{$a$ may depend on the
+  variabels in $\Gamma$, such as e.g. in the case of
+  $\mathsf{write}\ x\ v$, where $x{:}\mathsf{ptr}$ and $v{:}A$ should
+  be elements of $\Gamma$}. 
+
+This judgment is valid if the action $a$, with its specification
+components $\mathsf{safe}_a$ and $\mathsf{step}_a$ satisfies the
+properties listed in Section~\ref{sec:actions}. We intend these
+properties to be proved semantically in the higher-order logic over
+states (the assertion logic of SCLP), so we don't present any
+inference rules for this judgmnet that may streamline such reasoning.
+
+Finally, the rules $\mathsf{Conseq}$ and $\mathsf{Action}$ use the
+judgment $\Gamma \vdash (p_1, q_1) \sqsubseteq (p_2, q_2)$ which
+generalizes the customary Hoare logic side conditions $p_2 \implies
+p_1$ and $q_1 \implies q_2$, and which we describe in
+Section~\ref{sec:model}.
+
+\paragraph{Inference rules}
+
+The inference rules are presented in Figure~\ref{fig:rules}. 
+
+The rules themselves seem to be completely agnostic as to whether they
+are in large-footprint or small footprint style. The only rule that's
+sensitive to such issues is the rule for actions! Right now, the way
+things have been presented, that rule is in \emph{large footprint}
+style, but it will be fairly simple, I think, to change that.
+\an{Furthermore, some rules have \emph{not} been checked in Coq, e.g.,
+  frame rule (no need so far, because everything else has been large
+  footprint). These are TODOs.}
+
+We also note that the specifications are always wrt. the concurroid
+$V$. The assertions will explicitly mention all the components of the
+concurroid, so in that respect, one can think of the rules as being in
+large footprint style. That said, there is a frame rule for the
+addition of new concurroids, which is the injection rule.
+
+\begin{figure*}[ht]
+\centering
+\begin{mathpar}
+\figsize
+\inferrule*[Right={Seq}]
+ {\Gamma \vdash \stconcTy{p}{C_1}{B}{q}{V} \\ 
+  \Gamma, x:B \vdash \stconcTy{[x/res]q}{C_2}{A}{r}{V} \\
+  x \not\in \mathsf{FV}(r)}
+ {\Gamma \vdash x\leftarrow \stconcTy{p}{C_1; C_2}{A}{r}{V}}
+\and
+\inferrule*[Right={Par}]
+  {\Gamma \vdash \stconcTy{p_1}{C_1}{A_1}{q_1}{V} \\
+   \Gamma \vdash \stconcTy{p_2}{C_2}{A_2}{q_2}{V}}
+  {\Gamma \vdash \stconcTy{p_1 \sstar p_2}{C_1 \parallel C_2}{A_1 \times A_2}{[res.1/res]q_1 \sstar [res.2/res]q_2}{V}}
+\and
+
+\inferrule*[Right={Conseq}]
+  {\Gamma \vdash \stconcTy{p_1}{C}{A}{q_1}{V} \\
+   \Gamma \vdash (p_1, q_1) \sqsubseteq (p_2, q_2)}
+  {\Gamma \vdash \stconcTy{p_2}{C}{A}{q_2}{V}}
+\and
+\inferrule*[Right={If}]
+  {\Gamma \vdash \stconcTy{e = \mathsf{true}\aand p}{C_1}{A}{q}{V}\\
+   \Gamma \vdash \stconcTy{e = \mathsf{false}\aand p}{C_2}{A}{q}{V}}
+  {\Gamma \vdash \stconcTy{p}{\mathsf{if}\ e\ \mathsf{then}\ C_1\ \mathsf{else}\ C_2}{A}{q}{V}}
+\and
+\inferrule*[Right={Conj}]
+  {\Gamma \vdash \stconcTy{p_1}{C}{A}{q_1}{V}\\
+   \Gamma \vdash \stconcTy{p_2}{C}{A}{q_2}{V}}
+  {\Gamma \vdash \stconcTy{p_1 \aand p_2}{C}{A}{q_1 \aand q_2}{V}}
+\and
+\inferrule*[Right={Exist}]
+  {\Gamma \vdash \stconcTy{p}{C}{A}{q}{V}\\ 
+   \alpha \not\in\mathsf{dom}\ \Gamma}
+  {\Gamma \vdash \stconcTy{\exists \alpha{:}B\ldot p}{C}{A}{\exists \alpha{:}B\ldot q}{V}}
+\and
+\inferrule*[Right={Frame}]
+  {\Gamma \vdash \stconcTy{p}{C}{A}{q}{V}}
+  {\Gamma \vdash \stconcTy{p\sstar r}{C}{A}{q \sstar r}{V}}
+\and
+\inferrule*[Right={Hyp}]
+  {\forall x{:}B\ldot \stconcTy{p}{f(x)}{A}{q}{V} \in \Gamma}
+  {\Gamma \vdash \forall x{:}B\ldot \stconcTy{p}{f(x)}{A}{q}{V}}
+\and
+\inferrule*[Right={Fix}]
+  {\Gamma, \forall x{:}B\ldot\stconcTy{p}{f(x)}{A}{q}{V}, x{:}B \vdash \stconcTy{p}{C}{A}{q}{V}}
+  {\Gamma \vdash \forall x{:}B\ldot\stconcTy{p}{(\mathsf{fix}\ f\ldot x\ldot C)(x)}{A}{q}{V}}
+\and
+\inferrule*[Right={App}]
+  {\Gamma \vdash \forall x{:}B\ldot \stconcTy{p}{F(x)}{A}{q}{V}\\
+   \Gamma \vdash e : B}
+  {\Gamma \vdash \stconcTy{[e/x]p}{F(e)}{A}{[e/x]q}{V}}
+\and
+\inferrule*[Right={Action}]
+  {\Gamma \vdash a : \mathsf{action}\ V\ A\\
+   \Gamma \vdash (\mathsf{safe}_a \aand \mathsf{this}\ i, \mathsf{fun}\ m\ldot (i, m, \mathsf{res}) \in \mathsf{step}_a) \sqsubseteq (p, q)}
+  {\Gamma \vdash \stconcTy{p}{\mathsf{act}\ a}{A}{q}{V}}
+\and
+\inferrule*[Right={Inject}]
+  {\Gamma \vdash \stconcTy{p}{C}{A}{q}{V}\\
+    \mbox{$r$ stable under $W$}}
+  {\Gamma \vdash \stconcTy{p \odot r}{\mathsf{inject}\ C}{A}{q \odot r}{V \bowtie W}}
+\and
+\inferrule*[Right={Retract}]
+  {\Gamma \vdash \stconcTy{p \odot k}{C}{A}{q \odot k'}{V \bowtie W}\\  
+    \mbox{side conditions}}
+  {\Gamma \vdash \stconcTy{p}{\mathsf{retract}\ S\ \gL\ \gE\ C}{A}{q}{V}}
+\end{mathpar}
+\caption{SCLP inference rules.}\label{fig:rules}
+\end{figure*}
+
+
+\paragraph{Actions}
+
+The construct $\mathsf{act}\ a$ coerces the action $a$ into a command.
+For example, the command for reading from the pointer $x$ may be
+written as:
+\[
+\mathsf{act}\ (\mathsf{read}\ x)
+\]
+As the action $a$ is specified by means of its $\mathsf{spec}_a$ and
+$\mathsf{step}_a$, the $\mathsf{Action}$ rule has to transform the
+specification into the form of Hoare tuples, which we use for
+commands.
+
+Thus, the rule $\mathsf{Action}$ contains a premise that the
+specification composed of the $\mathsf{safe}_A$ and $\mathsf{step}_a$
+relations can be precondition-weakened and postcondition-strenghtened
+into the pair $(p, q)$, before $(p, q)$ may be ascribed as a
+specification of $\mathsf{act}\ a$.
+
+The premise uses $\mathsf{safe}_A$ as a main component of the
+precondition to be weakened. The conjunction with $\mathsf{this}\ i$
+serves to explicitly name the initial state of the command with a
+fresh variable $i$. The variable $i$ is used to instantiate the
+$\mathsf{step}_a$ relation in the postcondition to be strenghtened,
+thus turning $\mathsf{step}_a$ into a predicate over only the ending
+state only.
+
+The rule is sound wrt. the described semantics of Hoare tuples,
+because $p$ and $q$ are stable under interference from programs in the
+$V$-concurroid.\an{The last stamenents looks unmotivated.}
+
+
+\paragraph{Injection}
+
+The Hoare tuple associates a command with a concurroid $V$ which
+specifies the command's transitions. When programs are composed
+sequentially or in parallel, the rules $\mathsf{Seq}$ and
+$\mathsf{Par}$ require that the Hoare tuples of the composed programs
+come with same concurroid. When this is not the case, the commands
+have to be explicitly coerced to a common concurroid.
+
+For example, the command for reading from the pointer $x$, $C =
+\mathsf{act}\ (\mathsf{read}\ x)$, is associated witha the concurroid
+$\mathsf{priv}\ p$. But if we want to execute this command in a
+program that afterwards goes on to acquire the spinlock $sl$, then $C$
+has to be coerced into the concurroid $\mathsf{priv}\ p \bowtie
+\mathsf{spinlock}\ sl$.
+
+The $\mathsf{inject}\ C$ command performs this explicit coercion.
+
+When read bottom-up, the inference rule $\mathsf{Inject}$ lets us
+focus the verification of $C$ against the concurroid $V \bowtie W$, to
+the minimal concurroid $V$ that's necessary for the task. The state
+belonging to the framing concurroid $W$ is not touched by $C$, and is
+thus described by a predicate $r$ in both the precondition and the
+postcondition of the conclusion.
+
+Independently of $C$, the environment threads may act on the state
+encompased by both $p$ and $r$. However, the interference with the
+environment with the portion $p$ is accounted for in the premise
+related to the program $C$. By the semantics of the Hoare tuple, the
+postcondition $q$ holds no matter what interference the environment
+does.
+
+The requirement for stability of $r$ wrt. $W$ accounts for the
+interference of the environemnt on the portion of the initial state
+described by $r$. By choosing $r$ to be stable wrt. $W$, we make sure
+that $r$ remains true no matter the steps the environment executed
+concurrently with $C$.
+
+Notice that this is the \emph{only} inference rule of SCPL where we
+have to reason about stability of predicates. This in contrast to the
+existing logics for shared-memory concurrency in the Rely-Guarantee
+style (RGSep, SAGL, CAP, HOCAP), where the burden for reasoning about
+stability, in our experience, is much more overwhelming.
+
+\is{I think, it is a good place to say how we can simplify the
+  reasoning even in this case, i.e., which lemmas are sufficient to
+  prove for a particular entanglement in order to have stability (we
+  also need to compare it with a classical definition by
+  Vafeiadis~\cite{Vafeiadis:PHD}).}
+
+
+NOTE: The assymetry of $\bowtie$ is very annoying. Ilya's found an
+example in the ticketed locks module, where an action over a ticketed
+lock needs to be extended to (priv + ticketedlock). I.e., it needs to
+be injected from $W$ into $V \bowtie W$, which is not covered by
+$\mathsf{inject}$ rule, as that rule allows only the injection into a
+left component.\is{Is it a conceptual restriction? Or this is to be
+  fixed soon?}
+
+There's two ways out of this. Either (1) we inject the action by hand,
+or (2) we make $\bowtie$ symmetric. But if $\bowtie$ is made
+symmetric, all hell may break lose, so that doesn't sound like an
+option.
+
+The option (1), of injecting the action by hand into a larger module,
+may work, but it goes against the modularity principle. Even though
+the action is completely self-contained, and doesn't need private
+state, we need to entangle it with private state, to make up for the
+deficiency of $\bowtie$. This is clearly not satisfactory.
+
+Yet another option may be to bake the Priv into the semantics of the
+Hoare triple. Then we can argue that every action, even if in-and-off
+itself doesn't deal with private state, has to be made part of some
+priv-like module, so that may provide some fig-leaf for the deficiency
+of $\bowtie$.
+
+If that works (and it has to be checked), we don't really need
+$\bowtie$ in any inference rules, in particular, in the rule for
+injection. The concurroid annotation in the Hoare tuple is then merely
+a list of concurroids. That may take some appeal away from the logic,
+as the $\bowtie$ operator then merely appears in the semantics!  It
+also has to be checked if the injection rule still works (though I
+think it should).
+
+\paragraph{Retraction}
+
+This one is complicated, may require a full separate section.
+
+The annoying part is that the rule, as implemented in the semantics,
+actually doesn't use $\bowtie$ anywhere, but is very general, and
+works for any two concurroids which ``refine'' one another. But, one
+of those concurroids is always going to be ``priv-like'' as it
+provides the private state into which the ``discharched'' concurroid's
+state is collapsed. So, even though in the semantics we did much more
+work and provided for a general refinement story, in practice, we're
+always retracting into a priv-like concurroid, so why not have a
+simpler inference rule which codifies that practice?
+
+
+
+The rule is as follows
+
+\[
+\begin{array}[t]{c}
+  {\Gamma \vdash \stconcTy{p \odot hp@sf\mapsto h \odot \pi\ g}{C}{A}{p' \odot hp@sf\mapsto h' \odot \pi\ g'}{(\mathsf{priv}\ hp \bowtie V) \bowtie W}}\\\hline
+  {\Gamma \vdash \stconcTy{p \odot \phi\ g\ h}{\mathsf{retract}_{\pi, g} C}{A}{p' \odot \phi\ g'\ h'}{\mathsf{priv}\ hp \bowtie V}}
+\end{array}
+\]
+
+Where $\phi\ g\ h$ is the predicate, written in ``modal'' notation
+\[
+\exists i{:}\mathsf{state}. \pi\ g\ i \aand hp@sf\mapsto (h \oplus \flatten {i}) \aand
+ \forall s\ldot s \in \mathsf{coh}_{\mathsf{priv} hp \bowtie V} \arrow \mathsf{valid}(s \oplus i)
+\]
+
+Here $\pi$ is the decoration function which relates the auxiliary $g$
+(the abstract state of the concurroid STS) with the concrete
+state. It's is required to satsisfy the following properties
+
+\[
+\begin{array}[t]{l}
+i \in \pi\ g \arrow i \in \mathsf{coh}\ W\\
+i \in \pi\ g_1 \arrow i \in \pi\ g_2 \arrow g_1 = g_2\\
+i \in \mathsf{coh}\ W \arrow \exists g, i \in \pi\ g\\
+i_1 \in \pi\ g_1 \arrow i_2 \in \pi\ g_2 \arrow \mathsf{env}\ i_1 = \mathsf{env}\ i_2\\
+i_1 \in \pi\ g \arrow \i_2 \in \pi\ g \arrow \flatten {i_1} \oplus h_1 = \flatten {i_2} \oplus h_2 \arrow i_1 = i_2
+\end{array}
+\]
+
+The onto condition (third one) is actually superfluous and not used in
+the implementation. But, if I remove it, I will almost never be able
+to satisfy the precondition, for any program. Actually, it's not true;
+that depends on the specific $\pi$'s.
+
+The alternative, stronger, formulation is to take $\pi\ g$ from the
+premise and put it into pre and post of the conclusion. It roughly
+goes as follows, informally, modulo the notation $p(\hL)$, which I
+used here to simplify things.
+
+\begin{mathpar}
+\inferrule*[Right={Retract}]
+  {\Gamma \vdash \stconcTy{p(\hL) \odot \mathsf{this}\ i}{C}{A}{p'(\hL') \odot \mathsf{this}\ m'}{\mathsf{priv}\ hp \bowtie V}}
+  {\Gamma \vdash \stconcTy{p(\hL \oplus \flatten i) \aand \pi\ g\ i}{\mathsf{retract}_{\pi, g} C}{A}{p'(\hL' \oplus \flatten {m'}) \aand \exists g'. \pi\ g'\ m'}{\mathsf{priv}\ hp \bowtie V}}
+\end{mathpar}
+
+Or even better, have the premise be just $\stconcTy{p}{C}{A}{q}{...}$,
+and let the conclusion do all the work, but then I'll need magic
+wands, and that's a bit too much.

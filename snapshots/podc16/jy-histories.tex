@@ -1,0 +1,133 @@
+%% \begin{figure}
+%% %
+%% \centering  
+%% \begin{tabular}{l@{\hfill} l}
+%% % 
+%% \begin{minipage}[t][6cm][t]{0.4\textwidth}
+%% \begin{alltt}
+%% \num{1}   s: scan () 
+%% \num{2}   s: \act{write}(S, true)
+%% \num{3}   s: \act{write}(fx,\( \bot\))
+%% \num{4}   s: \act{write}(fy,\( \bot\))
+%% \num{5}   s: \act{read}(x)   // vy <- 5
+%% \num{6}   s: \act{read}(y)   // vx <- 0
+%% \num{7}  x1: write (x, 2)
+%% \num{8}  x1: \act{write}(x, 2)
+%% \num{9}  x1: \act{read}(S)   // b <- true
+%% \num{10} x1: \act{transfer}(x, 2) 
+%% \num{11} x1: ret ()
+%% \num{12} x2: write (x, 3)
+%% \num{13} x2: \act{write}(x, 3)
+%% \end{alltt}
+%% \end{minipage}
+%% &
+%% \begin{minipage}[t][6cm][t]{0.4\textwidth}
+%% \begin{alltt}
+%% \num{14}  y: write (y, 1)
+%% \num{15}  y: \act{write}(y, 1)
+%% \num{16}  y: \act{read}(S)   // b <- true
+%% \num{17}  y: \act{transfer}(y, 1)
+%% \num{18}  y: ret ()
+%% \num{19}  s: \act{write}(S, false)
+%% \num{20} x2: \act{read}(S)   // b <- false
+%% \num{21} x2: ret ()
+%% \num{22}  s: \act{read}(fx)  // ox <- 2
+%% \num{23}  s: \act{read}(fy)  // oy <- 1
+%% \num{24}  s: rearrange (ox,oy)
+%% \num{25}  s: ret (2,1)
+%% \end{alltt} 
+%% \end{minipage}
+%% %
+%% \end{tabular}
+%% %
+%% \caption{An execution with a scanner miss}
+%% \label{fig:js-exec}
+%% \end{figure}
+
+\begin{figure}[t]
+%
+\centering  
+\begin{subfigure}[t]{1\textwidth}
+\centering
+\small  
+\begin{tabular}{l || l || l}
+  \texttt{l: }\texttt{write (x,2);} &
+   \multirow{2}{*}{\texttt{c: scan ()}} & 
+    \multirow{2}{*}{\texttt{r: write (x,3)}}  \\
+  \phantom{\texttt{l: }}\texttt{write (y,1)} & &   
+\end{tabular}
+\caption{\label{fig:weird:code}}
+\end{subfigure}
+\begin{subfigure}[b]{1\textwidth}
+\begin{tabular}{l@{\hfill} l}
+\begin{minipage}[t][4cm][t]{0.5\textwidth}
+\small
+\begin{alltt}
+\num{1}  c: \actwrite{S}{true}
+\num{2}  c: \actwrite{fx}{\(\bot\)}
+\num{3}  c: \actwrite{fy}{\(\bot\)}
+\num{4}  c: \act{read}(x)        // vx <- 5
+\num{5}  c: \act{read}(y)        // vy <- 0
+\num{6}  l: \actwrite{x}{2}
+\num{7}  l: \act{read}(S)        // b <- true
+\num{8}  l: \actwrite{fx}{2} 
+\num{9}  l: ret ()
+\num{10} r: \actwrite{x}{3}
+\end{alltt}
+%% \begin{alltt}
+%% \num{1}  c: scan () 
+%% \num{2}  c: \act{write}(S, true)
+%% \num{3}  c: \act{write}(fx,\( \bot\))
+%% \num{4}  c: \act{write}(fy,\( \bot\))
+%% \num{5}  c: \act{read}(x)      // vy <- 5
+%% \num{6}  c: \act{read}(y)      // vx <- 0
+%% \num{7}  l: write (x, 2)
+%% \num{8}  l: \act{write}(x, 2)
+%% \num{9}  l: \act{read}(S)      // b <- true
+%% \num{10} l: \act{write}(fx, 2) 
+%% \num{11} l: ret ()
+%% \num{12} r: write (x, 3)
+%% \end{alltt}
+%% \gad{will clean up after final version set}
+\end{minipage}
+&
+\begin{minipage}[t][4cm][t]{0.5\textwidth}
+\small
+\begin{alltt}
+\num{11} l: \actwrite{y}{1}
+\num{12} l: \act{read}(S)        // b <- true
+\num{13} l: \actwrite{fy}{1}
+\num{14} l: ret ()
+\num{15} c: \actwrite{S}{false}
+\num{16} r: \act{read}(S)        // b <- false
+\num{18} r: ret ()
+\num{18} c: \act{read}(fx)       // ox <- 2
+\num{19} c: \act{read}(fy)       // oy <- 1
+\num{20} c: ret (2,1)
+\end{alltt} 
+%% \begin{alltt}
+%% \num{13} r: \act{write}(x, 3)
+%% \num{14} l: write (y, 1)
+%% \num{15} l: \act{write}(y, 1)
+%% \num{16} l: \act{read}(S)      // b <- true
+%% \num{17} l: \act{write}(fy, 1)
+%% \num{18} l: ret ()
+%% \num{19} c: \act{write}(S, false)
+%% \num{20} r: \act{read}(S)      // b <- false
+%% \num{21} r: ret ()
+%% \num{22} c: \act{read}(fx)     // ox <- 2
+%% \num{23} c: \act{read}(fy)     // oy <- 1
+%% \num{24} c: ret (2,1)
+%% \end{alltt} 
+\end{minipage}
+%
+\end{tabular}
+\caption{\label{fig:weird:exec} A possible interleaving of the threads
+  in~(\subref{fig:weird:code})}
+\end{subfigure}
+%
+\caption{\label{fig:weird} An example leading to a scanner miss}
+
+\end{figure}
+
+% \gad{Remember that \small should go inside minifigures!}

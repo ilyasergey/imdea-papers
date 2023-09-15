@@ -1,0 +1,204 @@
+\section{Background on FCSL}
+\label{sec:background}
+
+A Hoare specification in FCSL has the form
+$\spec{P}\ e\ \spec{Q} @ \rcon$. $P$ and $Q$ are the precondition and
+postcondition for $e$, and $\rcon$ defines the \emph{resource} on
+which $e$ operates. We have elided $\rcon$ from the specs in
+Section~\ref{sec:overview}, but explain it now. A resource is a state
+transition system describing the state (real and auxiliary) and atomic
+operations that the threads that want to simultaneously operate on
+that state have to respect. For example, the state space
+(aka.~resource invariants) of the resource $\cal E$ for the exchanger
+is described by the predicates~\eqref{tag:exchanging} and
+\ref{exP}--\ref{ex:gapless}. On the other hand, the transitions of
+$\cal E$ can be read off from our discussion of the exchanger proof
+outline, where at each atomic operation of \code{CAS}, we explicitly
+described how the operation modifies the auxiliary state. These
+modifications are the transitions that one has to declare in $\rcon$,
+and then prove, when establishing $\spec{P}\ e\ \spec{Q} @ \rcon$,
+that $e$ only makes declared transitions.
+
+But a resource also has an important secondary role. Its definition
+provides the variables that $P$ and $Q$ may scope over. For example,
+in the case of exchanger, we used the variables $\heaps, \perms,
+\hists$, $\heapo, \permo, \histo$, and $\heapj, \pending$.  Of course,
+different resources will provide different state spaces, transitions
+and variables. For example, a commonly used resource is $\cal P$ for
+\emph{private state}. $\cal P$ allows only variables $\heaps$ and
+$\heapo$ of type heap, denoting the private heap of a thread, and the
+private heap of other threads. The transitions of $\cal P$ allow for
+reading, writing, allocating and deallocating pointers from $\heaps$.
+
+The mechanism by which a resource defines the allowed variables is as
+follows. Underneath, a resource comes with only three variables:
+$a_\lcl$, $a_\env$ and $a_\joint$ standing for abstract self state,
+other state, and shared (joint) state, but the user can pick their
+types depending on the application. In the case of $\cal E$, $a_\lcl$
+and $a_\env$ are triples containing a heap, an offer-set and a
+history. The variables we used in Section~\ref{sec:overview} are then
+merely projections out of such triples:
+$a_\lcl\,{=}\,(\heaps, \perms, \hists)$, and
+$a_\env\,{=}\,(\heapo, \permo, \histo)$. Similarly,
+$a_\joint\,{=}\,(\heapj, \pending)$.
+
+It is essential that $a_\lcl$ and $a_\env$ have a common type, which
+moreover, exhibits the algebraic structure of a \emph{partial
+  commutative monoid} (PCM). A PCM requires a partial binary operation
+$\bullet$ which is commutative and associative, and has a unit. In the
+case of $\cal E$, each of the three components of $a_\lcl$ and
+$a_\env$---heaps, offer-sets and histories---form a PCM, where
+$\bullet$ is disjoint union $\hunion$, and $\emptyset$ is the
+unit. Hence, the product of the three is a PCM as well, with $\bullet$
+and unit defined point-wise. PCMs are important, as they give a way,
+generic in $\rcon$, to define the inference rule for parallel composition.
+%
+\[
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:parrule}
+{\small{
+\begin{array}{c}
+\specK{\{P_1\}}\ e_1\ \specK{\{Q_1\}} @ \rcon \quad \specK{\{P_2\}}\ e_2\ \specK{\{Q_2\}} @ \rcon\\[2pt]
+\hline\\[-7pt]
+\specK{\{P_1 \circledast P_2\}}\ e_1 \parallel e_2\ \specK{\{[\res.1/\res]Q_1 \circledast [\res.2/\res]Q_2\}} @ \rcon
+\end{array}
+}}
+\]
+%
+Here, $\circledast$ is defined as follows.
+\[
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:ssep}
+\begin{array}{c}
+(P_1 \circledast P_2)(a_\lcl, a_\joint, a_\env) \iff \exists x_1~x_2\ldot a_\lcl = x_1 \bullet x_2, \hbox{}\\
+ P_1 (x_1, a_\joint, x_2 \bullet a_\env), P_2 (x_2, a_\joint, x_1 \bullet a_\env)
+\end{array}
+\]
+%
+%
+The inference rule, and the definition of $\circledast$, formalize the
+intuition that when a parent thread forks $e_1$ and $e_2$, then $e_1$
+is part of the environment for $e_2$ and vice-versa. This is so
+because the \emph{self} component $a_\lcl$ of the parent thread is
+split into $x_1$ and $x_2$; $x_1$ and $x_2$ become the \emph{self}
+parts of $e_1$, and $e_2$ respectively, but $x_2$ is also added to the
+\emph{other} component $a_\env$ of $e_1$, and dually, $x_1$ is added
+to the \emph{other} component of $e_2$.
+%
+Also note that parallel composition returns a pair of the outputs
+produced by $e_1$ and $e_2$. Thus, the variable $\res$ in $Q_1$ and
+$Q_2$ has to be appropriately renamed by the projections $\res.1$ and
+$\res.2$ in the postcondition of the parallel composition.
+
+The rule of frame of FCSL is a special case of parallel composition,
+when $e_2$ is the idle thread.
+%
+\[
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:frame}
+{\small{
+\begin{array}{c}
+\specK{\{P_1\}}\ e\ \specK{\{P_2\}} @ \rcon\\[2pt]
+\hline\\[-7pt]
+\specK{\{P_1 \circledast Q\}}\ e\ \specK{\{P_1 \circledast Q\}} @ \rcon
+\end{array}\qquad 
+\begin{array}{c}
+\mbox{$Q$ stable under}\\
+\mbox{$\rcon$'s transitions}
+\end{array}
+}}
+\]
+A notable difference from the frame rules of other separation logics
+is that FCSL's definition of $\circledast$ forces that the value being
+framed onto \emph{self} component is \emph{subtracted} from the
+\emph{other} component, whereas in other separation logic, the frame
+value materializes out of nowhere. To illustrate, we can frame
+$\gists$ onto the history $\hists$ in the the
+spec~(\ref{tag:exchangespec}), by taking
+$\rcon\,{\eqdef}\,a_\lcl\,{=}\,(\heaps, \hists,
+\perms)\,{=}\,(\emptyset, \gists, \emptyset)$.
+We obtain, after some simplification:
+%
+\[
+{\small{
+\begin{array}{c}
+\specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \gists, \gist \subseteq \gists \hunion \histo \hunion \mygather{\pending}\}}\\[2pt]
+\mathtt{exchange}\ v \\[2pt]
+\spec{\!\!
+  \begin{array}{c}
+    \heaps = \emptyset, \perms = \emptyset, \gist \subseteq \gists \hunion \histo \hunion \mygather{\pending}, \hbox{}\\[1pt]
+    \mathsf{if}\ \res\ \mathsf{is}\ \mathsf{Some}\ w\ \mathsf{then}\\[1pt]
+    \exists t\ldot \hists = t \mapsto (v, w) \hunion \gists, 
+    \mathsf{last} (\gist) < t, \twin{t}~\mathsf{else}\ \hists = \gists    
+  \end{array}
+\!\!}@\cal E
+\end{array}
+}}
+\]
+But notice how the spec now says that $\gist \subseteq \gists \hunion
+\histo \hunion \mygather{\pending}$, whereas
+in~(\ref{tag:exchangespec}) it said $\gist \subseteq \histo \hunion
+\mygather{\pending}$. The addition of $\gists$ compensates for
+$\gists$ having been subtracted out of $\histo$, to be moved to
+$\hists$.
+
+Finally, we will use one more constructor of FCSL, and its associated
+inference rule: \emph{hiding}. The program $\mathsf{hide}\ e$
+operationally just executes $e$, but logically allows installing a
+resource within the scope of $e$. For example, a program can start
+only with private heap variables $\heaps$ and $\heapo$ (\ie, using
+only the resource $\cal P$). However, it can then take a chunk of heap
+out of $\heaps$ and ``install'', for instance, an exchanger resource
+$\cal E$ in it, thereby giving the threads in $e$ the ability to
+exchange values. The spec of $e$ is then expressed using the variables
+that $\cal E$ adds to $\cal P$: $\perms, \hists$, $\permo, \histo$,
+and $\heapj, \pending$. Upon termination, the extra variables are
+removed from the scope. We elide here the general form of the hiding
+rule (it is given in~\cite{Nanevski-al:ESOP14}), and just provide the
+special case involving $\cal E$ and $\cal P$.
+\[
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:ehide}
+{\small{
+\begin{array}{c}
+\specK{\{P\}}\ e\ \specK{\{Q\}} @ \cal E\\[2pt]
+\hline\\[-7pt]
+\specK{\{\heaps = \Phi_1(\heapj), \Phi_1(P)\}}\ \mathsf{hide}_{\Phi_1}~e\ \specK{\{\exists \Phi_2\ldot \heaps = \Phi_2(\heapj), \Phi_2(Q)\}} @ \cal P
+\end{array}
+}}
+\]
+When read bottom up, the rule says that we can install the resource
+$\cal E$ in the scope of a thread that works with $\cal P$, but then
+we need substitutions $\Phi_1$ and $\Phi_2$, to map variables of $\cal
+E$ ($\heaps, \perms, \hists$, \etc) to values expressed with variables
+from $\cal P$ ($\heaps$, and $\heapo$). Here $\Phi_1$ is an initial
+such substitution (user provided), and the rule guarantees the
+existence of an ending substitution $\Phi_2$. The substitutions have
+to satisfy a number of side conditions, which we elide here for
+brevity. The most important one is that $\Phi_1$, $\Phi_2$, fix the
+\emph{other} variable $a_\env = (\heapo, \permo, \histo)$ to be the
+PCM unit (\ie,~a triple of empty sets). Fixing $a_\env$ to unit
+formalizes the intuition that within the scope of $\mathsf{hide}$,
+the outside threads cannot see $\cal E$, and thus cannot interfere
+with the exchanges performed by $e$. They start with empty heap,
+offer-set and history, and terminate with empty ones too.
+
+At the beginning of $\mathsf{hide}~e$, the private heap equals the
+value that $\Phi_1$ gives to $\heapj$ ($\heaps = \Phi_1(\heapj)$). In
+other words, the $\mathsf{hide}$ rule takes the private heap of a
+thread, and makes it shared, \ie, gives it to the $\heapj$ component
+of $\cal E$. Upon finishing, $\mathsf{hide}~e$ makes $\heapj$ private
+again.
+%
+%($\heaps = \Phi_2(\heapj)$).
+
+%\an{Should I say something about compositionality? Why is FCSL
+%  compositional? Maybe say, soundness of FCSL has been established by
+%  shallow embeding in Coq. Thus, the logic immediately inherits the
+%  substitution principle, thereby allowing that clients can reason
+%  only out of the Hoare spec of an object.}
+
+%\subsection{FCSL basics}
+%\label{sec:fcsl-basics}
+%
+%\todo{A short overview of FCSL: mostly, concerning subjectivity and hiding}
+%
+%\subsection{Histories as auxiliary state}
+%\label{sec:hist-state} 
+

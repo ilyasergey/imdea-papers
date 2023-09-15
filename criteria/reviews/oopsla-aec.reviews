@@ -1,0 +1,286 @@
+===========================================================================
+                        OOPSLA '16 AEC Review #49A
+                     Updated 27 Jul 2016 9:35:13am EDT
+---------------------------------------------------------------------------
+Paper #49: Hoare-style Specifications as Correctness Conditions for
+           Non-linearizable Concurrent Objects
+---------------------------------------------------------------------------
+
+   Quality of Getting Started Guide: 2. Satisfactory
+                     Artifact Grade: 2. Met expectations established in
+                                        paper
+Is the artifact consistent with the paper?:
+                                     3. Yes
+          Is the artifact complete?: 3. Yes
+   Is the artifact well-documented?: 3. Yes
+    Is the artifact easy to re-use?: 3. Yes
+
+                   ===== Rationale for assessment =====
+
+# Completeness
+The artifact contains mechanised versions of the examples in the
+paper, as well as the full FCSL libraries needed to check the
+examples. There are also other examples using FCSL, related to
+previous submissions. For anyone interested in the full FCSL
+system, including these examples in this artifact makes sense.
+
+# Consistency with the paper
+As far as I can tell the examples are consistent with the paper,
+but as the step from the math in the paper to the Coq sources is
+quite large, this is hard to verify with confidence as a reviewer
+with no prior knowledge of FCSL (and limited ssreflect
+experience). The number of lines of proofs and specifications seem
+to be in the same range as presented in Table 1.
+
+# Documentation
+The main README file does an excellent job of helping the user
+navigate the code base and find the relevant source files. As
+mentioned, reading the actual mechanised examples is difficult
+without good knowledge of FCSL (and experience with ssreflect).
+Even with the references to the paper, it was often hard to map
+even smaller constructs to the corresponding construct in the
+paper.
+
+There are some smaller inline comments in the specifications, but
+they seem to be meant for the developers rather than an external
+reader. I did find the use of "tags" helpful for finding which
+parts of a source file define what.
+
+# Re-usability
+While I would say I'm pretty far from actually being able to use
+the artifact for anything else than compiling the given examples,
+everything I would need to do so is included. Building everything
+was simple enough once the dependencies were installed, and the
+documentation and FCSL reference manual would point me in the
+right direction.
+
+I don't think it's reasonable to expect a beginner to be able to
+immediately understand and use a system as complex as this, which
+is why I would deem the artifact re-usable in spite of the
+difficulties mentioned above.
+
+                          ===== Suggestions =====
+
+It would have been helpful with some more guidance mapping the
+mechanised examples to the hand written ones. As far as I can
+tell, many times even the (meta)variables have different names in
+the different versions, which does not help. If I wanted to to
+really understand the system, I would have preferred even more
+references to the definitions in the paper, as well as some more
+consistency in terms of naming and setup. On the other hand, the
+artifact is not supposed to be a tutorial in FCSL, so I would not
+fight to drive this change through (I could imagine that such
+refactorings could be quite tedious).
+
+A minor comment is that "exchange.v" contains the comment
+
+```
+What comes below is the implementation, specification and verification
+of the main exchange program from Figure 1 of the POPL submission.
+```
+
+which I guess is technically true, but should probably refer to
+the OOPSLA submission (or even better refer to the article by
+name).
+
+Also, it would be nice with a link to the FCSL reference manual in
+the README file!
+
+===========================================================================
+                        OOPSLA '16 AEC Review #49B
+                     Updated 30 Jul 2016 1:00:42pm EDT
+---------------------------------------------------------------------------
+Paper #49: Hoare-style Specifications as Correctness Conditions for
+           Non-linearizable Concurrent Objects
+---------------------------------------------------------------------------
+
+   Quality of Getting Started Guide: 2. Satisfactory
+                     Artifact Grade: 2. Met expectations established in
+                                        paper
+Is the artifact consistent with the paper?:
+                                     3. Yes
+          Is the artifact complete?: 3. Yes
+   Is the artifact well-documented?: 3. Yes
+    Is the artifact easy to re-use?: 3. Yes
+
+                   ===== Rationale for assessment =====
+
+The paper describes a methodology to reason about concurrent programs
+using Fine Grained Separation Logic. In particular, they show how to
+reason about programs that do not admit full linearization but more
+powerful criteria like CAL, QC and QQC.
+
+The paper describes its methodology and applies it to four
+examples. The artifact is the formalization of these examples using
+Coq and the author's FGSL library. The examples, are easy to navigate
+thanks to some 'tags' that show the main parts of the
+development. However, a bit more explanation of the syntax and
+definitions would make it easier to see the correspondence between the
+paper and the formalization.
+
+The artifact is documented well enough that is easy to find each part
+of the formalization. But the explanation of the mechanization is
+rather terse and it takes a bit of effort to understand.
+
+The artifact applies an existing library to new problems. As such it
+is easy to imagine re-using the techniques and the results. However,
+because the proof scripts contain no motivation or intuition it would
+require a lot of effort to get up-to speed extending this artifact in
+any significant way. This is not a huge problem as this is a common
+occurrence in mechanized theorem provers (specially those based on
+tactics).
+
+I was not able to validate the time it takes to check the proofs, as
+my computer is significantly slower than the one they used and so my
+times were a bit longer. Even with my computer and running inside a
+virtual machine, it took only slightly longer than what the paper
+states.
+
+                          ===== Suggestions =====
+
+It is clear that the current state of the artifact represents a lot of
+good work. As a suggestion, it would help future readers of the code,
+if the proof scripts included some intuition on how proving the goals
+works.
+
+===========================================================================
+                        OOPSLA '16 AEC Review #49C
+                    Updated 26 Jul 2016 12:06:16am EDT
+---------------------------------------------------------------------------
+Paper #49: Hoare-style Specifications as Correctness Conditions for
+           Non-linearizable Concurrent Objects
+---------------------------------------------------------------------------
+
+            ===== Questions for "kicking the tires" phase =====
+
+I tested with the VirtualBox image. Both recompiling the project and
+stepping through the proofs seems to be working fine. I fully stepped
+through exchange.v without problems.
+
+   Quality of Getting Started Guide: 2. Satisfactory
+                     Artifact Grade: 2. Met expectations established in
+                                        paper
+Is the artifact consistent with the paper?:
+                                     3. Yes
+          Is the artifact complete?: 3. Yes
+   Is the artifact well-documented?: 3. Yes
+    Is the artifact easy to re-use?: 3. Yes
+
+                   ===== Rationale for assessment =====
+
+In their paper, the authors demonstrate the effectiveness of
+Fine-grained separation logic in terms of its ability to describe
+non-linearizable objects in a way that both hides implementation
+details yet can be used in proofs of client programs. For their
+artifact, the authors have provided mechanized proofs for several
+examples.
+
+This reviewer happened to be using a very similar machine to the one
+described in the paper so the majority of my evaluation took place on
+a native machine rather than within the virtual machine (although the
+virtual machine was examined as well).
+
+The presentation of this artifact was in general excellent; in
+particular, the documentation included with this artifact was
+excellent. A few of the strengths of this artifact which influenced
+the rating of this artifact are as follows:
+
+- Also along the lines of documentation, I thought the `README`
+  included with proof archive file was especially well authored; in
+  particular, I appreciated the *detailed* explanation of the
+  structure of the project and the enumeration of proofs as they
+  correspond to the paper (along with short descriptions of each).
+
+- The extra excellent documentation on FCSL that was included with
+  this artifact (via URLs) was very helpful and is exactly the kind of
+  thing that makes an artifact more useful for potential future
+  users. Also, specific URLs pointing to software packages required
+  for this tool were helpful as well.
+
+- The packaging of the artifact is professional and operates with little difficulty, specifically: 
+  - In case the user isn't a Proof General user, the virtual machine comes preconfigured with Proof General; to start it all one needs to do is click the Emacs icon on the desktop and open a Coq file.
+  - Unnecessary icons have been removed from the user's dock and replaced with the most relevant icons for review (terminal, Emacs, and Firefox). 
+  - The virtual machine automatically logs in; unless a user wants to execute a superuser command they are unlikely to require the password provided with the virtual machine. 
+  
+- The artifact is complete and all of the mentioned examples are
+  easily found in the source archive; however this reviewer did not
+  find a method (or tool) for producing the figures found in Table 1.
+
+                          ===== Suggestions =====
+
+Overall the presentation of this artifact is very professional and
+this reviewer had little trouble rebuilding and checking the proofs
+from the paper. A few suggestions:
+
+- It would be nice if the `opam` instructions were also included in
+  the `README`. For example, the `SSReflect` package is distributed
+  for Windows platforms with a binary installer; other platforms must
+  install from the source (unless they use `opam`). The commands are
+  as follows:
+
+```
+# opam repo add coq-released https://coq.inria.fr/opam/released
+# opam install coq-mathcomp-ssreflect.1.6
+```
+
+- There is a slight bit of mismatch between the examples in Table 1
+  and the source files in the distribution. I think it's great that
+  they are ordered in the same order as the paper; since the paper is
+  referenced, perhaps section references next to the source files
+  would help resolve any ambiguity.
+
+- The volume work needed to fully document a proof can be especially
+  challenging; one technique that might help is to use the "literate"
+  Coq style. This enables the author to be a bit more verbose where
+  needed and the results can be rendered nicely for reference.
+
+- Minor note, but all of the non-linearizable examples have the
+  following typo in their headers:
+
+```
+For details of the specific components of the development, grep >>fo<< the
+following tags
+```
+
+- Table 1 has several columns pertaining to the size of various proof
+  artifacts (invariants, facts, etc). There is no way to easily hand
+  check this information and no tool was provided to perform this
+  analysis. I tried to quickly verify some of the totals (Total, in
+  the table) reported in the table using a combination of `cat` and
+  `wc -l` but I was unable to produce the reported metrics.
+
+- For users who obtain this artifact without the benefit of the
+  separate evaluation guide placing the `README.md` on the desktop
+  might help orient new users better than a blank desktop.
+
+===========================================================================
+                                  Comment
+---------------------------------------------------------------------------
+The artifact is **complete**: It contains mechanised versions of
+the examples in the paper, as well as the full FCSL library needed
+to check them. After installing the dependencies (or booting the
+virtual box) we had no problems building the library and checking
+the examples. We could not however find a method (or tool) for
+checking the numbers found in Table 1.
+
+The artifact is **well documented**: We had no problems installing
+and navigating the code base, thanks to the main README file and
+the artifact overview. The usage of "tags" simplified the
+navigation of the examples. The mechanised examples themselves
+were rather tersely explained and therefore not that easy to
+follow along with, but we did not find this critical in our
+assessment of the artifact. We liked the inclusion of the FCSL
+reference manual (via a URL).
+
+The artifact is **easy to reuse**: Although getting up to speed
+with the library itself would require some effort, everything
+needed to do so is included in the artifact. The instructions are
+clear, and the process of installing dependencies and building the
+library is very simple.
+
+We believe that the artifact is **consistent with the paper**: The
+examples seem to correspond to the versions in the paper, but as
+mentioned above it is hard to follow along with the mechanised
+proofs. There seems to be some differences in naming and structure
+between the different versions, but this is natural when going
+from a paper proof to a mechanised one.

@@ -1,0 +1,34 @@
+{
+%\setlength{\belowcaptionskip}{-10pt} 
+\begin{figure}
+\centering
+\[
+{\small{
+\begin{array}{rl}
+ \Num{1} & \esc{exchange}~(v : A) : \esc{option}~A~=~\{ 
+\\ 
+ \Num{2} & ~~~~ p \Asgn \esc{alloc}~(v, \Unmatched);\\
+ \Num{3} & ~~~~ b \Asgn \esc{CAS}~(g, \esc{null}, p);\\
+ \Num{4} & ~~~~ \kw{if}~~b~\esc{==}~\esc{null}~~\kw{then}\\
+ \Num{5} & ~~~~ ~~~~ \esc{sleep}~(50);\\
+ \Num{6} & ~~~~ ~~~~ x \Asgn \esc{CAS}~(p\esc{+}1, \Unmatched, \Retired);\\
+ \Num{7} & ~~~~ ~~~~ \kw{if}~~x~~\kw{is}~~\Matched w~~\kw{then}~~\kw{return}~~(\esc{Some}~w)\\
+ \Num{8} & ~~~~ ~~~~ \kw{else}~~\kw{return}~~\esc{None}\\
+ \Num{9} & ~~~~ \kw{else}\\
+\Num{10} & ~~~~ ~~~~ \esc{dealloc}~p;\\
+\Num{11} & ~~~~ ~~~~ cur \Asgn \esc{read}~g;\\
+\Num{12} & ~~~~ ~~~~ \kw{if}~~cur~\esc{==}~\esc{null}~~\kw{then}~~\kw{return}~{\esc{None}}\\
+\Num{13} & ~~~~ ~~~~ \kw{else}\\
+\Num{14} & ~~~~ ~~~~ ~~~~ x \Asgn \esc{CAS}~(cur\esc{+}1, \Unmatched, \Matched v);\\
+\Num{15} & ~~~~ ~~~~ ~~~~ \esc{CAS}~(g, cur, \esc{null});\\
+\Num{16} & ~~~~ ~~~~ ~~~~ \kw{if}~~x~~\kw{is}~~\Unmatched~~\kw{then}~~w\Asgn \esc{read}~cur;\kw{return}~(\esc{Some}\ w)\\
+\Num{17} & ~~~~ ~~~~ ~~~~ \kw{else}~~\kw{return}~\esc{None}\}
+\end{array}
+}}
+\]
+%\vspace{-5pt}  
+\caption{Elimination-based exchanger procedure.}
+\label{fig:exchanger}
+%\vspace{-10pt}   
+\end{figure} 
+}

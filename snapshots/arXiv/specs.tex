@@ -1,0 +1,29 @@
+% There following version saves a little more space
+\begin{figure}
+%
+\centering
+\[
+\begin{array}{l}
+\mathtt{write}\ (p : \mathtt{ptr}, n : \mathtt{int}) : 
+\!\!\!\begin{array}[t]{l}
+\{\histS = \hempty \wedge h \subseteq \histO
+           \wedge \omega \subseteq {\jleq}\}\\[3pt]
+\{\exists t\ldot\, \histS = t \mapsto (p, n) \wedge h \subseteq \histO \wedge
+  \omega \subseteq {\jleq}\,{\wedge}\, h \subseteq \chainjltn{\ordlist}{t}\}
+\end{array}\\[2em]
+%
+\mathtt{scan} : 
+\!\!\!\begin{array}[t]{l}
+\{\histS = \hempty \wedge\, h \subseteq \histO \wedge\,
+          \omega \subseteq {\jleq}\}\\[3pt]
+          \{\histS = \hempty \wedge\, h \subseteq \histO \wedge\,
+            \omega \subseteq {\jleq} \wedge\, \exists\, t\ldot\, %
+             h \subseteq \chainjleq{\ordlist}{t} \wedge\,
+             \mathsf{chain}\ \chainjleq{\ordlist}{t} \wedge\,
+             r = \mathsf{eval}\ \chainjleq{\ordlist}{t}\}
+       \end{array}
+\end{array}
+\]
+\caption{\label{fig:specs} Specification of {\tt write} and {\tt scan}
+  methods.}
+\end{figure}

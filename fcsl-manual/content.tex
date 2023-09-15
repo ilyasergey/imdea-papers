@@ -1,0 +1,412 @@
+% General words
+%
+This manual describes the design and implementation of Fine-grained
+Separation Logic (FCSL)~\cite{Nanevski-al:ESOP14} as well as the case
+studies conducted in
+it~\cite{Sergey-al:ESOP15,Sergey-al:PLDI15,Sergey-al:OOPSLA16,
+Delbianco-al:ECOOP17}.
+
+Section~\ref{sec:prerequisites} of this manuscript lists the
+prerequisites for reading and executing FCSL code,
+Section~\ref{sec:structure} outlines the structure of the FCSL
+project, and Section~\ref{sec:compilation} provides general
+instructions on compiling FCSL and measuring the line counts of the
+development.
+%
+Section~\ref{sec:case-studies} serves as a guide through the
+mechanized implementation of the case studies.
+%
+% In \S \ref{sec:fcsl-implementation} we elaborate on some parts of the
+% core implementation of the FCSL logical framework, including its
+% denotational domain, modal predicates and structural lemmas.
+
+\tableofcontents
+
+\vspace{20pt}
+
+\section{Prerequisites}
+\label{sec:prerequisites}
+%
+In the remainder of this document, we assume that the reader is using
+the provided VirtualBox VM image or has successfully installed
+Coq/Ssreflect as well as GNU Emacs/Aquamacs and Proof General. The VM image and
+the set-up instructions for the artifact are available by the
+following URL:
+
+\begin{center}
+    \url{http://software.imdea.org/fcsl}
+\end{center}
+
+In the case of the VM image, you can find the code of the project in
+the folder \texttt{\textasciitilde/fcsl-ecoop17} (use \code{fcsl} as
+username and password whenever required).  We do not assume the reader
+to have any familiarity with Coq/Ssreflect to browse through the
+examples. In the case if the reader is feeling curious to experiment
+on her own and modify the proof scripts, we recommend to take a look
+at the lecture notes~\cite{Sergey:PnP} for the basics of interactive
+proof development in Coq/Ssreflect.
+
+For the description of semantic foundations of FCSL in prose, we
+address the reader to the appendices of the original FCSL
+paper~\cite{Nanevski-al:ESOP14}.
+
+\section{Structure of the development}
+\label{sec:structure}
+
+The project's structure is completely flat, with all files located
+currently in the same folder (\code{fcsl}). Besides the
+\code{README} file, which summarizes the contents of particular files,
+and the \code{Makefile}, the folder contains the files, corresponding
+to case studies, and to the core development of the FCSL logic itself.
+%
+Below, we provide brief descriptions for the most interesting parts of
+the source codebase.
+
+\subsection{Case Studies}
+\label{sec:case-studies-files}
+
+The following files implement the case studies/example programs,
+together with their specifications and verification scripts (more
+details are available in the corresponding referred sections further
+in the document).
+
+%\vspace{10pt}
+
+\subsubsection{Basic examples}
+\label{sec:basic-examples}
+
+Basic examples, described in the initial work on
+FCSL~\cite{Nanevski-al:ESOP14}, described in detail in
+Section~\ref{sec:basic-examples}.
+
+Folder: \texttt{Examples/Basic}
+
+\begin{itemize}
+
+\item \code{locks.v} --- generic interface for locking structures~(\S
+  \ref{sec:locks}).
+
+\item \code{caslock.v} --- an implementation of a CAS-based spin lock
+  concurroid, its actions, lock/unlock procedures and lemmas for
+  Hoare-style reasoning~(\S \ref{sec:cas-lock}).
+
+\item \code{ticketed.v} --- An implementation of a ticketed lock
+  concurroid, its actions, lock/unlock procedures and lemmas for
+  Hoare-style reasoning~(\S \ref{sec:ticketed-lock}).
+
+\item \code{incrementor.v} --- a toy example of a coarse-grained
+  incrementor~(\S \ref{sec:incrementor}).
+
+\item \code{alloc.v} --- a simple coarse-grained memory allocator,
+  parametrized by a lock implementation (\S \ref{sec:allocator}).
+
+\end{itemize}
+
+\subsubsection{Linearizable concurrent objects and universal
+  constructions}
+\label{sec:line-conc-objects}
+
+Examples, motivating the use of subjective auxiliary histories,
+presented in the work~\cite{Sergey-al:ESOP15}, described in
+Section~\ref{sec:hist}.
+
+Folder: \texttt{Examples/Histories}
+
+\begin{itemize}
+
+\item \code{readpair.v} --- an implementation of an atomic
+  pair-snapshot data structure (\S \ref{sec:atomic-snapshot}).
+
+\item \code{treiber.v} --- an implementation of Treiber's non-blocking
+  stack~(\S \ref{sec:treiber-stack}).
+
+\item \code{stack_framed.v} --- application of FCSL's frame rule applied to the Treiber
+  stack specifications~(\S \ref{sec:fram-stack-spec})
+
+\item \code{stack_seq.v} --- a derivation of a sequential specification
+  for the Treiber stack "push" and "pop" operations~(\S
+  \ref{sec:sequential-stack}).
+
+\item \code{stack_client.v} --- a simple stack client: two-thread
+  producer/consumer~(\S \ref{sec:producerconsumer}).
+
+\item \code{flatcombine.v} --- a generic implementation of the flat
+  combiner, parametrized by specifications of sequential procedures,
+  requiring exclusive access to the critical resource~(\S
+  \ref{sec:flat-combiner}).
+
+\item \code{stack_combine.v} --- instantiation of the flat combiner
+  with \emph{sequential} stack push/pop procedures~(\S
+  \ref{sec:inst-flat-comb}).
+
+\end{itemize}
+
+\subsubsection{Concurrent graph manipulations}
+\label{sec:conc-graph-manip}
+
+Main example from the work~\cite{Sergey-al:PLDI15}, demonstrating
+handling of deep sharing in FCSL, described in
+Section~\ref{sec:spanning-tree}.
+
+Folder: \texttt{Examples/Graphs}
+
+\subsubsection{Non-linearizable concurrent objects and their clients}
+\label{sec:non-line-conc}
+
+Examples from the paper on handling non-linearizable concurrent data
+structures in FCSL~\cite{Sergey-al:OOPSLA16}, described in detail in
+Section~\ref{sec-nonlinaerizable}.
+
+Folder: \texttt{Examples/NonLinearizable}
+
+\begin{itemize}
+
+\item \code{exchange.v} --- an implementation of an elimination-based
+  exchanger, specified via subjective histories, storing ``twin''
+  contributions. %(\S \ref{sec:exchange}).
+
+\item \code{exchange\_client.v} --- A client of the elimination-based
+  exchanger, implementing the fair exchange of two sequences between
+  two threads running in parallel in the absence of additional
+  external interference. %(\S \ref{sec:exchange-client}).
+
+\item \code{qcounter.v} --- an implementation and verification of a
+  simple counting network, built via one binary balancer b and two
+  atomic counters, c0 and c1, such that each of the counters stores
+  only values of the corresponding parity. The given specification
+  incorporates information about interference, observed in the past,
+  and, hence, enables quantitative reasoning about the counter's
+  clients. %(\S \ref{sec:qcounter}).
+
+\item \code{qcounter\_client1.v} --- a client of the counting network,
+  exercising the quiescent consistency and proving that in the
+  presence of a quiescent state between two calls to the
+  (quiescently-consistent) counter, the obtained results will come out
+  in the natural order. %(\S \ref{sec:qcounter-client1}).
+
+\item \code{qcounter\_client2.v} --- A client of the counting network,
+  used to demonstrate quantitative reasoning out of the provided spec,
+  derived in the qcounter.v file. The specification ensures that the
+  results of the two subsequent calls in the presence of interference
+  come out of order by no more that 2 times the ``size'' of the
+  interference. %(\S \ref{sec:qcounter-client2}).
+
+\end{itemize}
+
+\subsubsection{Concurrent Data Structures Linked in Time}
+\label{sec:relink}
+
+Folder: \texttt{Examples/Relink}
+
+This folder contains the main case study of the {\it Linking in Time}
+technique for verifying concurrent data structures with non-fixed
+linearization points introduced in~\cite{Delbianco-al:ECOOP17}. It
+consists of several files implementing the verification in FCSL of
+Jayanti's single writer/single scanner snapshot
+construction~\cite{Jayanti+STOC05}.
+
+
+\begin{itemize}
+
+ \item \code{jayanti\_snapshot.v} --- Preliminaries. Lemmas for
+       reasoning about coloring patterns of histories, and other
+       history invariants.
+
+ \item \code{jayanti\_ghoststate.v} --- Implementation of the
+ auxiliary state for the snapshot object, its transitions, invariants
+ and associated invariant preservation proofs.
+
+ \item \code{jayanti\_concurroid.v} --- Implementation of the FCSL
+ concurrent resource ---a.k.a. {\it concurroid} for the snapshot.
+
+ \item \code{jayanti\_actions.v} --- FCSL atomic actions for the
+ snapshot object concurrent resource.
+
+ \item \code{jayanti\_stability.v} --- Assertions used in the proof
+ outline of the main methods and proofs of their stability under FCSL
+ transitions.
+
+ \item \code{jayanti\_library.v} --- Implementation and verification
+ of the atomic commands (auxiliary code) and the snapshot library
+ (i.e. scan and write procedures).
+
+ \item \code{jayanti\_clients.v} --- Verification of the clients of
+ the snapshot data structure, as presented in Section 4 of the
+ paper~\cite{Delbianco-al:ECOOP17}.
+
+\end{itemize}
+
+\subsection{FCSL metatheory}
+\label{sec:fcsl-metatheory}
+
+For the formalization of the metatheory, we have borrowed a number of
+libraries (\code{pred.v}, \code{prelude.v}, \code{ordtype.v},
+\code{finmap.v}, \code{pperm.v}, \code{domain.v}, \code{array.v}) from
+the development of the verification framework for the sequential Hoare
+Type Theory~\cite{Nanevski-al:POPL10} (which can be found in the
+folder \texttt{Heaps} of the project), so we don't describe them here.
+
+Below, we list the libraries (contained in the folder \texttt{Core}),
+essential for the formulation of FCSL's semantics and the proof of
+soundness of its rules. The intuition behind the implementation can be
+acquired from the referred parts of the preceding papers on FCSL.
+
+
+%\vspace{10pt}
+\begin{itemize}
+
+\item \code{feaps.v} --- PCM of heap maps.
+
+\item \code{state.v} --- resource states implemented as triples of maps.
+
+\item \code{zigzag.v} --- definition and helper lemmas about $\zig$
+  (\code{<\\}) and $\zag$ (\code{/>}) operators used in the fork-join
+  closure~\cite{Nanevski-al:ESOP14}.
+
+\item \code{worlds.v} --- definition of concurroids, with properties on
+  states and transitions. %(\S \ref{sec:concurroids}).
+
+\item \code{auto_split.v} --- some automation using overloaded
+    lemmas.
+
+\item \code{inject.v} --- meta theory required for proving the
+    injection rule~\cite{Nanevski-al:ESOP14}.
+                       
+\item\code{atomic.v} --- definition and properties of atomic actions~\cite[Appendix A]{Nanevski-al:ESOP14}.
+   % (\S \ref{sec:atomic-actions}).
+
+\item\code{rely.v} --- definition of the \emph{Rely} predicate for a
+  concurroid~\cite[Appendix~B]{Nanevski-al:ESOP14}.
+
+\item \code{privstate.v} --- concurroid for thread-local
+  state~\cite[\S 4,~Example~1]{Nanevski-al:ESOP14}. %(\S \ref{sec:priv}).
+
+\item \code{footprint.v} ---            helper lemmas about disjointness of labels.
+
+\item \code{retract.v} --- meta-theory required for proving the hiding
+  rule~\cite[Appendix~F.2]{Nanevski-al:ESOP14}.
+
+\item \code{schedule.v} --- datatype of execution paths.
+
+\item \code{process.v} --- definition of action trees~\cite[Appendices
+  F.1, F.3 and F.4]{Nanevski-al:ESOP14}.
+
+\item \code{always.v} --- definition of the modal predicates for
+  adherence to a protocol~\cite[Appendices~F.5 and~F.7]{Nanevski-al:ESOP14}.
+
+\item \code{model.v} --- implementation of denotational semantics of
+  programs as sets of trees~\cite[Appendix F.6]{Nanevski-al:ESOP14}. %~(\S \ref{sec:semantics}).
+
+\item \code{lemmas.v} --- soundness of the rules; essentially each
+  lemma is a case in the proof of the main soundness theorem
+  from~\cite[Appendix F.7]{Nanevski-al:ESOP14}. The lemmas also
+  immediately serve as proof rules. %(\S\ref{sec:structural-lemmas}).
+
+\item \code{histories.v} ---  libraries for history PCMs the used in the specifications of
+optimistic fine-grained algorithms
+in~\cite{Sergey-al:ESOP15,Sergey-al:OOPSLA16,
+Delbianco-al:ECOOP17}. The {\it standard} PCM history library is
+described in~\cite{Sergey-al:ESOP15}, whereas the {\it relinkable}
+history library is presented in~\cite{Delbianco-al:ECOOP17}.
+
+\item \code{stsep.v} --- notation for traditional-style unary Hoare
+  pre/postconditions. % (\S \ref{sec:getters}).
+
+\item \code{getter.v} --- generic getters for concurroid components.% (\S\ref{sec:getters}).
+
+ \item \code{seq\_extras.v} --- Algebraic surgery lemmas for lists,
+ extending the original Ssreflect \texttt{seq} library.
+
+\end{itemize}
+
+%\vspace{10pt}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Compilation}
+\label{sec:compilation}
+
+\subsection{Building the project}
+\label{sec:building-project}
+
+In order to compile the whole project from scratch, which will
+\emph{\textbf{automatically check the proofs of all theorems and
+    specifications}}, execute the following command from the command
+line in the project folder.
+
+\begin{lstlisting}
+make clean; make
+\end{lstlisting}
+
+
+%% The build script will also display compilation times for particular
+%% files, generated via the standard \code{time} utility.
+
+% \subsection{Counting the lines of code}
+% \label{sec:counting-lines-code}
+
+% We supply the project with the \code{cloc}
+% utility\footnote{\url{http://cloc.sourceforge.net}} to facilitate
+% computing the lines of code in particular files.
+% %
+% Since the syntax of Coq is similar to syntax of the languages from the
+% ML family, the lines for \code{*.v}-files are computed using the
+% \code{cloc} settings for OCaml. 
+% %
+% To compute LOCs for individual files, we recommend to use the
+% predefined script \code{count}, located in the project folder. For
+% example, the following command will compute the number of LOCs in the
+% implementation of the spanning tree example:
+
+% \begin{lstlisting}
+% ./count spanning.v
+% \end{lstlisting}
+
+% Due to some minor proof optimizations since the PLDI 2015 paper
+% submission deadline, the line counts in the supplied FCSL code base
+% might have slightly decreased comparing to what is reported in the
+% accepted draft of the paper.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% \section{Implementation of the FCSL semantic model and logic}
+% \label{sec:fcsl-implementation}
+
+% \subsection{Concurroids}
+% \label{sec:concurroids}
+
+% TODO
+
+% \subsection{Atomic actions}
+% \label{sec:atomic-actions}
+
+% TODO
+
+% \subsection{Semantics of FCSL commands}
+% \label{sec:semantics}
+
+% TODO
+
+% \subsection{Thread-local state}
+% \label{sec:priv}
+
+% TODO
+
+% \subsection{Modal predicates and Hoare types}
+% \label{sec:modal-pred-hoare}
+
+% TODO: explain \code{always} and \code{after} predicates in the logic and the way they are implemented. 
+
+% \subsection{Structural lemmas}
+% \label{sec:structural-lemmas}
+
+% TODO: probably, refer to Dijkstra's predicate transformers~\cite{Dijkstra:CACM75}.
+
+% \subsection{State getters and unary postconditions}
+% \label{sec:getters}
+
+% TODO: Explain this stuff

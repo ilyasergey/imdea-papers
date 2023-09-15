@@ -1,0 +1,211 @@
+\section{Actions}\label{sec:actions}
+
+Actions are the primive objects for programming in the language of
+SCSP. They perform \emph{atomic} steps from state to state, and have
+the lowest granularity. An action can operationally be thought of as a
+single memory operation, such as e.g., reading from, writing into, or
+CAS-ing over a heap cell. 
+%
+\is{This point should be emphasized even more: it is a crucial
+  difference from CAP and its descendants, who allow one to use
+  arbitrary actions, without any undeerlying intuition about
+  ``machine-level'' atmoicity.}
+%
+An action may also be idle. Additionally,
+actions may return a value of some given type $A$, as well as manipule
+the auxiliary state, and perform ownership transfer (i.e., reallign
+the boundaries between self, joint and other components).
+
+An action is always associated with some concurroid $V$ in the
+following sense. If an action modifies state $s$ into state $s'$, then
+$(s, s') \in \mathsf{internal}_V$.\footnote{In our formalization, we
+  also have actions that are associated with $\mathsf{acquire}$ and
+  $\mathsf{release}$ transitions. However, these are not used for
+  programming, but only for building other $\mathsf{internal}$-related
+  actions. Thus, we don't present them here.}  
+
+\an{Do we want to use the notation $a : \mathsf{action}\ V\ A$, to
+  denote that the action $a$ is associated with the concurroid $V$,
+  and returns a value of type $A$. We should probably leave the
+  notation for the next section, where it will also mean that the
+  action components satisfy the properties.}
+
+Similar to related work on CAP, the development of SCLP is
+\emph{parametrized} by the set of actions. The user of SCLP is free to
+choose any set of actions associated with any concurroids, provided
+that the chosen actions satisfy a number of properties which we
+describe next.
+
+Each action $a$ is \emph{specified} by 4 components: (1) the
+concurroid $V$ whose internal transition it respects, (2) the type $A$
+of the action's return value, (3) the predicate $\mathsf{safe}_a$ (on
+states) describing the states in which the action is safe to execute,
+and (4) the relation $\mathsf{step}_a$ relating the initial state, the
+ending state, and the ending result of $a$.\an{Of course, we actually
+  denotationally \emph{model} actions precisely as that pair of
+  components, but I want to keep references to denotational semantics
+  for the model section.}\is{I didn't understand this remark. Could
+  you elaborate more on this?}
+
+To illustrate, we present in more detail the action
+$\mathsf{write}\ (x : \mathsf{ptr})\ (v : A)$ (associated with
+$\mathsf{priv}\ p$ concurroid), which writes $v$ into the pointer $x$,
+and the action $\mathsf{trylock}$ with no arguments (associated with
+$\mathsf{priv}\ p \bowtie \mathsf{spinlock}\ sl$ concurroid), which
+tries to acquire the spinlock of the concurroid
+$\mathsf{spinlock}\ sl$, and transfer the heap protected by the
+spinlock into the ownership of $\mathsf{priv}\ p$.
+
+Let $V = \mathsf{priv}\ p$. The action of $\mathsf{write}\ x\ v$ is
+associated with the concurroid $V$, returns a value of $\mathsf{unit}$
+type, and its $\mathsf{safe}$ predicate and $\mathsf{step}$ relation
+are defined as follows.
+\[
+\begin{array}{l}
+\mathsf{safe}_{\mathsf{write}\ x\ v} = 
+  \{s | s \in \mathsf{coh}_V \aand \exists w:B\ldot h:\mathsf{heap}\ldot s.self = p \mapsto (x \mapsto w \oplus h)\}\\
+\mathsf{step}_{\mathsf{write}\ x\ v} = 
+  \{(s, s', ()) | \!\!\!\begin{array}[t]{l}
+                s, s' \in \mathsf{coh}_V \aand \exists w\ h\ldot \hbox{}\\
+                s.self = p \mapsto (x \mapsto w) \oplus h \aand \hbox{}\\
+                s'.self = p \mapsto (x \mapsto v) \oplus h\}
+             \end{array}
+\end{array}
+\]
+
+The $\mathsf{write}\ x\ v$ action is safe if the pointer $x$ exists in
+the private heap of the concurroid, storing some value $w$ of arbitary
+type $B$. The step of the action is to replace $w$ with $v$, while
+leaving the rest $h$ of the private heap unchanged. 
+
+
+Let $W = \mathsf{priv}\ p \bowtie \mathsf{spinlock}\ sl$. The action
+$\mathsf{trylock}$ is associated with the concurroid $W$, returns a
+value of type $\mathsf{bool}$ and its $\mathsf{safe}$ predicate and
+$\mathsf{step}$ relation are defined as follows.
+\[
+\begin{array}{l}
+\mathsf{safe}_{\mathsf{trylock}} = \mathsf{coh}_W\\
+\mathsf{step}_{\mathsf{trylock}} = 
+  \{(s, s', r) | s, s' \in \mathsf{coh}_W \aand \exists \hL\ \hE\ \mL\ \mE\ b\ h\ldot\hbox{}\\
+\quad \!\!\!\begin{array}[t]{l}
+    s = p \mapsto [self=\hL,joint=(),other=\hE] \oplus \hbox{}\\
+    \hphantom{s =} sl \mapsto [self=\mL, joint=lk \mapsto b \oplus h, other=\mE] \aand \hbox{}\\
+    \mbox{if}\ b\ \mbox{then}\ r = \mathsf{false} \aand s' = s\\
+   \mbox{else}\ \!\!\!\begin{array}[t]{l}
+                 r = \mathsf{true} \aand \hbox{}\\
+                 s' = p \mapsto [self=\hL \oplus h, joint=(), other=\hE] \oplus \hbox{}\\
+                 \hphantom{s' =} sl \mapsto [self=\lockOwn, joint=lk \mapsto \mathsf{true}, other=\lockNown]\}
+               \end{array}
+    \end{array}
+\end{array}
+\]
+
+The intuition is that $\mathsf{trylock}$ is a denotational encoding of
+the behavior of the CAS operation. The $\mathsf{step}$ relation
+specifies that $\mathsf{trylock}$ inspects the lock implemented as a
+pointer $lk$. If $lk$ is $\mathsf{false}$ (representing unlocked), the
+action atomically tries to change $lk$ to $\mathsf{true}$
+(representing locked). The return value $r = \mathsf{true}$ indicates
+succesful locking, and the output state $s'$ is changed by transfering
+the ownership of the heap $h$ from the joint to the self component. If
+$lk$ is initially $\mathsf{true}$, then $\mathsf{trylock}$ terminates
+without changing anything.
+
+The action is safe to perform on all coherent states of $W$, as each
+such states contains the pointer $lk$ representing the lock.
+
+
+\paragraph{Actions abstractly}
+
+The components of the action $a$ associated with a concurroid $V$, and
+return type $A$ satisfy the following properties.
+
+\[
+\begin{array}{rcl}
+\mathsf{safe_C} & : & s \in \mathsf{safe}_a \implies s \in \mathsf{coh}_V\\
+\mathsf{safe_Z} & : & s \zag t \in \mathsf{safe}_a \implies s \zig t \in \mathsf{safe}_a\\
+\mathsf{step_S} & : & (s, s', v) \in \mathsf{step}_a \implies s \in \mathsf{safe}_a\\
+\mathsf{step_T} & : & (s, s', v) \in \mathsf{step}_a \implies (s, s') \in \mathsf{internal}_V\\
+%\mathsf{step_Z} & : & s.other = s'.other \implies \hbox{}\\
+%& & \quad (s \zag t, s' \zag t, v) \in \mathsf{step}_a \implies (s \zig t, s' \zig t, v) \in \mathsf{step}_a\\
+\mathsf{step_F} & : & s \zag t \in \mathsf{safe}_a \implies \hbox{}\\
+& & \quad (s \zig t, s', v) \in \mathsf{step}_a \implies \hbox{}\\
+& & \quad \exists s''\ldot s' = s'' \zig t \aand  (s \zag t, s'' \zag t, v) \in \mathsf{step}_a\\
+\mathsf{step_E} & : &  \mathsf{valid} (\flatten s \oplus h) \implies \hbox{}\\
+& &  \flatten s \oplus h = \flatten{s'} \oplus h' \implies \hbox{}\\
+& &  (s, t, v) \in \mathsf{step}_a \implies (s', t', v') \in \mathsf{step}_a \implies \hbox{}\\
+& &  v = v' \aand \flatten t \oplus h = \flatten{t'} \oplus h'
+\end{array}
+\]
+
+
+The properties $\mathsf{safe_C}$, $\mathsf{step_S}$, and and
+$\mathsf{step_T}$ are straightforward.
+
+$\mathsf{safe_Z}$ states that if the action is safe in a state with a
+smaller self component (because the other component is enlarged by
+$t$), the action is also safe if we increase the self component by
+$t$. This property corresponds to \emph{safety monotonicity} in
+abstract separation logic.
+
+The $\mathsf{step_F}$ property says that if $a$ steps in a state with
+a large self component $s \zig t$, but is already safe to step in a
+state with a smaller self component $s \zag t$, then the result state
+and value obtained by stepping in $s \zig t$, can be obtained by
+stepping in $s \zag t$, and moving $t$ afterwards. This property
+corresponds to \emph{framing property} in abstract separation logic.
+\footnote{In addition to $\mathsf{step_F}$, we have been proving an
+  additional property for each action:
+\[
+\begin{array}[t]{rcl}
+\mathsf{step_Z} & : & s.other = s'.other \implies \hbox{}\\
+& & \quad (s \zag t, s' \zag t, v) \in \mathsf{step}_a \implies (s \zig t, s' \zig t, v) \in \mathsf{step}_a
+\end{array}
+\]
+This property corresponds to what we have taken up calling
+\emph{locality}, though it's not at all equivalent to locality in the
+sense of abstract separation logic. The property is \emph{not}
+provable from the rest, unless we require that each action is
+deterministic (which right now seems unecessary). Thus, if we want it,
+it has to be required as primitive, which is what we have done.
+
+However, I just realized that the property is not used \emph{anywhere}
+in the development. It's unused in the model, and it's unused in the
+always lemmas. Thus, I'm suppressing it here.
+
+On the other hand, the similar locality property for
+\emph{transitions} is useful in the always lemmas, as alredy
+commented!}
+
+The property $\mathsf{step}_E$ shows that the behavior of the action
+on the concrete input state obtained after erasing the auxiliary
+fields and the logical partition, doesn't depend on the erased
+auxiliary fields and the logical partition. In other words, if the
+input state have \emph{compatible} erasures (that is, erasures which
+are subheaps of a common heap), then executing the action in the two
+states results in equal values, and final states that also have
+compatible erasures. This is a standard property proved in concurrency
+logics that deal with auxiliary state and
+code~\cite{Owicki-Gries:CACM76,Brookes:TCS07}.\footnote{Though, these
+  other papers don't deal with compatibility, as far as I can tell.}
+
+
+\paragraph{Stability}
+
+We require two further properties of actions, requiring stability of
+the safety and stepping action components wrt. to the associated
+concurroid $V$.\an{I separate these, because they are not actually
+  implemented in Coq. However, I think that if we impose them, the
+  section on logic will be easier to present.}
+
+\[
+\begin{array}{rcl}
+\mathsf{safe}_{ST} & : & \mathsf{safe}_a\ i \implies (i, j) \in \mathsf{env\_steps}_V \implies \mathsf{safe}_a\ j\\
+\mathsf{step}_{ST} & : & (i, j) \in \mathsf{step}_a \implies (j, k) \in \mathsf{env\_steps}_V \implies \hbox{}\\
+                  &   & (i, k) \in \mathsf{step}_a
+\end{array}
+\]
+
+
+

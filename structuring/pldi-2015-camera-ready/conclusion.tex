@@ -1,0 +1,37 @@
+\vspace{-5pt}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+Our experience with implementing a number of concurrent data
+structures in FCSL indicates a recurring pattern, exhibited by the
+formal proof development.
+%
+Verification of a new library in FCSL starts from describing its
+invariants and evolution in terms of an STS. It's common to consider
+parts of real or auxiliary state, which are a subject of the logical
+split between parallel threads, as elements of a particular PCM.
+%
+Such representation of resources makes the verification uniform
+and compositional, as it internalizes the library protocol, so the
+clients can reason out of the specifications.
+
+This observation indicates that STSs and PCMs can be a robust basis
+for understanding, formalizing and verifying existing fine-grained
+programs. We conjecture that the same foundational insights will play
+a role in future designs and proofs of correctness of novel concurrent
+algorithms.
+
+\paragraph{Acknowledgements}
+% \vspace{-5pt}
+%\acks
+
+We thank the anonymous reviewers from PLDI'15 PC and AEC for their
+feedback. We are also grateful to Steve Blackburn for his efforts as
+PLDI PC chair. This research is partially supported by Ramon y Cajal
+grant RYC-2010-0743 and the US National Science Foundation (NSF). Any
+opinion, findings, and conclusions or recommendations expressed in
+this material are those of the authors and do not necessarily reflect
+the views of NSF.
+
+\vspace{-5pt}

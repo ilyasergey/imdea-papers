@@ -1,0 +1,188 @@
+% config from instructions webpage
+\documentclass[a4paper,USenglish]{lipics-v2016}
+
+\usepackage{microtype}%if unwanted, comment out or use option "draft"
+
+\usepackage{authblk}
+\usepackage{fancyhdr}
+\usepackage{url}
+\usepackage{lipsum}
+
+\title{Concurrent Data Structures Linked in Time}
+
+\author{Germ\'{a}n Andr\'{e}s Delbianco}
+\author{Ilya Sergey}
+\author{Aleksandar Nanevski}
+\author{Anindya Banerjee}
+
+% \affil[1]{IMDEA Software Institute,  Madrid, Spain\\
+%           {\texttt{\{german.delbianco,aleks.nanevski,anindya.banerjee\}@imdea.org}}}
+
+% \affil[2]{University College London, UK\\
+%   {\texttt{i.sergey@ucl.ac.uk}}}
+
+% \affil[3]{Universidad Polit\'{e}cnica de Madrid, Spain}
+
+\begin{document}
+\maketitle
+ 
+\thispagestyle{empty}
+
+
+\section*{\LARGE{Artifact Description}}
+\label{sec:note-reviewers}
+
+Thank you for agreeing to review the artifact for our ECOOP 2017
+submission entitled \textit{``Concurrent Data Structures Linked in
+  Time''}. The artifact is represented by the Coq sources of the
+implementation of Fine-grained Separation Logic (FCSL) in the Coq
+proof assistant, as well as the case studies conducted for the
+ECOOP'17 submission.
+
+There are two possible ways to test the development: compiling FCSL
+from the source files or running the provided virtual machine. We
+provide further instructions in the sequel. A brief commentary with
+respect to this paper's specific case studies is also provided
+below. Moreover, the \texttt{README.md} file also provides information
+about previous FCSL developments and case studies.
+
+Finally, if you are interested in finding out more details about the
+implementation of FCSL and several case studies, we encourage you to
+check the FCSL reference manual:
+
+\begin{centering}
+  \url{http://software.imdea.org/fcsl/papers/fcsl-manual.pdf}
+\end{centering}
+
+\paragraph*{Building FCSL from source}
+Build FCSL from the Coq sources files packed in the ZIP archive
+(\texttt{fcsl-ecoop17.zip}). In order to compile and check the sources
+and case studies from the papers, you will need to have Coq 8.5pl3 and
+Ssreflect 1.6 installed. They can be downloaded from the following
+sites:
+
+\begin{itemize}
+\item \url{https://coq.inria.fr/coq-85}
+\item \url{https://math-comp.github.io/math-comp/}
+\end{itemize}
+
+However, we recommend installing both Coq and Ssreflect using the
+OPAM package manager. With OPAM installed, copy and paste the
+following commands to build Coq 8.5.3 and Ssreflect, together with
+their dependencies.
+
+\begin{verbatim}
+  opam repo add coq-released https://coq.inria.fr/opam/released
+
+  opam pin add coq 8.5.3
+
+  opam install coq-mathcomp-ssreflect
+\end{verbatim}
+
+We also recommend to use Emacs with installed Proof General
+mode\footnote{\url{https://github.com/emacsattic/proofgeneral}} to
+browse and step through the sources.
+
+Once you have Coq and Ssreflect installed, follow the instructions in
+the \texttt{README.md} file of the \texttt{fcsl-ecoop2017.zip} archive
+to build the project. It takes around 100 minutes to build the project
+and all the case studies, so we thank you in advance for your
+patience.
+
+The \texttt{README.md} file also provides commentary on the case
+studies from this paper, which are located in the folder
+\texttt{Examples/Relink}, as well as a description of previous FCSL
+case studies.
+
+\paragraph*{Using the VirtualBox VM image}
+%
+You can also use the VirtualBox VM image with
+Coq/Ssreflect/Emacs/Proof General installed. The VM image is available
+by the link in the artifact description. It requires VirtualBox
+5.0\footnote{\url{https://www.virtualbox.org/wiki/Downloads}} to
+run. Whenever necessary, use \texttt{fcsl} as both the username and
+password.
+
+Once successfully launched, navigate to the
+\texttt{\textasciitilde/fcsl-ecoop17} folder to browse the project
+sources. The project is already compiled, but you can follow the
+instructions from \texttt{README.md} file in order to re-build the
+project. This will automatically check all the proofs.
+
+Use Emacs with Proof General mode to step through *.v files from the
+\texttt{Examples/Relink} folder.
+
+\paragraph*{A brief summary of this paper's Coq development}
+
+\vspace{.5cm}
+
+{\bf \large Folder:} \texttt{Examples/Relink}\\
+
+The folder \texttt{Examples/Relink} folder contains the main case
+study of the {\it Linking in Time} technique for verifying concurrent
+data structures with non-fixed linearization points introduced in the
+paper. It consists of several files implementing the verification in
+FCSL of Jayanti's single writer/single scanner snapshot construction:
+
+\begin{itemize}
+
+ \item \texttt{jayanti\_snapshot.v} --- Preliminaries. Lemmas for
+       reasoning about coloring patterns of histories, and other
+       history invariants.
+
+ \item \texttt{jayanti\_ghoststate.v} --- Implementation of the
+ auxiliary state for the snapshot object, its transitions, invariants
+ and associated invariant preservation proofs.
+
+ \item \texttt{jayanti\_concurroid.v} --- Implementation of the FCSL
+ concurrent resource ---a.k.a. {\it concurroid} for the snapshot.
+
+ \item \texttt{jayanti\_actions.v} --- FCSL atomic actions for the
+ snapshot object concurrent resource.
+
+ \item \texttt{jayanti\_stability.v} --- Assertions used in the proof
+ outline of the main methods and proofs of their stability under FCSL
+ transitions.
+
+ \item \texttt{jayanti\_library.v} --- Implementation and verification
+ of the atomic commands (auxiliary code) and the snapshot library
+ (i.e. scan and write procedures).
+
+ \item \texttt{jayanti\_clients.v} --- Verification of the clients of
+   the snapshot data structure, as presented in Section 4 of the
+   paper.
+\end{itemize}
+
+In the sequel, we relate the different parts of the development with
+their corresponding presentation in the paper:
+
+The invariants described in Section~5, together with the
+implementation of the concurrent resource for the snapshot object are
+defined in the \texttt{jayanti\_ghoststate.v} and
+\texttt{jayanti\_concurroid.v} files. In the later file, there is also
+the implementation of the auxiliary code functions (a.k.a transitions
+in FCSL jargon) from Section~6. The proof of the 2-state invariants
+from Invariant~1, and those from Invariant~2, together with the
+definitions of the main assertions (e.g.\ the {\it stable order}
+$\Omega$) are carried out in \texttt{jayanti\_stability.v}. The
+verification of the \texttt{write} and \texttt{scan} files, as
+presented in Section~7, are carried our in the file
+\texttt{jayanti\_library.v}.
+
+Finally, the clients in Section~4 are implemented and verified in
+\texttt{jayanti\_clients.v}. We refer the reader to the descriptions
+in the \texttt{README.md} file of the project and/or the accompanying
+manuscript for further detail.
+
+\vspace{.5cm}
+
+{\bf \large Folder:} \texttt{Core}\\
+
+Two new libraries were added to the Core of existing FCSL libraries: a
+new library for {\it relinkable} histories, added to
+\texttt{histories.v} and an extended theory of algebraic surgery
+operations for lists, which were necessary to prove the properties of
+the {\it relink} operation. The latter is implemented in
+\texttt{seq\_extras.v}.
+
+\end{document}

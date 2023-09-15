@@ -1,0 +1,172 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Compiling two paper versions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\ifext}[2]{\ifdefined\extflag{#1}\else{#2}\fi}
+\newcommand{\ifcomm}[1]{\ifdefined\extcomm{#1}\else{}\fi}
+
+\newcommand{\mute}[1]{\ifdefined\draftflag{#1} \else{} \fi}
+
+% remarks
+\newcommand{\todo}[1]{\mute{\textcolor{red}{({#1})}}}
+\newcommand{\is}[1]{\mute{\textcolor{blue}{(Ilya: {#1})}}}
+\newcommand{\an}[1]{\mute{\textcolor{red}{(Aleks: {#1})}}}
+\newcommand{\ab}[1]{\mute{\textcolor{red}{(AB: {#1})}}}
+\newcommand{\gad}[1]{\mute{\textcolor{orange}{(GAD: {#1})}}}
+
+ 
+% useful macros
+\newcommand{\asgn}{\leftarrow}
+\newcommand{\code}[1]{\lstinline[basicstyle=\small\ttfamily]{#1}}
+\newcommand{\ccode}[1]{\lstinline[basicstyle=\footnotesize\ttfamily]{#1}}
+\newcommand{\cccode}[1]{\lstinline[basicstyle=\scriptsize\ttfamily]{#1}} 
+\newcommand{\Code}[1]{\code{#1}}
+\newcommand{\var}[1]{\({#1}\)} 
+\newcommand{\num}[1]{\({\text{{\scriptsize{#1}}}}\)}
+\newcommand{\etc}{\emph{etc}}
+\newcommand{\ie}{\emph{i.e.}\xspace}
+\newcommand{\id}{\emph{Id.}\xspace}
+\newcommand{\eg}{\emph{e.g.}\xspace}
+\newcommand{\vs}{\emph{vs.}\xspace}
+\newcommand{\etal}{\emph{et~al.}\xspace}
+\newcommand{\adhoc}{\emph{ad~hoc}\xspace}
+\newcommand{\viz}{\emph{viz.}\xspace}
+\newcommand{\dom}[1]{\mathsf{dom}(#1)}
+\newcommand{\aka}{\textit{a.k.a.}\xspace}
+\newcommand{\cf}{\textit{cf.}\xspace}
+\newcommand{\wrt}{{wrt.}\xspace}
+\newcommand{\Iff}{{iff}\xspace}
+\newcommand{\loef}{L\"{o}f}
+
+% commands
+\newcommand{\ret}{\mathsf{ret}} 
+\newcommand{\fix}{\mathsf{fix}} 
+
+%specs
+\newcommand{\specK}[1]{\ensuremath{\textcolor{blue}{#1}}}
+\newcommand{\comm}[1]{\ensenuremath{\textcolor{gray}{\esc{/\!/}~{#1}}}}
+\newcommand{\spec}[1]{\specK{\left\{{#1}\right\}}}
+\newcommand{\specQ}[4]{[#1 , #2 , #3] \, #4}%\specQ{mL}{gL}{gE}{p}
+\newcommand{\drspec}[1]{\specK{\langle{#1}\rangle}}
+\newcommand{\sspec}[1]{\specK{\{{#1}\}}}
+\newcommand*{\backin}{\rotatebox[origin=c]{-180}{$\in$}}%
+\newcommand{\sep}{\textasteriskcentered}
+\newcommand{\res}{\mathsf{res}}
+
+%actions
+\newcommand{\act}[1]{\textsf{\small{#1}}}
+\newcommand{\aux}[1]{\textit{#1}}
+\newcommand{\Aux}[1]{\(\mathit{\small{#1}}\)}
+\newcommand{\Num}[1]{{\text{{\scriptsize{#1}}}}}
+\newcommand{\esc}[1]{\text{\texttt{\small{#1}}}}
+\newcommand{\kw}[1]{\text{\textbf{#1}}}
+\newcommand{\tp}[1]{\text{\textsf{#1}}}
+\newcommand{\Asgn}{\leftarrow} 
+
+%PCMs
+\newcommand{\dotcup}{\ensuremath{\mathaccent\cdot\cup}}
+\newcommand{\pcmS}{\mathbb{U}}
+\newcommand{\pcmF}{\bullet}
+\newcommand{\join}{\pcmF}
+\newcommand{\jjoin}[1]{\ensuremath{\bigodot}_{#1=1}^n} 
+\newcommand{\pcmU}{\mathbbm{1}}
+
+% Pretty table
+\newcommand{\cmark}{\ding{52}}%
+\newcommand{\xmark}{\ding{55}}%
+\newcommand*\rot{\rotatebox{32}} 
+\newcommand{\yep}{\ding{51}}
+\newcommand{\yepl}{$\text{\ding{51}}_{\!\!L}$}  
+\newcommand{\yepa}{$\text{\ding{51}}_{\!\!L}$}  
+\newcommand{\intab}[1]{({\sffamily{\small{#1}}})}
+
+% Concurroids
+\newcommand{\acon}{\mathcal{A}}
+\newcommand{\econ}{\mathcal{E}}
+\newcommand{\ucon}{\mathcal{U}}
+\newcommand{\rcon}{\mathcal{R}}
+\newcommand{\ccon}{\mathcal{C}}
+\newcommand{\vcon}{\mathcal{V}}
+\newcommand{\wcon}{\mathcal{W}}
+\newcommand{\privcon}{\mathcal{P}}
+\newcommand{\pscon}{\mathcal{S}}
+\newcommand{\tbcon}{\mathcal{T}}
+\newcommand{\fccon}{\mathcal{F}}
+\newcommand{\lcon}{\mathcal{L}}
+\newcommand{\alloccon}{\mathcal{A}}
+\newcommand{\snapcon}{\mathcal{S}}
+
+% Thm environments
+%% \theoremstyle{remark}
+%% \newtheorem{example}{Example}[section]
+\theoremstyle{definition}
+\newtheorem{proposition}[theorem]{Proposition}
+
+% Histories and Aux State
+
+\newcommand{\Unit}{\mathsf{Unit}}  
+\newcommand{\ic}{\mathcal{I}}
+\newcommand{\hide}{\mathsf{hide}}  
+\newcommand{\last}{\mathsf{last}}  
+\newcommand{\eqdef}{\mathrel{\:\widehat{=}\:}}
+\newcommand{\zig}{\triangleleft}
+\newcommand{\zag}{\triangleright}
+\newcommand{\hpts}{\mapsto}
+\newcommand{\lcl}{{\mathsf{s}}}%L
+\newcommand{\env}{{\mathsf{o}}}%E
+\newcommand{\joint}{{\mathsf{j}}}%E
+\newcommand{\hunion}{\mathbin{\dotcup}} 
+\newcommand{\Hunion}[1]{\mathbin{\Dotcup{#1}}}
+\newcommand{\hist}{H} 
+\newcommand{\heap}{h} 
+
+%% judgments
+\newcommand{\oftp}{\mathord{:}}
+\newcommand{\hastp}{\mathrel{:}}
+\newcommand{\ldot}{\mathord{.}\,}
+
+%%% Snapshots paper related
+%%%
+
+\def\FF{\mathsf{False}}
+\def\TT{\mathsf{True}}
+
+\newcommand{\selfsub}{\mathsf{s}}
+\newcommand{\othersub}{\mathsf{o}}
+\newcommand{\jointsub}{\mathsf{j}}
+\newcommand{\histS}{\hist_\selfsub}
+\newcommand{\histO}{\hist_\othersub}
+\newcommand{\histJ}{\hist_\jointsub}
+\newcommand{\logicalsub}{\mathcal{L}}
+\newcommand{\jge}{\mathrel{>_\jointsub}}
+\newcommand{\hempty}{\mathsf{empty}}
+
+\newcommand{\hfilter}{\mathrel{\downarrow}}
+
+
+
+
+
+
+% math-hooks inside altt
+\def\lat{\(\langle\)}
+\def\rat{\(\rangle\)}
+\def\tbnd{\(\Asgn\)}
+
+\def\GYR{{\mathbf{{g^{+}}{y^{?}}{r^{*}}}}}
+\def\RZ{{\mathbf{{{(g | y)^{+}}}{r^{*}}}}}
+
+
+% Orders
+
+\def\ordlist{L}
+\newcommand{\tleq}{\mathrel{\leq_\ordlist}}
+\newcommand{\tle}{\mathrel{<_\ordlist}}
+\newcommand{\jleq}{\mathrel{\sqsubseteq_\ordlist}}
+
+
+%%%
+
+\newcommand\chainjleq[2]{\hist^{\hbox{}\sqsubseteq_{#2} {#1}}}
+\newcommand\chainjltn[2]{\hist^{\hbox{}\sqsubsetneq_{#2} {#1}}}
+\newcommand\chaintleq[2]{\hist^{\hbox{}\leq_{#2} {#1}}}

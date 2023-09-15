@@ -1,0 +1,40 @@
+\begin{figure}
+%
+\centering
+\begin{tabular}{c@{\hfill}c}
+%  
+\begin{minipage}[t][4cm][t]{.5\textwidth}
+\small
+\begin{alltt}
+\num{1}  write (p, v): () \{
+\num{2}   \lat\,\actwrite{p}{v}; \Aux{register}(p,v)\rat;
+\num{3}   \lat\,b \tbnd \act{read}(S); \Aux{check}(p,b)\rat;
+\num{4}   if b
+\num{5}   then \lat\,\actwrite{(f_of p)}{v}; \Aux{forward}(p,b))\rat
+\num{6}   else \lat\,\Aux{finalize}(); return ()\rat\}
+\end{alltt}
+\end{minipage}
+%
+&
+%
+\begin{minipage}[t][4cm][t]{.5\textwidth}
+\small
+\begin{alltt}
+\num{ 7}  scan (): \(A {\times} A\)  \{
+\num{ 8}   \actwrite{S}{true};
+\num{ 9}  \lat\,\actwrite{fx}{\(\bot\)}; \Aux{clear}(x)\rat; \lat\,\actwrite{fy}{\(\bot\)}; \Aux{clear}(y)\rat;
+\num{10}  vx \tbnd \act{read}(x); vy \tbnd \act{read}(y);
+\num{11}  \actwrite{S}{false};
+\num{12}  ox \tbnd \act{read}(fx); oy \tbnd \act{read}(fy);
+\num{13}  rx \tbnd if (ox \(\neq\bot\)) then ox else vx;  
+\num{14}  ry \tbnd if (oy \(\neq\bot\)) then oy else vy;  
+\num{15}  \lat\,\Aux{relink}(rx, ry); return (rx, ry)\,\rat\}
+\end{alltt} 
+\end{minipage}
+%
+\end{tabular}
+%
+\caption{Snapshot procedures annotated with auxiliary code.}
+\label{fig:fcsl-snapshot}
+\end{figure}
+

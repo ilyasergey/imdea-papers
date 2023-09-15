@@ -1,0 +1,57 @@
+Review 3
+
+This abstract proposes a talk on FCSL, a Coq implementation of
+Fine-Grained Concurrent Separation Logic invented by Nanevski et al.
+Although there have been quite a large number of papers (in recent
+years) on new program logics for reasoning about fine-grained
+concurrency, we have not seen any mechanized implementation of these
+logics.
+
+The proposed talk will describe the authors' experience of using FCSL
+to verify a few concurrent programs. Given the subtlety and complexity
+of these logics and programs, such effort is long over due (for this
+community). The Coq implementation is also a great way to find out
+which approach really works well in actual verification. I think many
+people will be interested in this talk.
+
+Review 2
+
+This talk proposal is about the FCSL program logic and its embedding
+into Coq.
+
+FCSL attacks a "hot" and very difficult problem: that of proving the
+correctness of lock-free programs implementing fine-grained concurrent
+data structures. Not being an expert in this area, I can't compare
+FCSL with other concurrent separation logics proposed for this
+purpose. However, the list of concurrent programming idioms and of
+specification idioms supported by FCSL is impressive.
+
+The embedding of FCSL in Coq outlined in the abstract looks very
+competently done and seems to play well on Coq's strengths.
+
+In summary, this talk proposal looks fine for the workshop. However,
+the presenters should keep in mind that not everyone in the audience
+will know what linearizability or resource protocols are.
+
+Review 1
+
+This abstract presents a framework for the verification of
+fine-grained concurrent programs in Coq, embedding a DSL for
+concurrent programs and giving a program logic to it. The library/DSL
+have already been developed and the proposed talk would include a
+demonstration of the verification of a graph-manipulating algorithm
+and discussion of the design choices for representing specifications
+and in particular concurrent protocols in the language. This looks
+like a very promising system for the verification of concurrent
+programs and is a perfect fit for this workshop.
+
+I'm wondering about one issue that is not discussed here, which is the
+sound extraction of the programs to an actual concurrent language. How
+would that work? Does the semantic soundness proof provides you
+guarantees here?
+
+Typos:
+p1. high-performance software?
+p1 is then is accomplished
+p2 in such a setting
+

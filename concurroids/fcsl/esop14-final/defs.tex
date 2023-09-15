@@ -1,0 +1,403 @@
+%\newcommand{\an}[1]{#1}
+\newcommand{\an}[1]{(\emph{\small Aleks:\ #1})\marginpar{$\checkmark$}}
+\newcommand{\rlw}[1]{(\emph{\small Ruy:\ #1})\marginpar{$\checkmark$}}
+\newcommand{\is}[1]{(\emph{\small Ilya:\ #1})\marginpar{$\checkmark$}}
+\newcommand{\gad}[1]{(\emph{\small Germ\'{a}n:\ #1})\marginpar{$\checkmark$}}
+
+%mapsto stuff
+\newcommand{\jpts}{\mathrel{\overset{j}{\mapsto}}}
+\newcommand{\spts}{\mathrel{\overset{s}{\mapsto}}}
+\newcommand{\opts}{\mathrel{\overset{o}{\mapsto}}}
+%\newcommand{\opts}{\hookrightarrow}
+\newcommand{\lsep}{\ast}
+\newcommand{\angled}[1]{\langle {#1} \rangle}
+\newcommand{\ssep}{\circledast}
+\newcommand{\hpts}{\shortrightarrow}
+\newcommand{\dotcup}{\ensuremath{\mathaccent\cdot\cup}}
+\newcommand{\hunion}{\mathbin{\dotcup}}
+\newcommand{\wand}{\mathop{-\!\!\!\!-\!\!\!\ast}}
+\newcommand{\priv}{\mathsf{priv}}
+\newcommand{\hpriv}{\mathsf{priv}}
+\newcommand{\hlock}{\mathsf{lock}}
+\newcommand{\tlock}{\mathsf{tlock}}
+\newcommand{\own}{\mathit{own}}
+\newcommand{\nxt}{\mathit{nxt}}
+\newcommand{\hlabel}{\ell}
+\newcommand{\relentangle}{\bowtie}
+\newcommand{\entangle}{\rtimes}
+\newcommand{\rentangle}{\ltimes}
+\newcommand{\apart}{\opentimes}
+\newcommand{\TL}{T_{\{\tlock,\own,\nxt,I\}}}
+
+% a bit of a hack to get black bowties
+\DeclareFontFamily{U}{mathb}{\hyphenchar\font45}
+\DeclareFontShape{U}{mathb}{m}{n}{
+      <5> <6> <7> <8> <9> <10> gen * mathb
+      <10.95> mathb10 <12> <14.4> <17.28> <20.74> <24.88> mathb12
+}{}
+\DeclareSymbolFont{mathb}{U}{mathb}{m}{n}
+\DeclareMathSymbol{\blacktriangleleft} {2}{mathb}{"9E}% name to be checked
+\DeclareMathSymbol{\blacktriangleright}{2}{mathb}{"9F}% name to be checked
+\newcommand{\opentangle}{\mathbin{\blacktriangleright\!\blacktriangleleft}}
+%\newcommand{\SCTS}{SCTS\xspace}
+
+\newcommand{\self}{\emph{self}\xspace}
+\newcommand{\other}{\emph{other}\xspace}
+\newcommand{\joint}{\emph{joint}\xspace}
+
+\newcommand{\mathself}{\mathop{s}}
+\newcommand{\mathother}{\mathop{o}}
+\newcommand{\mathjoint}{\mathop{j}}
+\newcommand{\join}{\bullet}
+\newcommand{\zip}{\circ}
+\newcommand{\unit}{\mathsf{id}}
+\newcommand{\finmap}{\rightharpoonup_{\textrm{fin}}}
+\newcommand{\hempty}{\mathsf{empty}}
+\newcommand{\CSL}{\textit{CSL}}
+\newcommand{\dom}[1]{\mathsf{dom}(#1)}
+\newcommand{\disj}{{\mathop\bot}}
+
+%% judgments
+\newcommand{\oftp}{\mathord{:}}
+\newcommand{\hastp}{\mathrel{:}}
+\newcommand{\ldot}{\mathord{.}\,}
+
+% meaning function
+\newcommand{\dlb}{\lbrack\!\lbrack}
+\newcommand{\ldb}{\dlb}
+\newcommand{\drb}{\rbrack\!\rbrack}
+\newcommand{\rdb}{\drb}
+\newcommand{\mean}[1]{\mathop{\dlb #1\drb}\nolimits}
+\newcommand{\FV}{\textsf{FV}}
+\newcommand{\FTV}{\textsf{FTV}}
+
+% syntactic substitution of #1 for #2 in #3
+\newcommand{\subst}[2]{[#1/#2]}
+\newcommand{\mapto}[2]{#1 \to #2}
+\newcommand{\evalsto}{\hookrightarrow}
+
+% context-free grammars
+\newcommand{\Or}{\mathrel{\mid}}
+\newcommand{\bnfdef}{\GoesTo}
+\newcommand{\bnfalt}{\Or}
+\newcommand{\bnfas}{::=}
+
+\newcommand{\scomp}{\circ}
+
+%% operators
+\newcommand{\aand}{\wedge}
+\newcommand{\oor}{\vee}
+\newcommand{\nnot}{\neg}
+\newcommand{\eqq}{\mathrel{\mbox{\tt==}}}
+\newcommand{\neqq}{\mathrel{\mbox{\tt!=}}}
+\newcommand{\andb}{\mathrel{\small\mbox{\&\&}}}
+\newcommand{\orb}{\mathrel{\mbox{\tt{|\!|}}}}
+\newcommand{\eqdef}{\mathrel{\:\widehat{=}\:}}
+\newcommand{\evar}[1]{?#1}
+\newcommand{\zig}{\triangleleft}
+\newcommand{\zag}{\triangleright}
+
+%% types
+\newcommand{\arrow}{\rightarrow}
+\newcommand{\darrow}{\Rightarrow}
+\newcommand{\carrow}{\arrow_{\mathsf{c}}}
+\newcommand{\larrow}{\rightharpoonup_{\mathsf{L}}}
+\newcommand{\ST}[4]{\specK{{\{\!{|}}#1{{|}\!\}}} #2
+\specK{{\{\!{|}}#3{{|}\!\}}} @ {#4}}
+
+%% language commands
+\newcommand{\ite}[3]{\mathsf{if}\ #1\ \mathsf{then}\ #2\ \mathsf{else}\ #3}
+\newcommand{\cmd}[1]{\mathsf{#1}\xspace}
+\newcommand{\indom}{\ \backslash \cmd{in dom}}
+\newcommand{\untag}{\cmd{untag}}
+\newcommand{\foundtag}{\cmd{found\_tag}}
+\newcommand{\righttag}{\cmd{right\_tag}}
+\newcommand{\lefttag}{\cmd{left\_tag}}
+\newcommand{\heapof}{\cmd{heap\_of}}
+\newcommand{\ptrfound}{\cmd{ptr\_found}}
+\newcommand{\searchleft}{\cmd{search\_left}}
+\newcommand{\searchright}{\cmd{search\_right}}
+\newcommand{\sstar}{\circledast}
+\newcommand{\pts}{\mapsto}
+\newcommand{\ptsfrac}[1]{\stackrel{#1}{\mapsto}}
+\newcommand{\ptshalf}{\mapstochar\rightharpoonup}%{\leadsto}%{\sfrac{1}{2}}%\xmapstohalf{}%\nicefrac{1}{2}%\ptsfrac{\text{\tiny $\nicefrac{1}{2}$}}
+\newcommand{\emp}{\cmd{emp}}
+\newcommand{\union}{\bullet}
+\newcommand{\find}{\cmd{find}}
+\newcommand{\type}[1]{\textsf{#1}}
+\newcommand{\heap}{\type{heap}}
+\newcommand{\ptr}{\type{ptr}}
+\newcommand{\resVar}{\mathsf{res}}
+\newcommand{\ty}{~{:}~}
+\newcommand{\tyname}[1]{\mathsf{#1}}
+\newcommand{\valname}[1]{\mathsf{#1}}
+\newcommand{\labname}[1]{\mathsf{#1}}
+\newcommand{\dontcare}{-}
+%% actions
+\newcommand{\actIdle}{\cmd{idle}}
+\newcommand{\actAlloc}[1]{\cmd{alloc}\ #1}
+\newcommand{\actDealloc}[1]{\cmd{dealloc}\ #1}
+\newcommand{\actRead}[1]{\cmd{read}\ #1}
+\newcommand{\actWrite}[2]{\cmd{write}\ #1\ #2}
+\newcommand{\actCas}[3]{\cmd{cas}\ #1\ #2\ #3}
+%% trees
+\newcommand{\trDummy}{\bot}
+\newcommand{\trRet}[1]{\cmd{ret}\ #1}
+\newcommand{\trCons}[2]{\cmd{cons}\ #1\ #2}
+\newcommand{\trPar}[3]{\cmd{par}\ #1\ #2\ #3}
+%% heaps
+\newcommand{\hpPts}{\Mapsto}
+\newcommand{\hpEmp}{\mathsf{empty}}
+\newcommand{\hpJoin}{\uplus}
+\newcommand{\hpSing}[2]{[#1 \hpPts #2]}
+\newcommand{\hpExt}[3]{[#1 ~|~ #2 \hpPts #3]}
+%% cmd's
+\newcommand{\matchwith}[1]{\mathsf{match}\ {#1}\ \mathsf{with}}
+\newcommand{\cmdAlloc}[1]{\cmd{alloc}\ #1}
+\newcommand{\cmdDealloc}[1]{\cmd{dealloc}\ #1}
+\newcommand{\cmdRead}[1]{{\cmd{read}\ #1}}
+\newcommand{\cmdWrite}[2]{{\cmd{write}\ #1\ #2}}
+\newcommand{\cmdLock}[1]{\cmd{lock}}
+\newcommand{\cmdUnlock}[2]{\cmd{unlock}_{\text{\hl{$\langle #2 \rangle$}}}}
+\newcommand{\cmdRet}[1]{\cmd{ret}\ #1}
+\newcommand{\cmdSeq}[3]{#1 \leftarrow #2 ; #3}
+\newcommand{\cmdPar}[2]{#1 \ppar #2}
+\newcommand{\cmdFix}[1]{\cmd{fix}\ #1}
+\newcommand{\cmdDo}[1]{\cmd{do}\ #1}
+%% state
+\newcommand{\ddo}{\cmd{do}}
+\newcommand{\rread}[2]{#1 \leftarrow \cmdRead{#2}}
+\newcommand{\wwrite}[2]{#1 := #2}
+%% parallelism
+\newcommand{\lock}[1]{\cmd{lock}\ {#1}}
+\newcommand{\unlock}[1]{\cmd{unlock}\ {#1}}
+\newcommand{\unlockAF}[2]{\cmd{unlock}_{#2}\ {#1}}
+\newcommand{\lockVar}{\mathsf{lk}}
+\newcommand{\locVar}{\ell}
+\newcommand{\atomic}[2]{\langle #1 \rangle_{\auxcode{#2}}}
+\newcommand{\ppar}{\;\|\;}
+%metavars
+\newcommand{\funname}[1]{\mathsf{#1}}
+\newcommand{\expr}{e}
+\newcommand{\lockL}{\btt}%{\mathsf{Lockd}}
+\newcommand{\lockU}{\bff}%{\cancel{\lockL}}
+\newcommand{\lockOwn}{\mathsf{Own}}
+\newcommand{\lockNown}{\cancel\lockOwn}
+%\newcommand{\lockNown}{\mathsf{NOwn}}
+\newcommand{\lcl}{{\mathsf{S}}}%L
+\newcommand{\env}{{\mathsf{O}}}%E
+% \newcommand{\rgStep}[1]{\leadsto_{#1}}
+% \newcommand{\rgSteps}[1]{\leadsto^*_{#1}}
+\newcommand{\rgStep}[1]{\rightarrow_{#1}}
+\newcommand{\rgSteps}[1]{\rightarrow^*_{#1}}
+\newcommand{\lclStep}{\rgStep{\lcl}}
+\newcommand{\lclSteps}{\rgSteps{\lcl}}
+\newcommand{\envStep}{\rgStep{\env}}
+\newcommand{\envSteps}{\rgSteps{\env}}
+\newcommand{\gX}[1]{\mathsf{a}_{#1}}
+\newcommand{\gL}{\gX{\lcl}}
+\newcommand{\gE}{\gX{\env}}
+\newcommand{\mX}[1]{\mathsf{m}_{#1}}
+\newcommand{\mL}{\mX{\lcl}}
+\newcommand{\mE}{\mX{\env}}
+\newcommand{\tX}[1]{\mathsf{t}_{#1}}
+\newcommand{\tL}{\tX{\lcl}}
+\newcommand{\tE}{\tX{\env}}
+
+
+\newcommand{\wL}{w_{\lcl}}
+\newcommand{\wE}{w_{\env}}
+% \newcommand{\kL}{k_\lcl}
+% \newcommand{\kE}{k_\env}
+\newcommand{\hinv}{h_{inv}}
+\newcommand{\h}{h}
+\newcommand{\m}{m}
+\newcommand{\g}{\mathsf{a}}
+\newcommand{\hL}{h_\lcl}
+\newcommand{\hE}{h_\env}
+\newcommand{\hS}{h_{\mathsf{R}}}%S
+\newcommand{\sh}{h_{\mathsf{R}}}%S
+\newcommand{\dL}{d_{\mathsf{S}}}
+\newcommand{\dE}{d_{\mathsf{O}}}
+\newcommand{\eL}{e_\lcl}
+\newcommand{\eE}{e_\env}
+\newcommand{\inv}[1]{I\ #1}
+\newcommand{\invB}[2]{\inv{(#1 + #2)}}
+%specs
+\newcommand{\specK}[1]{\ensuremath{\textcolor{blue}{#1}}}
+\newcommand{\specQ}[4]{[#1 , #2 , #3] \, #4}%\specQ{mL}{gL}{gE}{p}
+\newcommand{\spec}[1]{\specK{\left\{ #1 \right\}}}
+\newcommand{\specA}[4]{\spec{\specQ{#1}{#2}{#3}{#4}}}
+\newcommand{\specU}[3]{\specQ{\lockNown}{#1}{#2}{#3}}
+\newcommand{\specUemp}[1]{\specU{#1}{\dontcare}{\emp}}
+\renewcommand{\specUemp}[1]{\auxsptsF{#1}}
+\newcommand{\specL}[3]{\specQ{\lockOwn}{#1}{#2}{#3}}
+\newcommand{\tuplefour}[4]{(#1, #2, #3, #4)}
+\newcommand{\tuplefive}[5]{(#1, #2, #3, #4, #5)}
+\newcommand{\prog}[4]{\spec{#1}\, #2 \, \spec{#3}@{#4}}%{$\mathsf{prog}\ #1\ #2\ #3$}
+\newcommand{\progTy}[4]{\prog{#1} {#2 : #3} {#4}}%{$\mathsf{prog}\ #1\ #2\ #3$}
+\newcommand{\progDflt}[7]{\prog{\specQ{#1}{#2}{#3}{#5}}{#6}{\specQ{#1}{#2}{\ite{#1 = \lockOwn}{#3}{#4}}{#7}}} %\progDflt{m}{a}{b} {p}{A}{q}
+%stepping
+% \newcommand{\astep}[4]{#1 ; #2 \Rightarrow #3 ; #4}%action: \astep{h}{a} {h'}{v'}
+% \newcommand{\tstep}[4]{#1 ; #2 \Rightarrow #3 ; #4}%tree: \tstep{h}{p} {h'}{p'}
+% \newcommand{\lstep}[7]{#1 \mid #2 ; #3 ; #4 \stackrel{\lcl}{\Rightarrow} #5 ; #6 ; #7}%local: \lstep(hmgE) {sh}{hmgL}{pL} {sh'}{hmgL'}{pL'}
+% \newcommand{\estep}[6]{#1 ; #2 \mid #3 ; #4 \stackrel{\env}{\Rightarrow} #5 ; #6}%env: \estep{hmL}{pL} {sh}{hmgE} {sh'}{hmgE'}
+%% pcm
+\newcommand{\stconc}[4]{\prog{#1}{#2}{#3}{#4}}
+\newcommand{\stconcTy}[5]{\stconc{#1}{#2 : #3}{#4}{#5}}
+\newcommand{\pcmS}{U}
+\newcommand{\pcmF}{\bullet}
+\newcommand{\pcmU}{\mathsf{id}}
+%% misc
+\newcommand{\ltac}{Ltac}
+\newcommand{\option}[1]{\cmd{option}\ #1}
+\newcommand{\None}{\cmd{None}}
+\newcommand{\Some}[1]{\cmd{Some}\ {#1}}
+\newcommand{\lolli}{\multimap}
+
+\newcommand{\flatten}[1]{\lfloor #1 \rfloor}
+\newcommand{\fflatten}[1]{\llfloor #1 \rrfloor}
+
+\newcommand{\muL}{\mu_\lcl}
+\newcommand{\muE}{\mu_\env}
+\newcommand{\axL}{\sigma_\lcl}
+\newcommand{\axE}{\sigma_\env}
+
+\newcommand{\auxcode}[1]{\text{\hl{$#1$}}}
+\newcommand{\auxcodeF}[1]{\auxcode{\langle #1 \rangle}}
+\newcommand{\auxFn}{\Phi}
+%\newcommand{\CSL}{CSL\xspace}
+\newcommand{\SCSL}{SCSL\xspace}
+\newcommand{\SCST}{$\textrm{FCSL}$\xspace}
+%\newcommand{\SCSLlg}{SCSLlg\xspace}
+
+%AMS environments
+%%\theoremstyle{remark}
+%\newtheorem{example}{Example}
+%\newtheorem{notation}{Notational Convention}
+% \newtheorem{thm}{Theorem}
+%\newtheorem{definition}{Definition}
+%\newtheorem{theorem}{Theorem}
+%\newtheorem{lemma}{Lemma}
+%\newtheorem{corollary}{Corollary}
+
+\newcommand{\etc}{\emph{etc.}\xspace}
+\newcommand{\ie}{\emph{i.e.}\xspace}
+\newcommand{\eg}{\emph{e.g.}\xspace}
+\newcommand{\vs}{\emph{vs.}\xspace}
+\newcommand{\etal}{\emph{et~al.}\xspace}
+\newcommand{\adhoc}{\emph{ad hoc}\xspace}
+\newcommand{\viz}{\emph{viz.}\xspace}
+
+\newcommand{\aka}{\textit{a.k.a.}\xspace}
+\newcommand{\cf}{\textit{cf.}\xspace}
+\newcommand{\wrt}{{w.r.t.}\xspace}
+
+\newcommand{\structure}[1]{\underline{\mathsf{structure}}\ \mathsf{#1}}
+\newcommand{\canonical}[1]{\underline{\mathsf{canonical}}\ \mathsf{#1}}
+
+\newcommand{\figsize}{\footnotesize}
+
+\newcommand{\nextFn}{\Phi}% {\mathsf{next}}
+\newcommand{\interface}{\mathsf{interface}\ }
+\newcommand{\module}{\mathsf{module}\ }
+
+\newcommand{\Path}{\pi}
+\newcommand{\Paths}{\zeta}
+\newcommand{\result}{\mathit{res}}
+\newcommand{\state}[3]{[{#1}~|~{#2}~|~{#3}]}
+\newcommand{\State}[3]{[{#1}~|~{#2}~|~{#3}]}
+
+\newcommand{\alf}{local auxiliary function\xspace}
+\newcommand{\alfs}{local auxiliary functions\xspace}
+
+\newcommand{\modelsSL}{\models_{\mathsf{SL}}}
+\newcommand{\vdashCiC}{\vdash_{\mathsf{CiC}}}
+\newcommand{\hp}{\mathsf{hp}}
+\newcommand{\wrld}{\mathsf{wd}}
+
+\newcommand{\sep}{\textasteriskcentered}
+
+%\newcommand{\self}{\mathit{self}}
+%\newcommand{\other}{\mathit{other}}
+%\newcommand{\joint}{\mathit{joint}}
+\newcommand{\res}{\mathsf{res}}
+
+% Ticketed lock stuff
+\newcommand{\set}[1]{\left\{{#1}\right\}}
+\newcommand{\tl}{\mathit{tl}}
+\newcommand{\fs}{\mathsf{f}_{\mathsf{S}}}
+\newcommand{\fo}{\mathsf{f}_{\mathsf{O}}}
+\newcommand{\gs}{\mathsf{g}_{\mathsf{S}}}
+\newcommand{\go}{\mathsf{g}_{\mathsf{O}}}
+\newcommand{\mr}{\mathsf{m}_{\mathsf{R}}}
+\newcommand{\hr}{h_{\mathsf{R}}} 
+\newcommand{\hs}{h_{\mathsf{S}}} 
+\newcommand{\ho}{h_{\mathsf{O}}} 
+%\newcommand{\priv}{\mathsf{priv}}
+%\newcommand{\coh}{\mathsf{coh}}
+\newcommand{\vQ}{\mathsf{validQueue}}
+\newcommand{\valid}{\mathsf{valid}}
+\newcommand{\either}{\mathsf{either}}
+\newcommand{\idle}{\mathsf{idle}}
+\newcommand{\True}{\mathsf{true}}
+\newcommand{\False}{\mathsf{false}}
+\newcommand{\transit}{\mathsf{transit}}
+\newcommand{\internal}{\mathsf{internal}}
+\newcommand{\acquire}{\mathsf{acquire}}
+\newcommand{\release}{\mathsf{release}}
+\newcommand{\safe}{\mathsf{safe}}
+\newcommand{\step}{\mathsf{step}}
+\newcommand{\incrnxt}{\mathsf{INCRNXT}}
+\newcommand{\incrown}{\mathsf{INCROWN}}
+\newcommand{\tryn}{\mathsf{TRY}}
+
+\newcommand{\islock}{\mathsf{isLock}_{\tlock}}
+\newcommand{\locked}{\mathsf{Locked}_{\tlock}}
+\newcommand{\cantry}{\mathsf{canTry}_{\tlock}}
+
+% Boxes
+\definecolor{shadecolor}{gray}{1.00}
+\definecolor{ddarkgray}{gray}{0.75}
+\definecolor{darkgray}{gray}{0.30}
+\definecolor{light-gray}{gray}{0.85}
+\newcommand{\whitebox}[1]{\colorbox{white}{#1}}
+\newcommand{\graybox}[1]{\colorbox{light-gray}{#1}}
+\newcommand{\darkgraybox}[1]{\colorbox{ddarkgray}{#1}}
+\newcommand{\gbm}[1]{\graybox{${#1}$}}
+
+% stepping relations
+
+%action: \astep{h}{a} {h'}{v'}
+\newcommand{\asteps}{\leadsto_{\mathsf{a}}}
+%tree: \tstep{h}{p} {h'}{p'}
+\newcommand{\tsteps}[1]{~{\xRightarrow{#1}}_{\mathsf{t}}~}
+% \newcommand{\tsteps}[1]{\stackrel{#1}{\leadsto}_{\mathsf{t}}}
+\newcommand{\etsteps}[1]{\stackrel{#1}{\leadsto}_{\flatten{\mathsf{t}}}}
+%tree: \tstep{h}{p} {h'}{p'}
+\newcommand{\osteps}{\leadsto_{\mathsf{R}}^*}
+%tree: \tstep{h}{p} {h'}{p'}
+\newcommand{\ssteps}[1]{\stackrel{#1}{\leadsto}_{\mathsf{G}}}
+
+% \newcommand{\rely}{{\mathsf{R}}}
+% \newcommand{\guar}{{\mathsf{G}}}
+
+\newcommand{\rely}[1]{\mathcal{R}_{#1}}
+\newcommand{\guar}[1]{\mathcal{G}_{#1}}
+
+% Schedules
+\newcommand{\ChoiceAct}{\mathsf{ChoiceAct}}
+\newcommand{\SeqRet}{\mathsf{SeqRet}}
+\newcommand{\SeqStep}{\mathsf{SeqStep}}
+\newcommand{\ParRet}{\mathsf{ParRet}}
+\newcommand{\ParL}{\mathsf{ParL}}
+\newcommand{\ParR}{\mathsf{ParR}}
+\newcommand{\HideStep}{\mathsf{HideStep}}
+\newcommand{\HideRet}{\mathsf{HideRet}}
+\newcommand{\InjRet}{\mathsf{InjRet}}
+\newcommand{\InjStep}{\mathsf{InjStep}}
+\newcommand{\Ghi}{\widehat{\Phi}}
+
+\newcommand{\coh}[1]{{\cal W}_{#1}}
+\newcommand{\prop}{\mathsf{prop}}
+\newcommand{\flv}{\mathsf{FLV}}

@@ -1,0 +1,24 @@
+=====[Reviewer #73G]======
+
+We thank the reviewer for the detailed comments and respond to the
+asked question.
+
+* What is the meaning of the last paragraph "We close the description
+  of span_tp ..." on page 5?
+
+This remark was meant to emphasize the property which we found curious
+that the postcondition of "span" (Figure 4) exposes further knowledge
+of the initial state, which is not present in the precondition. Once
+span finishes, just out of the fact that it finished, we know that the
+initial state had to satisfy a property "front g1 t ...".
+
+In order to establish this property, the actual proof of "span" used a
+"flow" which has a distinct "backward" feel, as the knowledge is
+propagated from the ending state towards the initial one. Or more
+precisely, in this case, the knowledge is propagated from the
+pre-state of line 6 (Figure 1), to the pre-state of the enclosing
+recursive call (line 2).
+
+This is in contrast to the usual "forward" proof style, employed for the
+other conjuncts in the postcondition of "span", where one simply steps
+from the beginning towards the end of the program.

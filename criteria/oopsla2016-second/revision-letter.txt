@@ -1,0 +1,52 @@
+The list of revisions and additions made to the paper "Hoare-style
+Specifications as Correctness Conditions for Non-linearizable
+Concurrent Objects" for the second round of OOPSLA'16 submission.
+
+Major Changes
+=============
+
+  * [Section 2] The "Main Ideas and Overview" section has been split
+    into two new sections, with the verification of the exchanger
+    implementation moved to a separate Section 3.
+
+    Section 2 now discusses two simple motivating examples: the
+    exchanger (focusing on its use, without exploring the
+    implementation) and a simplified version of the counting network,
+    featuring two un-synchronized atomic updates to a shared
+    pointer. Both concurrent structures are first presented from the
+    practical perspective of using them.
+
+    The section then explains how to (i) define the temporal/spatial
+    invariants for them (using a coloring scheme as an intuition for
+    subjective state dichotomy), (ii) capture the effect on history
+    with respect to interference in Hoare-style specs, and (iii)
+    immediately employ the specifications for verification of
+    heterogeneous client programs.
+
+    The section is concludes with the 3-step summary of the
+    formalization pattern.
+
+  * [Section 10] The Related Work section has been expanded with a
+    discussion on related logics and approaches for specifying
+    concurrent programs (including the Views framework), incorporating
+    the corresponding parts of the first round rebuttal.
+
+Other Changes
+=============
+
+  * [Section 1.2] The introduction now better emphasizes the
+    contribution of the work, stating some parts of it as "conceptual"
+    (the method) and some other parts as "technical" (the verified
+    case studies).
+
+  * [Section 9] The case studies are re-run with the lates Coq version
+    to date (8.5pl2), which slightly changed the compilation times
+    (see Table 1). Some of the times have increased, though, but more
+    detailed forensic work will be required to understand why.
+
+  * Explanations from the rebuttal are incorporated to the test (see
+    the diff).
+
+  * Multiple small clarifications in the text of sections describing
+    the case studies and relating the overall presentation to the
+    initial toy examples.

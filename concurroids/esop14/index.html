@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>Communicating State Transition Systems for Fine-Grained
+Concurrent Resources</title>
+
+</head>
+
+<body>
+<h1>Communicating State Transition Systems for Fine-Grained
+Concurrent Resources</h1>
+
+<h3>
+<a href="http://software.imdea.org/~aleks/">Aleksandar Nanevski</a>,
+<a href="http://software.imdea.org/people/ruy.leywild/">Ruy Ley-Wild</a>,
+<a href="http://ilyasergey.net">Ilya Sergey</a> and
+<a href="http://software.imdea.org/~germand/">German Andres Delbianco</a></h3>
+
+
+<hr/>
+
+<h2>Abstract</h2>
+
+We present a novel model of concurrent computations with shared memory
+and provide a simple, yet powerful, logical framework for uniform
+Hoare-style reasoning about partial correctness of coarse- and
+fine-grained concurrent programs. The key idea is to specify arbitrary
+resource protocols as communicating state transition systems (STS)
+that describe valid states of a resource and the transitions the
+resource is allowed to make, including transfer of heap ownership. We
+demonstrate how reasoning in terms of communicating STS makes it easy
+to crystallize behavioral invariants of a resource. We also provide
+entanglement operators to build large systems from an arbitrary number
+of STS components, by interconnecting their lines of
+communication. Furthermore, we show how the classical rules from the
+Concurrent Separation Logic (CSL), such as scoped resource allocation,
+can be generalized to fine-grained resource management. This allows us
+to give specifications as powerful as Rely-Guarantee, in a concise,
+scoped way, and yet regain the compositionality of CSL-style resource
+management. We proved the soundness of our logic with respect to the
+denotational semantics of action trees (variation on Brookes’ action
+traces). We formalized the logic as a shallow embedding in Coq and
+implemented a number of examples, including a construction of coarse-grained CSL resources as a
+modular composition of various logical and semantic components.
+
+<br/> <br/>
+[<a
+href="http://ilyasergey.net/papers/concurroids-esop14.pdf">PDF</a> | <a
+href="http://ilyasergey.net/papers/concurroids-extended.pdf">Extended
+version</a>]
+<br/>
+
+<hr/>
+
+
+<br/>
+
+Download a <a href="http://software.imdea.org/~aleks/fcsl/fcsl.tgz">
+    tarball</a> with FCSL source files and examples. To compile the
+    code and examples, you will need to have <a
+     href="http://ilyasergey.net/util/ssreflect-1.4-coq8.4.tar.gz">SSreflect
+    1.4</a> installed over <a
+     href="http://ilyasergey.net/util/coq-8.4.tar.gz"> Coq 8.4</a>.
+
+</body>

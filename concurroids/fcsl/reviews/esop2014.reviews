@@ -1,0 +1,353 @@
+
+----------------------- REVIEW 1 ---------------------
+PAPER: 35
+TITLE: Communicating State Transition Systems for Fine-Grained Concurrent Resources
+AUTHORS: (anonymous)
+
+
+----------- REVIEW -----------
+SUMMARY
+
+This paper develops a concurrent separation logic (FCSL) that is
+"fine-grained" in the sense that various kinds of "resources" (spin locks,
+ticketed locks, and other concurrency abstractions whose implementation
+involves interference between threads) can be programmed up in terms of atomic
+operations (read, write, RMW) and proved correct within the logic. FCSL is
+structurally very similar to O'Hearn's original CSL, which had second-class,
+lexically-scoped, primitive "resources" (locks). It subsumes CSL in that,
+instead of a fixed notion of resource that obeys a fixed protocol, it
+introduces a notion of "concurroid", which is much more flexible. Its states
+and transitions are user-defined; there is a nice duality/symmetry between the
+views of "self" and "other"; there is a distinction between internal and
+external transitions, a notion of composition (entanglement) of concurroids,
+etc. FCSL has been formalized in Coq; it is actually embedded in Coq, which
+means that Coq is used not only to check that FCSL is sound, but also as a
+programming environment in which programs can be written and proved correct
+using the reasoning rules of FCSL.
+
+The analogy with CSL is well explained and very useful in order to better
+understand the paper. The notion of subjective auxiliary state is imported
+from the POPL 2013 paper by two of the authors; what's new here is the notion
+of a concurroid, together with the idea that concurroids can be composed
+(entangled), can be locally created (the hiding rule), and can be locally
+ignored if irrelevant (the inject rule). The ticketed lock example (in the
+appendix) is a testimony to the system's expressiveness.
+
+The paper is well-written. It is also quite technical, and after one reading,
+I am quite far from a real understanding of it. I found section 3 rather
+difficult to follow, because, at this point, concurroids still have not been
+formally defined. I wonder if section 4 should come before section 3? Although
+the HIDE rule sounds interesting, the details of it were just too much for me.
+
+The fact that the HIDE rule allows a new concurroid to be locally created and
+destroyed (i.e., the concurroid has lexical scope) is interesting. On the
+other hand, in practice, one also would like to dynamically allocate locks (or
+other concurrent objects) with unbounded lifetime. This is mentioned by the
+authors in the conclusion, but I do not clearly understand whether 1- FCSL as
+it stands can encode dynamically-allocated locks as a particular concurroid;
+or 2- some extension of FCSL is required.
+
+In summary, I believe that this is a very strong and elegant paper (although
+not the final word on this difficult topic) and I am strongly in favor of its
+acceptance.
+
+MINOR COMMENTS
+
+p.1-3, your discussion (which is very clear) is based on CSL with resources,
+which are second-class locks (resources have global names, are not first-class
+values, have lexically-scoped lifetimes). Wouldn't it preferable to base the
+discussion on a slightly more modern version of CSL with dynamically-allocated
+locks? Can FCSL encode dynamically-allocated locks, or more generally, does it
+support dynamically-allocated resources?
+
+p.3, "entanglement generalizes the notion of adding a resource to the
+context". Upon first reading, I find this statement somewhat surprising. It
+seems to me, intuitively, that a newly-allocated lock should be entirely
+independent of any pre-existing locks, so using the word "entanglement" to
+explain the allocation of a new lock sounds strange.
+
+p.4, "we need to know which thread has taken it, if any": do we? I certainly
+know of versions of CSL (with dynamically-allocated locks) where neither the
+logic nor its meta-theory keeps track of this information. Could you push
+the explanation a bit further?
+
+p.5, "while the symmetric assertion holds in all other threads". I would
+expect the assertion "lock mapsto^{o} Own" to be unstable; one thread cannot
+be certain that some other thread currently owns the lock, can it?
+
+p.7, "PCM-map is a finite map": do you mean "A PCM-map is a finite map"?
+Same question for "Heap-map".
+
+p.7, so far you have been using the letters s, j, o as fixed abbreviations
+for "self", "joint", "other", but now you are using them as meta-variables
+that denote maps. This is kind of uncomfortable. Oh, and you are also using
+them as record labels in w.s, w.j, w.o.
+
+p.7, "w.s, w.j, w.o contain same labels". I assume you mean that these
+maps have the same domain?
+
+p.7, "the heaps in w.s, w.j and w.o are disjoint". It seems to me that w.s and
+w.j do not contain any heaps, so I don't what you mean. I assume you mean that
+w.o maps distinct labels to disjoint heaps.
+
+fig. 1, could you explain why the "points-to" assertions (lines 2-4) are not
+precise? I mean, they constrain the value of one state component, say w.s,
+but the values of the other two components are unconstrained.
+
+p.7, "The rule for parallel composition [...] a concurroid U." I am slightly
+uncomfortable because the notion of a "concurroid" hasn't been formally
+defined yet.
+
+p.7, "the PCM values in the parent's self components are split": how do we
+know in what way the auxiliary state should be split? i.e., given c, there
+may be multiple choices of a and b such that "c = a . b".
+
+p.14, is entanglement associative?
+
+fig. 2, why does RET require "p stable under U"? Is it because this is a leaf
+rule and we wish to enforce the following meta-theorem: whenever {p} c : A {q}
+@ U holds, p (and q) are stable under U?
+
+fig. 2, HIDE seems to be the only rule that explicitly mentions the private
+state concurroid P. (I guess the action rule does, too, although this is less
+obvious.) Could one generalize the rule so as to be not tied to this specific
+concurroid? In the current system, it seems that, in practice, the concurroids
+that appear in proof outlines will always be of the form "P entangled with
+...".
+
+Footnote 7, and p. 17, I am confused as to the status of "acquire" and
+"release". I thought that these would be procedures, implemented in terms of
+atomic actions (CAS, read, write). I don't understand why they are presented
+as atomic actions. Do they have to be?
+
+TYPOS
+
+p.24, "this algorithms"
+
+p.25, "to the two its"
+
+p.25, "a ticked"
+
+----------------------- REVIEW 2 ---------------------
+PAPER: 35
+TITLE: Communicating State Transition Systems for Fine-Grained Concurrent Resources
+AUTHORS: (anonymous)
+
+
+----------- REVIEW -----------
+Summary:
+
+This paper presents a generalization of the first two authors' previous
+work on Subjective Concurrent Separation Logic (SCSL) to handle
+fine-grained concurrency.  The key extension is a mechanism for
+defining resource invariants using state transition systems (STSs)
+which restrict what kinds of updates can be made to shared state.
+These STS invariants have both internal transitions and external ones,
+which can be "entangled" to construct more complex invariants from
+simpler ones.  The logic also supports scoped creation and hiding of
+invariants, a generalization of the resource allocation rule from
+Concurrent Separation Logic (CSL).
+
+In addition to presenting the logic by example and also formally,
+the paper applies it to a simple example of concurrent incrementation.
+The appendix also applies it to the example of ticketed locks.
+The logic is proven sound with respect to a variation of Brookes'
+denotational CSL semantics.  Everything is mechanized via a shallow
+embedding in Coq.
+
+Review:
+
+This is a frustrating paper.  It concerns an area -- verification of
+fine-grained concurrent algorithms -- where there has already been a
+lot of work, as the authors are clearly well aware based on the
+introduction and related work sections.  And it seems to me there are
+some interesting ideas in here, like the idea of entanglement.
+
+But the paper does not clearly carve out a goal for itself that has
+not already been achieved by other systems.  After reading it
+carefully (and re-reading several parts), I still could not figure out
+what is supposed to be the concrete benefit of the authors' system
+over the many that have come before.  The examples given (concurrent
+incrementation and ticketed locks) are too simple to be convincing --
+other systems can handle these examples easily (indeed, a variant of
+the ticketed locks example is proven in the paper on Concurrent
+Abstract Predicates), and in fact other systems can handle much more
+interesting and tricky examples.  So the technical complexity of the
+authors' system, while interesting in detail, is not well motivated,
+and it is unclear to me what has been gained.
+
+The problems start in the introduction.  The authors set up the paper
+with a motivation that is largely similar to that of the Local
+Rely-Guarantee (LRG) paper by Feng that they rightly cite up front.
+But then the motivation given for the authors' approach over LRG (and
+the other recent approaches like CAP and CaReSL) is something vague
+about subjectivity and communication.
+
+- Subjectivity is motivated by enabling one to support rely-guarantee
+reasoning via separation and a rule similar to the parallel
+composition rule of CSL instead of a "monolithic" RG rule.  Fine, but
+other recent systems (e.g. CAP, CaReSL) also support rely-guarantee
+reasoning via "fictional" separation and a parallel composition rule
+(using fractional permissions, tokens, etc.) instead of a monolithic
+RG rule as well -- subjectivity is not the only way to do this, so
+supporting subjectivity does not seem to me to be an end in itself.
+
+It's worth noting that, in the original SCSL paper (POPL'13),
+subjectivity was motivated as a way of supporting *coarse*-grained
+concurrent reasoning in a supposedly simpler way than CAP and its
+descendants.  That paper argued that the more subtle, explicit forms
+of RG reasoning used by CAP should not be necessary for coarse-grained
+reasoning, and it argued that subjectivity simplified such reasoning.
+I'm not sure I ever bought that argument, but in any case the present
+paper is concerned primarily with reasoning about fine-grained
+concurrent code.  So the argument for subjectivity given in the SCSL
+paper is not clearly relevant.
+
+What do other approaches that mix RG and separation lose by not being
+able to make assertions about both a thread's local auxiliary state
+and its environment's?  What programs can they not verify, or not verify
+cleanly?  The present paper never comes out clearly and explains this
+point, and it seems really central!  Otherwise, the work is simply not
+well motivated.
+
+- As for communication via entanglement, it seems to be needed
+specifically in order to compose larger STS out of smaller ones.  I
+could believe that this part is interesting, since previous systems
+have not focused much on composability of resource invariants.  But at
+least based on the examples in this paper it's simply not well
+motivated or explained.  What does the ability to compose STS out of
+smaller ones buy you?  The examples in the paper are so simple that,
+to handle them in other recent systems, one can directly formulate
+invariants/STSs for them without difficulty, and in fact doing so seems
+simpler to me than constructing the invariants as entanglements of a
+bunch of smaller STSs.
+
+In summary: to make a case for the approach proposed in this paper,
+the authors would really need to present some compelling examples that
+highlight limitations of previous systems, not just assume that the
+various elements of their proposed logic are self-evidently necessary.
+This is especially the case given that the proposed logic is far from
+simple, e.g. like SCSL, it requires two distinct forms of separating
+conjunction, whereas other recent logics do not.
+
+
+My remaining comments have to do with the characterization of related
+work, which I find confusing and troublesome:
+
+- The authors make a big deal about hiding/scoping of resource
+invariants being important, and they claim that CAP and other systems
+do not support them.  I don't understand this.  As far as I can tell,
+the functionality of the authors' hiding mechanism can be coded up in
+existing systems.  In, say, CAP or CaReSL, if a thread wants to hide
+the existence of an STS invariant it has created once its computation
+is finished, it can just employ an STS invariant with a "final"
+transition at the end: the final transition would take the STS to a
+state where the STS owns nothing and the resource has been transferred
+back to the thread's local state.  To make this work, you would need a
+permission/token of some kind that the thread holds in its local
+state, ensuring that only the thread itself is permitted to make this
+final transition (i.e. that no environment thread can).  After this
+final transition is taken, the STS invariant would still *exist*, but
+it would be essentially as if it had been removed, since no further
+transitions would be possible and the invariant would not own any
+shared state.  Why isn't this sufficient?  Am I missing something?
+
+- In comparing to CAP and CaReSL, the authors write that: "Thus there
+is a subtle mutual recursion in a protocol definition between an
+action and the capability to perform the action. A recurring pattern
+for this approach is quantification over all possible capabilities and
+placing them in a shared region, to be used up if needed in the
+execution of the protocol."
+
+Can the authors elaborate further with a concrete example, and explain
+why this approach is supposedly so complicated in comparison to
+subjective auxiliary state?  I don't understand what this
+"quantification over all possible capabilities" is referring to, or
+why it is supposedly difficult to work with.
+
+- Further on in related work, the authors write: "In contrast with CAP
+and their successors, FCSL does not require capabilities to perform
+actions, as these are naturally represented in the self and other
+views associated with a resource (and can also be seen as auxiliary
+state). Such auxiliary state is simpler than capabilities; it is not
+subject to ownership transfer, and there is no need to quantify over
+all capabilities. In our experience, this simplicity extends to the
+specification of invariants and transitions, and to the proofs of
+stability."
+
+The ability to transfer ownership of capabilities in CAP and
+successors is generally useful for verifying algorithms where
+different threads dynamically take on different roles in the course of
+execution.  I'm still rather confused about what is supposedly so
+complicated about it, in particular this business about quantifying
+over all capabilities.
+
+- Further on, the authors write: "The burden of stability proofs is
+further reduced in FCSL by formulating private heaps as a separate
+concurroid that one may, but need not, entangle with."
+
+It's worth noting that CaReSL avoids the need for stability proofs
+altogether, by limiting assertions to lower bounds on STS states.
+The authors should mention this and compare.
+
+- In the comparison with CaReSL, the authors claim that CaReSL's
+"token" mechanism introduces a "modicum of subjectivity", except that
+it only allows assertions on self-owned tokens, not other-owned
+tokens.  This is true, but (a) CaReSL's tokens are essentially similar
+to CAP's permissions, so doesn't CAP also introduce a modicum of
+subjectivity?  and (b) again, what is subjectivity buying you in
+reasoning about fine-grained concurrency?  The latter is really the
+central question not answered by the paper.
+
+----------------------- REVIEW 3 ---------------------
+PAPER: 35
+TITLE: Communicating State Transition Systems for Fine-Grained Concurrent Resources
+AUTHORS: (anonymous)
+
+
+----------- REVIEW -----------
+The paper presents a logic -- Fine-grained Concurrent Separation Logic (FCSL) -- for the verification of fine-grained (as well as coarse-grained) concurrent programs. The key idea is the extension of the logic of [11] with: 1) the notion of resources from CSL; and 2) a RG-style interface, exposing the possible interference that the resources expect, and expose. The underpinnings of [11] enable the composition of different FSCL resources in a modular way, as well as the composition of a resource with different environments. This is a significant extension to [11]. The logic has been encoded in the Coq proof assistant, and examples of it's use are illustrated in the paper.
+
+I think this paper should be accepted.
+
+
+Commentaries.
+
+I think the paper makes a significant contribution with respect to the previous work of some of the authors [11]. I particularly appreciated the treatment for private state as another concurroid, the capability of entangling different resources, and the possibility of hiding concurroids from the program environment. The paper is amenable to readers familiar with existing approaches to logics for concurrent program verification, and for the other readers the introduction illustrates the main problems that are solved by this approach.
+
+I have a couple of doubts that I would have liked to see addressed in the paper:
+1 - What is the expectation on expressing data structures as a PCM? I understand this is necessary for compositionality of the different views, but I can imagine that many commonly used concurrent data structures (like stacks or queues) have constructive and destructive operations, which I are not necessarily expressible as a PCM. Is that right? It is unclear to me how to construct a sensible PCM to combine operations of the different views of these data structures.
+2 - When defining the external actions of data structures, is it always clear what these actions should be? It seems from the examples in the paper, that these external actions are built to work with the subsequent usages of the entangling rule. However, when writing a library, one does not always know what the usage of the library will be. Do these "interfaces" have to be rebuilt for each particular proof? or is there a generic way to know which these actions should be?
+
+If possible I would recommend the inclusion of the requirements of the \Phi function in Section 3, otherwise it's hard to have a feeling of how usable the hiding rule really is. I do understand however that space limitations make this hard.
+
+Finally, I understand that the logic has been formalized in the Coq theorem prover, but it's soundness has only been proved in paper in Appendix F, and that is fine. However, I think that the statement about the formalization, right after the statement of Theorem 1, can mislead the reader into believing that the soundness has been proved in Coq (I myself believed that at first). Although the paper does not have misleading claims, I think it should be made clear that the proof is not formalized.
+
+Minor comment:
+After each of the displays you should add a comment "%" to make the following sentence have the proper indentation. Notice how after each of your displays there is an extra white space before the next sentence of the continuing paragraph.
+
+----------------------- REVIEW 4 ---------------------
+PAPER: 35
+TITLE: Communicating State Transition Systems for Fine-Grained Concurrent Resources
+AUTHORS: (anonymous)
+
+
+----------- REVIEW -----------
+The authors develop a general and modular model of concurrent computations with shared memory,
+with the ambition to apply the ideas and methods of Concurrent Separation Logic to a finer grained
+analysis of interference -- traditionally established by applying Rely and Guarantee techniques.
+
+To that purpose, the paper introduces a series of interesting and pretty abstract ideas
+based on algebraic constructions (like an interfering product) on a structure which the authors
+call concurroid and which represents a collection of resources.
+
+I am still working in order to understand the details of the various constructions,
+but I am already happy with what I get from the paper. I also think that there is
+currently a lot of work in the community in order to extract the appropriate abstract
+notions behind the various specification logics (typically based on Hoare logic)
+for high and low level languages currently existing.
+This is an extremely important topic and the paper seems to bring new ideas to light,
+in its focus on a subjectivity-based analysis of threads and resources.
+
+From that point of view, although I do not fully understand it at this stage (but I am working hard on it)
+I already think that it would make a nice and interesting paper for this ESOP conference.

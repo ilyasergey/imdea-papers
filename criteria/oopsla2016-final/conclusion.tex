@@ -1,0 +1,76 @@
+%\vspace{-4pt}
+
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+%\vspace{-2pt}
+
+We have presented a number of formalization techniques, enabling
+specification and verification of non-linearizable concurrent objects
+and their clients in Hoare-style program logics.
+%
+All the explored reasoning patterns involve the idea of formulating
+execution histories as auxiliary state, capturing the expected
+concurrent behavior.
+%
+We have discovered that quantitative logic-based reasoning about
+concurrent behaviors can be done by storing relevant information about
+interference directly into the entries of a logical history.
+
+We believe that our results help to bring the Hoare-style reasoning
+into the area of non-linearizable concurrent objects and open a number
+of exciting opportunities for the field of mechanized logic-based
+concurrency verification.
+
+For instance, in this paper we have deliberately chosen to focus on
+simple client programs to showcase the specs we gave to concurrent
+libraries. However, any larger program incorporating these examples
+can be verified compositionally in FCSL, out of \emph{these clients'
+  specs}, via the substitution principles of
+FCSL~\cite{Nanevski-al:ESOP14,Sergey-al:PLDI15}, without the need to
+deal with concepts such as histories and tokens that are specific to
+particular libraries. We believe that the reasoning patterns we have
+described will be useful for mechanical verification of larger
+weakly-synchronized approximate parallel
+computations~\cite{Rinard:RACES}, exploiting the QC and QQC-like
+behavior.
+
+Furthermore, by ascribing interference-sensitive quantitative specs in
+the spirit of~\eqref{eq:qc-spec} to relaxed concurrent
+libraries~\cite{Henzinger-al:POPL13}, one can assess the applicability
+of a library implementation for its clients: the clients should
+tolerate the anomalies caused by interference, as long as they can
+logically infer the desired safety assertions from a library spec,
+which is fine-tuned for particular usage scenarios.
+
+
+% Since logical approaches enable reasoning about higher-order
+% concurrent data
+% structures~\cite{Svendsen-al:ESOP13,Turon-al:ICFP13,Sergey-al:ESOP15},
+% we envision the possibility of giving parametric logical specs to such
+% generic relaxed constructions as diffracting/elimination
+% trees~\cite{Shavit-Touitou:TCS97,Shavit:CACM11} that, once
+% instantiated with suitably specified stacks or pools on the leaves,
+% would yield a provably correct, highly scalable concurrent container
+% implementation.
+
+%\vspace{5pt}
+\paragraph{Acknowledgements}
+
+%\acks
+
+We thank the anonymous reviewers from OOPSLA'16 PC and AEC for their
+feedback. 
+%
+We are grateful to Yannis Smaragdakis for his efforts as OOPSLA PC
+chair and to Sophia Drossopoulou for her dedication to bring out the
+best of the paper.
+%
+This research was partially supported by the Spanish MINECO project
+RISCO (TIN2015-71819-P) and the US National Science Foundation
+(NSF). Any opinion, findings, and conclusions or recommendations
+expressed in the material are those of the authors and do not
+necessarily reflect the views of NSF.
+
+
+

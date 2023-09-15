@@ -1,0 +1,408 @@
+###########################################################################
+ROUND 1
+###########################################################################
+
+===========================================================================
+                           PLDI '15 Review #73A
+                     Updated 7 Dec 2014 7:07:43pm EST
+---------------------------------------------------------------------------
+   Paper #73: Mechanized Verification of Fine-grained Concurrent Programs
+---------------------------------------------------------------------------
+
+                      Overall merit: 2. Accept
+                         Conviction: 2. Low
+
+                         ===== Paper summary =====
+
+
+This paper presents verification case studies using a Coq-based tool
+implementing FCSL, a framework described in an ESOP14 paper. The main
+example (a parallel spanning tree) includes a mixture of common
+techniques for graph algorithms with resource-based concurrency
+analysis.
+
+                        ===== Points in favor =====
+
+Informative about prospects for FCSL verification
+
+                        ===== Points against =====
+
+Unclear relevance for PLDI
+Not much strictly novel
+
+                      ===== Comments for author =====
+
+
+The main goal of this paper appears to be to demonstrate the
+practicality and range of FCSL. As such, it partially succeeds: As
+someone familar with but not expert in resource-based approaches to
+concurrency analysis/verification, I felt that I could follow but
+probably not perform them myself after reading this (especially given
+the surprising amount of required lemmas etc that I noticed scanning
+through the appendix containing full derivations).
+
+It is difficult to evaluate the correctness of this kind of paper.
+The authors appear to be familiar enough with the details of this new
+language/tool to use it effectively (moreso than any reader). I didn't
+notice any obvious problems beyond a few typos here and there. On the
+other hand, (see esp sec 5) the authors note that they are only
+starting to develop productive idioms and patterns that may apply in
+practice.
+
+The work in this paper seems informative, and I profited from reading
+it, but I'm uncertain about its qualifications as a PLDI paper.  A
+more clearly appropriate and compelling paper might extract from
+experiences to more clearly lay out which concurrent verification
+problems are considered to be solved (in various senses), and which
+remain.  Also, Sec 7 is not especially forthcoming about how FCSL
+differs from related approaches. Even after (lightly) reading the
+associated ESOP14 paper, I have only a fuzzy feeling of why using
+"self" and "other" categories may be an improvement over CAP and its
+successors. And similarly on whether the lack of explicit support for
+atomicity matters.
+
+The non-standard use of the term "work-stealing" (starting on p1), to
+cover several cooperative helping techniques, seems fine, but the
+paper should more carefully explain the essential underlying
+commonality.
+
+===========================================================================
+                           PLDI '15 Review #73B
+                     Updated 12 Dec 2014 1:37:23pm EST
+---------------------------------------------------------------------------
+   Paper #73: Mechanized Verification of Fine-grained Concurrent Programs
+---------------------------------------------------------------------------
+
+                      Overall merit: 1. Reject
+                         Conviction: 2. Low
+
+                         ===== Paper summary =====
+
+The paper presents a tool based on FCSL (a library/DSL embedded in
+Coq) for automatic verification of concurrent programs that use, for
+example, compare-and-swap operations.
+
+                        ===== Points in favor =====
+
+The tool has been built, tested on examples, and its performance
+measured.  The running example (pruning a DAG down to a spanning tree)
+is a good choice and easy to follow.  References and related work are
+more than adequate.
+
+                        ===== Points against =====
+
+The need for PCM is not well explained or motivated.  The description
+of pointer types is confusing.
+
+                      ===== Comments for author =====
+
+The syntax of the pseudocode in Figure 1, and the explanation of its
+semantics in the text, are confusing. The use of "&" will inevitably
+remind readers of the C language, but the explanation in the text does
+not match the terminology or implementation of C.  The argument x is
+described as "a pointer to a node in the graph", but then the next
+paragraph says that the *value* of each pointer is a triple.  Perhaps
+you mean that the "target" of the pointer, or the node pointed to, is
+a triple; I would interpret the phrase "value of the pointer" to refer
+to the representation of the pointer itself: perhaps it consists of a
+machine address and some type information, for example.  This
+(presumably unintended) interpretation is only confirmed by the use of
+"." rather than "->" in the pseudocode.  I recommend that you choose
+either C or Pascal syntax as the model for your pseudocode; do not
+attempt to mix them.
+
+page 3, section 2.2: It is not clear why you insist on speaking of a
+*partially* commutative monoid.  (1) The paper does not appear to rely
+anywhere on a monoid that is only partially commutative, so why not
+speak of simply a commutative monoid?  (2) The paper does not even
+seem to rely particularly on commutativity, so why not speak of simply
+a monoid?  (3) The paper does not even seem to rely on monoids in
+general, but only on the particular case of (disjoint) set union.  Why
+speak at all of monoids in general?  In other words, unless you can
+explain otherwise, it seems that you have dragged in a lot of
+algebraic generality that is simply not needed.
+
+===========================================================================
+                           PLDI '15 Review #73C
+                     Updated 12 Dec 2014 5:38:42pm EST
+---------------------------------------------------------------------------
+   Paper #73: Mechanized Verification of Fine-grained Concurrent Programs
+---------------------------------------------------------------------------
+
+                      Overall merit: 2. Accept
+                         Conviction: 2. Low
+
+                         ===== Paper summary =====
+
+Fine-grained concurrent separation logic has been proposed earlier as
+a program logic for reasoning about concurrent programs.  This paper
+presents a tool based on this logic implemented as a Coq library.
+Extracting executable code has not been implemented though.
+
+                        ===== Points in favor =====
+
+- a tool has been built
+- reasonable number of case studies
+
+                        ===== Points against =====
+
+- difficult to understand; requires deep familiarity with the
+  underlying logic; in particular, I couldn't understand the role of
+  concurroids
+
+                      ===== Comments for author =====
+
+In the introduction, you listed four items "custom resource
+protocols", "interference and stability", "work stealing", and
+"auxiliary state".  This list does not look standard to me.  While
+interference and stability seem classical problems in concurrency
+reasoning, the other seem like the outcome of more modern thinking.
+Is there any reason to believe that this list has stabilized now and
+by accounting for all these issues, we can build a concurrency
+verifier that can scale to non-toy code bases?  Should "composition of
+concurrent resources", discussed only in passing in Section 4, be
+added to this list?  I imagine that many resources would be needed in
+implementing large concurrent programs.
+
+
+###########################################################################
+ROUND 2
+###########################################################################
+
+
+===========================================================================
+                           PLDI '15 Review #73D
+                     Updated 5 Jan 2015 9:34:44am EST
+---------------------------------------------------------------------------
+   Paper #73: Mechanized Verification of Fine-grained Concurrent Programs
+---------------------------------------------------------------------------
+
+                      Overall merit: 1. Reject
+                         Conviction: 1. High
+
+                         ===== Paper summary =====
+
+This paper presents a framework for mechanized verification of
+ fine-grained concurrent programs based on the Fine-grained Concurrent
+ Separation Logic (FCSL) proposed by Nanevski et al.  FCSL is a
+ library and an embedded domain-specific language (DSL) in the
+ dependently-typed language of Coq proof assistant.
+
+FCSL’s specification model is based on two basic constructions:
+state-transition systems (STSs) and partial commutative monoids
+(PCMs). The former describe concurrent protocols and thread
+interference, whereas the latter provide a generic treatment of shared
+resources and thread contributions, making it possible to encode, in
+particular, the work stealing pattern.  FCSL’s specification fragment
+is based on the propositional fragment of Calculus of Inductive
+Constructions (CIC).
+
+
+The soundness of FCSL as a logic has been proven in Coq with respect
+to a version of denotational semantics for concurrent programs in the
+spirit of Brookes. Moreover, since FCSL program specs are encoded as
+Coq types, the soundness result scales to the entire language of Coq,
+not just a toy core calculus. This ensures the absence of bugs in the
+whole verification tool and, as a consequence, in any program, which
+is verified in it.
+
+                        ===== Points in favor =====
+
+The verification of concurrent programs is an important issue.
+
+                        ===== Points against =====
+
+The proposed framework is based on an already known logic.
+
+===========================================================================
+                           PLDI '15 Review #73E
+                     Updated 16 Jan 2015 4:21:29am EST
+---------------------------------------------------------------------------
+   Paper #73: Mechanized Verification of Fine-grained Concurrent Programs
+---------------------------------------------------------------------------
+
+                      Overall merit: 2. Accept
+                         Conviction: 1. High
+
+                         ===== Paper summary =====
+
+This paper presents a system for doing mechanical verification of
+fine-grained concurrent programs. Building on previous work on FCSL
+(fine-grained concurrent separation logic) by Nanevski et al. as well
+as partial commutative monoids, it develops a Coq-based embedding that
+is expressive enough to encode a wide variety of complex concurrent
+programs. The approach is presented using detailed case studies and
+evaluated on a suite of small benchmark programs.
+
+                        ===== Points in favor =====
+
+* The exposition of this paper is beautiful. The writing is clear,
+  there are well-chosen examples, and the code snippets illustrate the
+  key points. A secondary contribution of this paper could be to serve
+  as a tutorial introduction to Coq, concurroids, etc. The paper also
+  includes a model related work discussion that is comprehensive in
+  its scope.
+
+* The system represents a significant engineering artifact, with
+  17KLoc of Coq code and proofs.
+
+* The examples used in the evaluation demonstrate the feasibility of
+  verification as well as the modularity offered by this approach.
+
+                        ===== Points against =====
+
+* The formal system has been developed previously. As best I could
+  tell, there are no new conceptual innovations at the level of the
+  logic itself.
+
+* Despite my positive comments about exposition above, focusing on
+  case studies does have one disadvantage: one doesn't see formal
+  descriptions of the main abstractions.
+
+                      ===== Comments for author =====
+
+This paper was a delight to read and one of the best on my review
+stack. It successfully attacks a timely problem -- verification of
+fine-grained concurrent programs -- in the context of a mechanical
+proof assistant. Although it builds on previous techniques, the
+engineering contribution to develop all of the necessary machinery to
+apply these techniques in Coq is substantial. I very much hope the
+paper will be accepted to PLDI.
+
+A mild critique is that the paper essentially assumes that the reader
+is familiar with Hoare-style reasoning and concurrent separation
+logic. It would be stronger if it could somehow present a modest
+formalization rather than having to include pointers to previous
+papers. (However, I am extremely sympathetic to the constraints
+imposed by the PLDI '15 format.)
+
+Another way in which the paper could be stronger would be to describe
+some of the other case studies besides the spanning tree function in
+further detail. Section 4 was fun to read, but perhaps there is room
+for even more?
+
+Just to make sure I understand: the "-" entries in Table 1 indicate
+that the corresponding component was not needed for that example?
+
+===========================================================================
+                           PLDI '15 Review #73F
+                     Updated 19 Jan 2015 6:21:22am EST
+---------------------------------------------------------------------------
+   Paper #73: Mechanized Verification of Fine-grained Concurrent Programs
+---------------------------------------------------------------------------
+
+                      Overall merit: 2. Accept
+                         Conviction: 2. Low
+
+                      ===== Comments for author =====
+
+The work described in this paper is impressive: mechnically verified
+proofs of correctness of fine-grained concurrent programs. The paper
+is very well written, uses a good running example to illustrate the
+methods, and has a good overview of related work. I like the proof
+technique, which is surprisingly simple and intuitive -- although,
+it's possible that there is a lot of Coq complexity hiding behind.
+
+However I am left with a feeling that something is missing - there
+must be a high-level explanation of the ideas behind the logic and
+proof technique that would form an essential part of the conference
+*presentation* of this paper, but which is missing from the paper
+itself. The authors try very hard to explain aspects of Coq and their
+use of it to a PLDI audience ("dependent record [is] a type-theoretic
+variant of a C struct" being a choice quote) but the *ideas* behind
+concurroids gets a little lost in the coding details. I think a few
+more diagrams would help (example STSs), more code-free examples
+(e.g. to explain Partial in PCM), and perhaps more explanation of why
+alternative approaches fail. But ultimately, there is no *formal*
+description of the logic, or other aspects (PCM, STS) of the
+methodology. Perhaps the authors believe that this would be out of
+place at PLDI. I disagree: it would aid understanding very much.
+
+Finally, I would like to see more explanation for why the techniques
+appear to be quite different from *separation logic*, in spite of the
+claim that "FCSL has been designed as a generalization of classical
+Concurrent Separation Logic". Why do we not see the use of separating
+conjunction, but rather the more explicit manipulation of heaps, heap
+domains, etc.?
+
+Minor remarks
+-------------
+
+Section 2.2, third para. "A state of each..." -> "The state of each..."
+
+Section 2.2, third para. "have to be elements of a PCM". Please define
+PCM. Why partial? I would like to see more motivation behind the PCM,
+and more examples (particular, one that is properly partial).
+
+Section 2.2, 5, transitions. It would help if a small figure was
+included showing the transition system.
+
+Section 2.2, Atomic actions. Suddenly we're talking about FCSL but I
+don't think that Figure 2 has been referenced yet. Please reference it
+at an earlier point.
+
+Figure 4, and Coq code in general, is rather small and hard to
+read. The colorization doesn't help, when printed in grayscale.
+
+Footnote 4. Crucial information (definition of pv_self etc.) is buried
+in this footnote. Please promote to main body of text!
+
+===========================================================================
+                           PLDI '15 Review #73G
+                    Updated 26 Jan 2015 11:31:36am EST
+---------------------------------------------------------------------------
+   Paper #73: Mechanized Verification of Fine-grained Concurrent Programs
+---------------------------------------------------------------------------
+
+                      Overall merit: 2. Accept
+                         Conviction: 1. High
+
+                         ===== Paper summary =====
+
+This paper presents a mechanized formalization of a sophisticated
+program logic for concurrency (FCSL) in the Coq proof assistant.  The
+formalization not only justifies the soundness of the logic, but has
+also been used to verify a number of challenging example programs
+within Coq.  The paper presents the formalization using a concurrent
+spanning tree algorithm as a case study.
+
+                        ===== Points in favor =====
+
+* To my knowledge, this is the first mechanized formalization that:
+  a) uses a sophisticated concurrent program logic (i.e. has a mechanism that supports resource-controlled protocols);
+  b) is proved sound in the proof assistant; and
+  c) demonstrably supports verifying functional correctness of programs within the proof assistant.
+Some sophisticated logics have been proved sound in Coq (e.g. Turon et al's GPS), but have not been used to verify programs within Coq.  Some less sophisticated logics support (b) and (c) (e.g. the Verified Software Toolchain of Appel et al.).
+* The logic supports tricky concurrency protocols (demonstrated by the spanning tree algorithm).
+* The logic supports a good deal of modularity:
+  - Libraries can be built on top of each other (producer/consumer on top of Treiber stack etc.);
+  - Libraries can also (at least) be parametrised by other libraries as in the case of the flat combiner, so some higher-order programming is supported.
+* The paper is clear and readable.
+* The accompanying proof scripts are replayable, and appear to do as described in the paper.
+
+                        ===== Points against =====
+
+* The Coq proofs of examples are generally long and difficult to
+  follow.  This suggests it would be very difficult for anyone other
+  than the author(s) to actually verify programs in the formalism as
+  provided.
+
+* Some more detail could perhaps be given to the model and soundness.
+
+                      ===== Comments for author =====
+
+The use of contractions (e.g. "don't", "what's", "that's") is generally frowned upon in formal writing.
+
+p3: "by the observing thread, and its environment" -- delete ","
+p4: "span_tp ... serves as the loop invariant as well" -- it is a recursive call, rather than a loop; perhaps "recursive specification" might be more accurate.
+p4: "or else, it won't" -- delete ","
+p5: Last paragraph.  I do not understand what is meant here.  Is it that the specification is relational?
+p6: "An alternative to this somewhat unique capability of dependent types, is" -- delete ","
+p7: "transitions too satisfy" -> "transitions also satisfy"
+p7: "The coherence predicate ... and the proofs of their properties, are" -- delete ","
+p9: "(from a fixed set of allowed operation[s])"
+p11: "residing in the shared state, between different threads" -- delete ","
+p11: "with a tool, which generates" -> "tool that generates"
+p11: "are a subject of a logical split" -- "the subject"?
+p11: "make the verification to be uniform" -- delete "to be"
+

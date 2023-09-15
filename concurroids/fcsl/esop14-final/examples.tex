@@ -1,0 +1,480 @@
+\section{Examples}
+\label{sec:examples}
+
+In this section we present a number of examples of reasoning in the
+framework of Concurrent Subjective Protocol Logic.
+
+% \subsection{CAS lock}
+% \label{sec:cas-lock}
+
+% \is{Do we need it here?}
+
+
+\subsection{Ticketed lock}
+\label{sec:ticketed-lock}
+
+In this section, we construct from scratch a concurroid for another
+famous locking algorithm: a ticketed lock\footnote{sometimes also
+  referred to as a version of Lamport's \emph{Bakery
+    Algorithm}~\cite[Section 2.6]{Herlihy-Shavit:08}}. Unlike the CAS-based
+spin lock, this algorithms, although simple, provides fairness
+guarantees for competing threads. We start by giving a simplified
+implementation of the algorithm and building the intuition about the
+\emph{shape} of the concurroid, implementing its protocol. 
+
+\paragraph{Reference implementation}
+\label{sec:refer-impl}
+
+As a reference implementation of the ticketed lock, we use the one
+from the work on Concurrent Abstract
+Predicates~\cite{DinsdaleYoung-al:ECOOP10}. 
+
+\begin{code}
+ lock = {                       unlock = {
+   n := INCRNXT;                INCROWN;         
+   while (!TRY(n)) skip;       }
+ }  
+\end{code} 
+
+The three \emph{atomic} actions \texttt{INCRNXT}, \texttt{TRY(n)}
+and \texttt{INCROWN} have the following operational meaning:
+
+\begin{code}
+ INCRNXT  = { tmp := next; next++; return tmp; }
+ TRY(n)     = { return (n = owner); }
+ INCROWN = { owner++; }  
+\end{code}
+
+As a minor difference, we assume the pointer to the lock structure
+being fixed and omit it from the code, referring instead to the two
+its essential fields: \texttt{owner} and \texttt{next}. These two
+fields are natural numbers, describing the state of the ticketed lock
+system. The intuition is similar to the organisation of the service in
+a bakery: \texttt{next} corresponds to the current ticket available at
+the dispenser (but not yet taken!), whereas \texttt{owner} indicates a
+ticket number, an owner of which is currently being served (or just
+about to be). Hence, the \texttt{lock} procedure corresponds to
+picking a ticked and an attempt to be served, whereas \texttt{unlock}
+corresponds to throwing the ticket away, so the next client could have
+a service (if there is one in a queue).
+%
+We also deliberately omit a procedure for \emph{making} the lock, as
+it can be naturally implemented and verified using the
+\emph{injection} mechanism, described above, so we postpone this part
+of the implementation till the end of this section. \is{Don't forget
+  to do it!}
+
+\paragraph{Intuition and the structure of the concurroid}
+
+The intuition for the construction of a ticketed lock concurroid can
+be built from the idea of \emph{splitting} the resources in the spirit
+of the Subjective Concurrent Separation
+Logic~\cite{LeyWild-Nanevski:POPL13}. What are the primary resources
+that a ticketed lock deals with? Those are tickets, of course! Some of
+them can be taken by a current thread, some by others. If we make an
+assumption that each ticket is thrown away right after its owner has
+been served, we will see a simple invariant: all tickets in the system
+are from the range $[n_1, n_2)$, where $n_1$ and $n_2$ are natural
+numbers, corresponding to the values of \texttt{owner} (currently
+being served or about to be) and \texttt{next} (next ticked to be
+issued), hence non-inclusion on the right side of the range.
+
+The concurroid for the ticketed lock is, therefore, is defined by the
+following state (omitting the labels \emph{self}, \emph{joint} and
+\emph{other} for the sake of brevity):
+%
+\[
+tl \mapsto [(\fs, \gs), \owner \mapsto n_1 \oplus \nxt \mapsto n_2 \oplus \mr
+\oplus \hr, (\fo, \go)]
+\]
+%
+Similarly to the spin lock, the joint component containing the protected
+shared heap $\hr$ and also the two pointers $\owner$ and $\nxt$
+describing the state of the dispenser and the queue. Moreover, the
+joint state features a \emph{ghost} element $\mr$, which is used to
+indicate whether the lock is currently in the \emph{unlocked} or
+\emph{locked} state, i.e., whether it \emph{owns} or not its protected
+heap $\hr$. 
+
+The \emph{self} and \emph{other} components have the same structure
+and are pairs of two PCMs: the PCM of \emph{finite sets} of natural
+numbers, accounting to the tickets ($\fs$ and $\fo$) and a generic PCM
+accounting in order to the invariant associated with this particular
+lock (see~\cite{LeyWild-Nanevski:POPL13} for more details). Using
+finite sets of natural numbers is very natural. Essentially $\fs \cup
+\fo$ corresponds to \emph{all} tickets now being issued by the
+dispenser. Of course, in order to make it a real PCM, we need to
+introduce some restriction to the $\oplus$ operation, namely 
+%
+\[
+\mathsf{f}_1 \oplus \mathsf{f}_2 = 
+\left\{
+\begin{array}{cl}
+\mathsf{f}_1 \cup \mathsf{f}_2  & \text{if }  \mathsf{f}_1 \cap \mathsf{f}_2 = \emptyset \\
+\bot & \text{otherwise}
+\end{array}
+\right.
+\]
+
+The \emph{ghost} element of the joined component $\mr \in
+\set{\lockOwn, \lockNown}$ should be familiar from the development of
+the CAS-based spin locks. 
+
+\paragraph{Coherence of the ticketed lock}
+
+The coherence predicate for the ticketed lock should define what the
+valid state of the system are. It is also parametrized by the
+invariant $I$ over a protected heap.  The definition of the coherence
+predicate (Figure~\ref{fig:tlock-trans}) is intuitive. First, at any time the last ticked served (or
+being served) should be less or equal to the next ticket available at
+the dispenser ($n_1 \le n_2$). In fact, the equality means that there
+is currently \emph{no} clients being served or waiting for the
+service, and the lock is just idling. In particular, this is the case
+at the very beginning of the work. Second, all current tickets are
+captured by the union $\fs \oplus \fo$ (which is empty if $n_1 =
+n_2$). Finally, the system can be in one of the three \emph{disjoint}
+states: $\locked$, $\transit$ or $\idle$. The first one means that
+some client with a ticket $n_1$ is being correctly served at the
+moment; the second means that there are clients in the system, but no
+service is now being performed (so-called ``transition state''); the
+third one indicates exactly the situation that the module is idling:
+there are no clients being served or waiting for the service. The
+disjointness of these three states is trivial to check.
+
+\paragraph{Transitions}
+\label{sec:transitions}
+
+
+\begin{figure*}
+\small
+
+\fbox{Coherence}
+\vspace{-12pt}
+
+\[
+\begin{array}{l}
+\coh_{\tlock~\tl} = 
+\left\{
+tl \mapsto [(\fs, \gs), \owner \mapsto n_1 \oplus \nxt \mapsto n_2
+\oplus \mr \oplus \hr, (\fo, \go)] 
+\left|
+\begin{array}{lc}
+n_1 \le n_2 & \wedge  \\
+\fs \oplus \fo = \set{n ~|~ n_1 \le n < n_2}  & \wedge  \\
+\either (\fs \oplus \fo, \gs \oplus \go, \mr, n_1, n_2, \hr) 
+\end{array} 
+\right. \right\} 
+\end{array}
+\]
+
+where
+\vspace{-18pt}
+
+\[
+\begin{array}{ll}
+\begin{array}{l}
+\either(\textsf{f}, \textsf{g}, \textsf{m}, n_1, n_2, h)  = 
+\left(
+\begin{array}{ll}
+\locked(\textsf{f}, n_1, \textsf{m}, h) & \vee \\
+\transit(n_1, n_2, \textsf{g}, \textsf{m}, h) & \vee  \\
+\idle(n_1, n_2, \textsf{g}, \textsf{m}, h) 
+\end{array}
+\right)
+\end{array}
+&
+\transit(n_1, n_2, \textsf{g}, \textsf{m}, h) =
+\left(
+\begin{array}{l}
+n_1 < n_2 ~\wedge~ n_1 \in \mathsf{f} ~\wedge~ \\
+\textsf{m} = \lockNown ~\wedge~ I(\mathsf{g}, h)
+\end{array}
+\right)
+\\ 
+\\
+\locked(\textsf{f}, n_1, \textsf{m}, h) =
+(n_1 \in \mathsf{f} ~\wedge~ h = \emp ~\wedge~ \textsf{m} = \lockOwn)
+&
+\idle(n_1, n_2, \textsf{g}, \textsf{m}, h) =
+(n_1 = n_2 ~\wedge~ \textsf{m} = \lockNown ~\wedge~ I(\mathsf{g}, h))
+\end{array}
+\]
+
+\line(1,0){500}
+\vspace{5pt}
+
+\fbox{Transitions}
+
+\vspace{-17pt}
+
+\[
+\begin{array}{lcl}
+\internal_{\tlock~\tl} & = &
+\left\{ 
+(s, s') ~\left|~ 
+\begin{array}{ll}
+    s = tl \mapsto [(\fs, \gs), \owner \mapsto n_1 \oplus \nxt
+   \mapsto n_2 \oplus \mr \oplus \hr, (\fo, \go)] & \wedge \\
+    s' = tl \mapsto [(\fs, \gs), \owner \mapsto n_1 \oplus \nxt
+   \mapsto n'_2 \oplus \mr \oplus \hr, (\fo, \go)]  & \wedge \\
+    s \in \coh_{\tlock~\tl} ~\wedge~ s' \in \coh_{\tlock~\tl}
+   ~\wedge~ \gbm{ n_2 \le n'_2 }
+\end{array} \right. \right\}
+\\ \\
+\acquire_{\tlock~\tl} & = &
+\left\{ 
+(s, s') ~\left|~ 
+\begin{array}{ll}
+    s = tl \mapsto [(\fs, \gs), \owner \mapsto n_1 \oplus \nxt
+   \mapsto n_2 \oplus \gbm{\lockOwn}, (\fo, \go)] & \wedge \\
+    s' = tl \mapsto [(\gbm{ \fs \setminus \set{n_1}}, \gs'), \owner \mapsto
+    \gbm{ n_1 + 1 } \oplus \nxt
+   \mapsto n'_2 \oplus \gbm{\lockNown} \oplus \gbm{\hr}, (\fo, \go)]  & \wedge \\
+    s \in \coh_{\tlock~\tl} ~\wedge~ \gbm{ n_1 \in \fs } ~\wedge~
+    \gbm{ (\gs' \oplus \go, \hr) }
+\end{array}  
+\right. \right\}
+\\ \\
+\release_{\tlock~\tl} & = &
+\left\{ 
+(s, s') ~\left|~ 
+\begin{array}{ll}
+    s = tl \mapsto [(\fs, \gs), \owner \mapsto n_1 \oplus \nxt
+   \mapsto n_2 \oplus \gbm{\lockNown} \oplus \gbm{\hr}, (\fo, \go)] & \wedge \\
+    s' = tl \mapsto [(\fs, \gs), \owner \mapsto n_1 \oplus \nxt
+   \mapsto n'_2 \oplus \gbm{\lockOwn}, (\fo, \go)]  & \wedge \\
+    s \in \coh_{\tlock~\tl} ~\wedge~ \gbm{ n_1 \in \fs }
+\end{array}  
+\right. \right\}
+\end{array}
+\]
+
+\line(1,0){500}
+\vspace{5pt}
+
+\fbox{Atomic actions}
+\vspace{-20pt}
+
+\[
+\begin{array}{l}
+\safe_{\incrnxt} = \set{s ~|~ s \in \coh_{\tlock~\tl}}
+\quad\quad
+\step_{\incrnxt} = \left\{ (s, s', n_2) \left|
+\begin{array}{ll}
+s \in \coh_{\tlock~\tl} \wedge \exists n_1, \fs, \fo, \gs, \go, \hr, \mr. &  \\
+s.\joint = \tl \mapsto \owner \mapsto n_1 \oplus \nxt  \mapsto \gbm{n_2} \oplus \mr \oplus \hr &  \wedge \\
+s.\joint = \tl \mapsto \owner \mapsto n_1 \oplus \nxt  \mapsto \gbm{n_2 + 1} \oplus \mr \oplus \hr &  \wedge \\   
+s.\self = \tl \mapsto (\gbm{\fs}, \gs) \wedge s'.\self = \tl \mapsto (\gbm{\fs \oplus \set{n_2}}, \gs) &  
+\end{array}
+\right.\right\}
+\\ 
+\\
+\begin{array}{l}
+\safe_{\incrown} = \left\{s ~\left|~ 
+  \begin{array}{ll}
+    s \in \coh_{(\priv~p) \bowtie (\tlock~\tl)} ~\wedge~ \exists n_1,
+    n_2, \fs, \gs, \hs, \ho, \hr.~~\gbm{n_1 \in \fs} & \wedge \\
+    s = p \mapsto [\hs \gbm{\oplus \hr}, (), \ho] \oplus \tl \mapsto [(\fs,
+    \gs), \owner \mapsto n_1 \oplus \nxt  \mapsto n_2 \oplus
+    \gbm{\lockOwn} ,(\fo,\go)]  & \wedge \\     
+    \gbm{\valid(\owner \mapsto (n_1 + 1) \oplus \nxt  \mapsto n_2
+      \oplus \hr)} \wedge \gbm{I(\gs \oplus \go, \hr)}
+  \end{array} 
+\right. \right\}
+\\ 
+\\
+\step_{\incrown} = \left\{(s, s', ()) ~\left|~ 
+  \begin{array}{ll}
+    s \in \coh_{(\priv~p) \bowtie (\tlock~\tl)} ~\wedge~ \exists n_1,
+    n_2, \fs, \fo, \gs, \go, \hs, \ho, \hr.~~\gbm{n_1 \in \fs} & \wedge \\
+    s = p \mapsto [\hs \gbm{\oplus \hr}, (), \ho] \oplus \tl \mapsto [(\fs,
+    \gs), \owner \mapsto n_1 \oplus \nxt  \mapsto n_2 \oplus
+    \gbm{\lockOwn} ,(\fo,\go)]  & \wedge \\     
+    s' =  p \mapsto [\hs, (), \ho] \oplus \tl \mapsto \left[(\gbm{\fs \setminus \set{n_1}},\gs),
+      \begin{array}{l}
+       \owner \mapsto \gbm{n_1 + 1} \oplus \\
+       \nxt  \mapsto n_2 \oplus \gbm{\lockNown \oplus \hr}
+      \end{array}
+    , (\fo,\go) \right]
+& \wedge \\     
+    \gbm{\valid(\owner \mapsto (n_1 + 1) \oplus \nxt  \mapsto n_2
+      \oplus \hr)} \wedge \gbm{I(\gs \oplus \go, \hr)}
+  \end{array}
+\right. \right\}
+\end{array}
+\\
+\\
+\begin{array}{l}
+\safe_{\tryn~n} = \left\{s ~\left|~ 
+  \begin{array}{ll}
+    s \in \coh_{(\priv~p) \bowtie (\tlock~\tl)} ~\wedge~ \exists n_1, n_2,
+    \fs, \fo, \gs, \go, \hs, \ho, \hr.~~\gbm{n \in \fs} & \wedge \\
+    s = p \mapsto [\hs, (), \ho] \oplus \tl \mapsto [(\fs,
+    \gs), \owner \mapsto n_1 \oplus \nxt  \mapsto n_2 \oplus \mr
+    \oplus \hr ,(\fo,\go)]  
+  \end{array} 
+\right. \right\}
+\\
+\\
+\step_{\tryn~n} = \left\{(s, s', \res) ~\left|~ 
+  \begin{array}{ll}
+    s \in \coh_{(\priv~p) \bowtie (\tlock~\tl)} ~\wedge~ \exists n_1, n_2,
+    \fs, \fo, \gs, \go, \hs, \ho, \hr.~~\gbm{n \in \fs} & \wedge \\
+    s = p \mapsto [\hs, (), \ho] \oplus \tl \mapsto [(\fs, \gs),
+    \owner \mapsto n_1 \oplus \nxt  \mapsto n_2 \oplus \mr \oplus \hr
+    ,(\fo,\go)]   & \wedge \\
+    (s', \res) =
+    \left\{\begin{array}{l}
+       (p \mapsto [\hs \oplus \hr, (), \ho] \oplus \tl \mapsto [(\fs, \gs), \owner
+        \mapsto n_1 \oplus \nxt  \mapsto n_2 \oplus \gbm{\lockOwn}
+        ,(\fo,\go)], \True)   \\   
+        \quad\quad \text{if } \gbm{\mr = \lockNown \wedge n = n_1} \\
+        (p \mapsto [\hs, (), \ho] \oplus \tl \mapsto [(\fs, \gs),
+        \owner \mapsto n_1 \oplus \nxt  \mapsto n_2 \oplus \mr
+        \oplus \hr,(\fo,\go)], \False)  \\
+        \quad\quad \text{otherwise} 
+    \end{array}\right.
+  \end{array} 
+\right. \right\}
+\end{array}
+\end{array}
+\]
+
+
+
+
+\caption{Ticketed lock concurroid: coherence predicate, transitions
+  and actions. The essential conditions are highlighted by grey
+  boxes. }
+\label{fig:tlock-trans}
+\end{figure*}
+
+The internal, acquire and release transition of the ticketed lock
+concurroid are presented in the middle part of
+Figure~\ref{fig:tlock-trans}.
+
+The internal transition relation accounts to the changes of the
+dispenser: the number of the next ticket to be issued ($n_2$) may only
+grow monotonically, hence the restriction on $n_2$ and $n'_2$. Also,
+the initial and the resulting state should conform to the coherence
+predicate.\footnote{The requirement $s' \in \coh_{\tlock~\tl}$ is a
+  design decision: we could have made it deducible from the structure
+  of $s'$, but it would needlessly complicate the definition of the
+  transition. }
+%
+The acquire relation is more interesting, as it corresponds to
+\emph{releasing} the lock by a client. Following the intuition, this
+transition happens simultaneously with incrementing the value of the
+$\owner$ owner cell, so the relation captures the fact that the served
+ticked is ``thrown away'' by updating the appropriate ghosts. It also
+requires the ticket $n_1$ to be present in $\fs$, to justify the fact
+of ``throwing away''. Naturally, the $\mr$ token changes from
+$\lockOwn$ to $\lockNown$, the heap $\hr$ appears in the resulting
+state, and the invariant $I$ is checked for the acquired heap and the
+augmented ghosts $\gs' \oplus \go$, which is standard for
+Owicki-Gries-style reasoning about critical sections. The coherence of
+$s'$ is omitted, as it can be inferred.
+%
+Finally, the release transition justifies the ownership transfer over
+the heap to the client if the current ticket to be served $n_1$ is in
+its local component.
+
+\paragraph{Designing actions}
+\label{sec:designing-actions}
+
+The way we designed transitions of the concurroid makes it easy to
+figure out the axioms for the atomic actions.  As is follows from the
+reference implementation at the beginning of the section, there should
+be three actions: for taking the lock, trying to acquire the resource
+and releasing the lock. 
+
+A major yet, we believe, justified design restriction is that
+\emph{all} of the actions should look like primitive \emph{read},
+\emph{write} of \emph{CAS}. Although our framework does not enforce
+this restriction, we follow it faithfully. The reason for this is
+clear: the listed primitives are well-understood and their power for
+establishing a consensus is known~\cite[Chapter
+5]{Herlihy-Shavit:08}. Moreover, this level of atomicity makes them
+easy to implement in hardware.\footnote{ The recent work on Concurrent
+  Abstract Predicate and its descendants
+  ~\cite{DinsdaleYoung-al:ECOOP10,Svendsen-al:ESOP13} do not
+  distinguish specific \emph{atomic} actions, allowing instead make
+  any command atomic by indicating that syntactically and proving the
+  stability with respect to the interference right in place. We
+  consider this approach indiscreet and cheating, as it, in fact,
+  equivalent to defining locks in terms of \emph{other} (implicit)
+  locks!  }
+
+Another important thing to note is the way the atomic actions are
+going to be used. Of course, we are going to employ them to implement
+the reference algorithm, but applications are possible. However, in
+any case, the actions will preserved the coherent structure of the
+concurroid and respect the transitions.
+
+For instance, one can think of an ``abusive'' lock algorithm that
+fetches several tickets consequently (by running \texttt{INCRNXT}) and
+then distributes them among its children.\footnote{One of the authors
+  witnessed this situation in a real bakery.} In fact, this scenario
+is perfectly valid for the concurroid, and we should design the
+actions in a way that make it possible, too.
+
+What about ``forging'' the tickets? What is one tries to be served
+without actually having a ticket? Thinking of this phenomenon in terms
+of the formal program verification gives an understanding that the
+precondition for the atomic action \texttt{TRY(n)} should check that
+the ticket number $n$ is actually in the possession of a thread
+(client) trying to be served (and this is what the
+$\release_{\tlock~\tl}$ transition accounts for, too).
+
+Actions are defined as relations of the form $\set{(s, s', \res)
+  ~|~ \ldots}$, where $s$ and $s'$ are initial and final states and
+$\res$ is a result of an action.
+%
+The action $\incrnxt$ (Figure~\ref{fig:tlock-trans}) just increments
+$n_2$ and update the appropriate map $\fs$ in the \emph{self} part of
+the state. Its stepping relation is naturally subsumed by the internal
+transition of the concurroid $\tlock~\tl$ and its precondition is just
+coherence. The action $\incrown$ is defined on the entanglement of the
+modules $\priv~p$ and $\tlock~\tl$. It increments the $\owner$ cell,
+but its specification is more subtle, as it essentially described the
+transfer of the ownership over the heaplet $\hr$ back to the ticketed
+lock concurroid. Naturally, it ensures that the current ticket $n_1$
+is in the local set $\fs$ of the thread as well as the invariant
+$I(\gs \oplus \go, \hr)$ being restored. The action $\tryn~n$ is the
+most interesting one. Its precondition do not restrict $\mr$ or $\hr$,
+but require that $n \in \fs$, accounting to the fact that one can
+\emph{try to get a service} with a ticket $n$ only when possessing
+such a ticket. It works like a CAS on a two-field cell $(\mr, \owner)$
+The stepping relation may have two outcomes:
+
+\begin{enumerate}
+\item $\mr = \lockNown \wedge n = n_1$ indicates exactly  the situation
+  when the resource $\hr$ is going to be acquired by the owner of the
+  ticket $n$, so the heap is transferred to $(\priv~p)$ and the result
+  is $\True$;
+\item Otherwise, it's either the very same thread trying to acquire
+  the resource again (that is $\mr = \lockOwn\ wedge n = n_1$), which
+  is prohibited, or \emph{another} thread is being or about to be
+  served (that is, $n \neq n_1$). In both cases nothing is transferred
+  to $(\priv~p)$ and the result is $\False$.
+\end{enumerate}
+
+It is not that difficult to check that $\incrnxt$ is a subset of the
+internal transitions of $(\tlock~\tl)$, whereas $\incrown$ and
+$\tryn~n$ fit to the internal transitions of $(\priv~p) \bowtie
+(\tlock~\tl)$. Also, one can check that all $\step_{-}$
+specifications are immune to \emph{erasure}, i.e., they are not
+affected operationally by different values of the \emph{ghost}
+elements, such as $\fs$ or $\gs$: those are only used in preconditions
+in order to check that the operation is \emph{safe} to run.
+
+\paragraph{Allocating and disposing a lock}
+\label{sec:alloc-disp-lock}
+
+\is{Elaborate on the injection rule}
+
+\subsection{Readers-writers}
+\label{sec:readers-writers}
+
+\is{Only sketch the protocol, if enough space. }
+

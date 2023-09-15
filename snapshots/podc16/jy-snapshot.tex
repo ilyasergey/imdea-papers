@@ -1,0 +1,93 @@
+%%\begin{wrapfigure}[9]{r}[0pt]{0.4\textwidth} 
+%% \begin{figure}
+%% %
+%% \centering
+%% \begin{tabular}{l l l}
+%% %
+%% %  
+%% \begin{minipage}[l]{.30\textwidth}
+%% \begin{alltt}
+%% \num{1}  write (p, v): () \{
+%% \num{2}    \act{write} (p, v);
+%% \num{3}    b <- \act{read} (S);
+%% \num{4}    \textbf{if} b 
+%% \num{5}    \textbfthen \act{transfer} (p, v);
+%% \num{6}    \textbf{else skip};\}
+%% \end{alltt} 
+%% \end{minipage}
+%% %
+%% & \hfill
+%% %
+%% \begin{minipage}[l]{.6\textwidth}
+%% \begin{alltt}
+%% \num{1}  scan (): \(A {\times} A\)  \{
+%% \num{2}    \act{write} (S, true);
+%% \num{3}    \act{write} (fx,\( \bot\));
+%% \num{4}    \act{write} (fy,\( \bot\));
+%% \num{5}    vx <- \act{read} (x);
+%% \num{6}    vy <- \act{read} (y);
+%% \num{7}    \act{write}(S, false);
+%% \num{8}    ox <- \act{read} (fx);
+%% \num{9}    oy <- \act{read} (fy);
+%% \num{10}   \textbf{let} rx = \textbf{if} ox \(\neq \bot\) \textbfthen ox \textbf{else} vx;  
+%% \num{11}   \textbf{let} ry = \textbf{if} oy \(\neq \bot\) \textbfthen oy \textbf{else} vy;  
+%% \num{11}   \act{relink}(rx, ry);
+%% \num{12}   \textbf{return} (rx, ry);
+%% \end{alltt} 
+%% \end{minipage}
+%% %
+%% \end{tabular}
+%% %
+%% \caption{Jayanti's single-scanner, single-writer snapshot algorithm}
+%% \label{fig:jayanti}
+%% \end{figure}
+%\end{wrapfigure}
+
+\newcommand{\actwrite}[2]{{#1}\,{:=}\,{#2}}
+
+% The following version saves a little more space
+\begin{figure}
+%
+\centering
+\begin{tabular}{c@{\hfill}c}
+%  
+\begin{minipage}[t][4.5cm][t]{.4\textwidth}
+\small
+\begin{alltt}
+\num{1} write (p, v) : () \{
+\num{2}  \actwrite{p}{v};
+\num{3}  b \tbnd \act{read}(S);
+\num{4}  if b 
+\num{5}  then \actwrite{(f\_of p)}{v}
+\num{6}  {else return} ()\}
+
+\num{7} f\_of (p : ptr) : ptr \{
+\num{8}  if (p = x)
+\num{9}  then return fx 
+\num{9}  else return fy \}
+\end{alltt}
+\end{minipage}
+%
+&
+%
+\begin{minipage}[t][4.5cm][t]{.6\textwidth}
+\small
+\begin{alltt}
+\num{10} scan (): \(A {\times} A\)  \{
+\num{11}  \actwrite{S}{true};
+\num{12}  \actwrite{fx}{\(\bot\)}; \actwrite{fy}{\(\bot\)};
+\num{13}  vx \tbnd \act{read}(x); vy \tbnd \act{read}(y);
+\num{14}  \actwrite{S}{false};
+\num{15}  ox \tbnd \act{read}(fx); oy \tbnd \act{read}(fy);
+\num{16}  rx \tbnd if (ox \(\neq\bot\)) then ox {else} vx;  
+\num{17}  ry \tbnd if (oy \(\neq\bot\)) then oy {else} vy;  
+\num{18}  return (rx, ry) \}
+\end{alltt} 
+\end{minipage}
+%
+\end{tabular}
+%
+\caption{Jayanti's single-scanner/single-writer snapshot algorithm.}
+\label{fig:jayanti-snapshot}
+\end{figure}
+

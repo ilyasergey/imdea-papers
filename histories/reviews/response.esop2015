@@ -1,0 +1,97 @@
+We thank the reviewers for the provided feedback, and respond to the
+raised concerns and questions below.
+
+=====[Reviewer #39A]======
+
+* Support for proof automation and the use of tactics.
+
+In our implementation we did not rely on any tactic automation besides
+what is already provided by Coq and Ssreflect. We used some automation
+based on dependently-typed programming with canonical structures (in
+the style of Gonthier et al., ICFP'11). In particular, we implemented
+generic "selectors" for concurroids' states (see the file getter.v of
+the Coq development), making it possible to use the label-points-to
+syntax for assertions in our Coq specifications. For illustration,
+please see the type of "push" in the file treiber.v and the spec (17)
+in the paper.
+
+* Are concurroid labels any different from object id's from the OO
+  setting?
+
+Although the analogy between labels and object id's might be
+appealing, these two concepts are not entirely the same. Similarly to
+object id's, labels are used to identify different copies of the same
+concurroid. However, an OO-style "object" (e.g., a stack) may span
+several concurroids. For instance our implementation of Treiber stack
+uses the "Treiber" concurroid (with a label "tb") and a concurroid for
+private heaps (labelled by "pv"). Concurroids can also be shared
+between objects (e.g., the concurroid for private heaps is used by
+almost every data structure).
+
+=====[Reviewer #39B]======
+
+The main concern of the reviewer is a mismatch between the Coq
+implementation and the proof outlines presented in the paper.
+
+We apologize that it was difficult to match the Coq proofs with the
+presented proof outlines. There are many tricks we had to employ in
+mechanization, that we could not explain in the paper, because we
+wanted to keep the discussion focused on the main idea of
+histories. The proof outlines for programs can be read off the Coq
+development by looking for applications of Floyd-style structural
+rules, implemented as lemmas in lemmas.v, one for each program
+command. For instance, "step" corresponds to the rule of sequential
+composition, "par_do" is a parallel composition rule (7), "val_do" is
+the the rule of function application, etc.
+
+We think that adding more documentation of the Coq code (which we are
+going to do) would have helped to point out the similarities between
+the specs in the paper and the specs in the Coq code. For now, as one
+example, we point out the similarity between spec "pop_tp" from
+treiber.v and the spec (17) from the paper.
+
+* How continuity of histories is enforced?
+
+As the reviewer correctly noticed, continuity of histories is ensured
+by a definition of the set of admissible states of a particular
+concurroid. While it is not mandatory to enforce it for any concurroid
+that makes use of the histories, we found it essential to have this
+property for the client-side reasoning (e.g., in the producer/consumer
+example).
+
+* What is the semantics of "-" in assertions?
+
+The notation "-" stands for an existentially-quantified variable that
+is irrelevant for the reasoning. We will clarify.
+
+=====[Reviewer #39C]======
+
+* Does one need to enforce continuity in any concurroid that uses
+  histories?
+
+The continuity is an essential property for the client-side reasoning,
+as we commented above. Since we did not consider clients of readPair,
+we could have weakened its concurroid to not enforce continuity of
+histories. However, for stacks we did build clients, and thus we
+needed the continuity, in particular, to ensure the absence of the ABA
+problem (which follows from continuity and "stacklike" predicates),
+and verify the spec of the producer/consumer client and the sequential
+spec (19). 
+
+* What is the relation between hindsight and deriving stability of
+  history-based specs?
+
+Our understanding of the hindsight lemma from [26] is that it states
+existence of a state in the past history of a data structure, which
+took place during the procedure's execution and justified its result.
+
+This is precisely the case in our proof of readPair's spec (Fig. 2),
+where such state is captured by the timestamp t2 and later proved to
+be a suitable one for the postcondition. The proof of our spec, thus,
+corresponds to establishing that the captured state indeed took place
+during the procedure execution. It is a stable assertion, which is
+derived from the fact that histories only grow by adding new entries,
+and from the monotonicity of versions (property (iii) from page 5).
+In this sense, readPair is very similar to the locate function from
+[26].
+

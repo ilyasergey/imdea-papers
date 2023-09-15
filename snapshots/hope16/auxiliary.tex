@@ -1,0 +1,367 @@
+\input{fcsl-snapshot}
+
+\section{Auxiliary code and sketch of the proof}
+\label{sc:implementation}
+
+%\paragraph*{Implementation}%
+
+Figure~\ref{fig:fcsl-snapshot} annotates Jayanti's procedures with
+auxiliary code (typed in \emph{italic}), with
+$\langle\mbox{angle braces}\rangle$ denoting that the enclosed real
+and auxiliary code execute \emph{simultaneously}. The auxiliary code
+builds the object histories and evolves the logical ordering in-place,
+while respecting the invariants from Section~\ref{sc:formal}. Thus, it
+is the \emph{constructive} component of our proofs.
+
+%
+%As customary, auxiliary code is \emph{erasable} at run time; it does
+%not mutate the real state.
+%
+%% We name auxiliary code as one would name procedure calls, and proceed
+%% to describe these procedures.
+%
+
+The auxiliary code is divided into several procedures, all of which
+are sequences of state reads followed by updates to auxiliary
+variables. We present them as Hoare triples in
+Figure~\ref{fig:auxcode}, listing reads in the precondition, and
+writes in the postcondition, with the unmentioned state considered
+unchanged. Following are the characteristic cases.
+
+%The main auxiliary is $\aux{relink}$ in {\tt scan} which decides the
+%correctness of snapshot, and whether or not the underlying order
+%$\tleq$ has to change. The rest of them are merely doing changes in
+%the auxiliary variables in order to provide $\aux{relink}$ with enough
+%information to operate. For completeness sake, we will introduce and
+%briefly describe all of them, but the reader might consider skipping
+%them and go straight down to focus on $\aux{relink}$. We start with
+%the auxiliary code for the {\tt write} method, as listed on the first
+%column in Figure~\ref{fig:fcsl-snapshot}:
+%
+
+%We present a Hoare-style specification of the auxiliary code so as to
+%provide an intuition on how the system evolves. We present the
+%auxiliary code transitions as if they act only on parts of the state
+%-- e.g. $\wstate{x}$, $\hist$ -- but in fact, they act on the whole
+%state of the resource and each of them is required to preserve the
+%invariants of the joint state described above. We begin with {\tt
+%write}'s auxiliary code:
+
+
+%
+%% \[
+%% \begin{array}{r c l}
+%% %% register
+%%  \{\ \hist= h,\ \histJ= j,\ \wstate{p} = \wInit\}
+%%   & \aux{register}(p,v) &
+%%   \{ \!\!\!
+%%   \begin{array}[t]{l}
+%%    \mathit{let}\ t = \mathsf{fresh}(\hist),\ w = t \hpts (p,v) \\
+%%    \mathit{in}\ \histJ= j \hunion w ,\ \wstate{p} = \wWrite\ t\\
+%%    \phantom{\mathit{in}}\ \hist = h \hunion (w,
+%%    \mathit{if}\, ({\mathtt S} \wedge S_p)\, \mathit{then}\
+%%     \mathbf{yellow}\ \mathit{else}\ \mathbf{red})\}
+%%   \end{array}\\
+%% %% checkS
+%%   \{\ \wstate{p} = \wWrite\, t\} & \aux{check}(p,b) &
+%%   \{\ \wstate{p} = \mathit{if}\ b\
+%%   \mathit{then}\ \wDirty\, t\ \mathit{else}\ \wClean\, t\}\\
+%% %% transfer  
+%%   \{\ \wstate{p} = \wDirty\, t,\ \hist = h\} & \aux{forward}(p) &
+%%   \{\!\!\!
+%%   \begin{array}[t]{l}
+%%    \wstate{p} = \wClean\, t,\\
+%%    \hist= \mathit{if}\ ({\mathtt S} \wedge S_p)\,
+%%    \mathit{then}\ (\mathsf{paint}\ [t]\ \mathsf{green}\ h)\ \mathit{else}\ h\}
+%%   \end{array}\\
+%% %% exit  
+%%   \{\!\!\! \begin{array}[t]{l}
+%%     \wstate{p} = \wClean\, t,\ \histS = h, \\
+%%     \histJ = j \hunion t \hpts (p,v), E = e\}
+%%   \end{array}\! & \aux{exit}(p) &
+%%    \{\!\!\! \begin{array}[t]{l}
+%%      \wstate{p} = \wInit,\ \histS = h \hunion t \hpts (p,v),\\
+%%      \histJ = j,\ E = e \hunion t \hpts \mathsf{max}\ \dom{\hist}\}
+%%    \end{array}
+%% \end{array}
+%% \]
+
+For example, $\aux{register}(p, v)$ creates the write event for the
+assignment of $v$ to $p$ in line~2. It allocates a fresh timestamp
+$t$, inserts the entry $t \mapsto (p, v)$ into $\histJ$, and adds $t$
+to the end of $\ordlist$, thus making $t$ be the last write event,
+until and unless $\ordlist$ is permuted later. The variable $\wpp$
+records that the writer finished line~2 with a fresh $t$. The color of
+$t$ is set to yellow (i.e., the rearrangement status of the event is
+left undetermined), if $(\sss= \sOn) \& \spp$, i.e., an active scanner
+is in line 10. Otherwise, $t$ is colored red, indicating that the
+logical order of $t$ will be determined by a future active scan.
+%
+%In line~3, $\aux{check}(p,b)$, depending on $b$, marks the current
+%write as $\wDirty$ (hence, a scan is in progress, and we should
+%forward the write), or as $\wClean$, and ready to terminate.
+%
+
+In line~5, \aux{forward} paints the allocated timestamp $t$ green, if
+an active scanner is in line~10, because such a scanner will
+definitely see the write, either by reading the original value in
+line~10, or by reading the forwarded value in line~12. Thus, the
+logical order of $t$ becomes fixed. In fact, it is possible to derive
+from the invariants in Section~\ref{sc:formal}, that this order is the
+same one $t$ was assigned at registration, i.e., the linearization
+point of this write is line~2.
+
+%
+%$\aux{Finalize}$ moves the current write event from the joint history
+%$\histJ$ to the thread's self history $\histS$, thus finalizing
+%it. The current maximum timestamp of $\hist$ is recorded in $\E$ as
+%the ending time of the event. 
+%
+
+%$\aux{setS}$ toggles the scanner state $\sss$ on and off. When
+%executed in line 11, it records the current maximum timestamp as
+%$\toff$. Note that this does not create a fresh timestamp, but rather
+%selects that of the last write event in $\hist$.
+%
+
+%The procedure $\aux{clear}(p)$ is executed in line~9 simultaneously
+%with clearing the forward pointer for $p$. In addition to recording
+%that the scanner passed line~9 by setting the $\spp$ bit, it paints
+%the sub-history $\histp$ green. Thus, all the previous writes to $p$
+%will be visible by the ongoing scan.
+%%, and hence accounted for in the remaining machinery of
+%%the scan, with their ordering being fixed forever.
+
+
+{
+\setlength{\belowcaptionskip}{-5pt}
+\begin{figure}[t]
+%
+\centering
+\begin{subfigure}[t]{1\textwidth}
+\small
+\[
+\begin{array}{l@{\, :\ } l}
+%% register
+ \aux{register}(p,v) &
+  \!\!\! \begin{array}[t]{l}
+   \{\ordlist = l,\ \histJ = j,\ \wpp = \wInit,\, \C = c\}\\ 
+   \{\ordlist = \mathsf{snoc}\ l\ t,
+     \histJ = j \hunion t \hpts (p,v), \wpp = \wWrite\ t,\\
+   \phantom{\{} C = \textrm{if}\ (\sss = \sOn) \& \spp\
+                    \textrm{then}\ c[t \mapsto \mathsf{yellow}]\
+                    \textrm{else}\ c[t \mapsto \mathsf{red})]\}
+   \ \mbox{\small{where $t = \mathsf{fresh}\ \hist$}}
+%c \hunion
+%(t \mapsto \textrm{if}\ \s \& \spp\ \textrm{then}\ \mathsf{green}\
+%\textrm{else}\ \mathsf{yellow})\}\quad\mbox{where $t = \mathsf{fresh}\ \hist$}
+  \end{array} \\[2.5pt]
+%% checkS
+ \aux{check}(p,b) & \{\wpp = \wWrite\ t\}\quad
+  \{\wpp = \textrm{if}\ b\
+  \textrm{then}\ \wDirty\ t\ \textrm{else}\ \wClean\ t\}\\
+%% transfer  
+  \aux{forward}(p) &
+  \!\!\! \begin{array}[t]{l}
+   \{\wpp = \wDirty\ t,\, \C = c \}\\ 
+   \{\wpp = \wClean\ t,\, %
+   \C= \textrm{if}\ (\sss=\sOn) \& \spp\ \textrm{then}\ c[t \mapsto \mathsf{green}]\ \textrm{else}\ c\}
+  \end{array}\\
+%% exit  
+  \aux{finalize}(p) &
+  \!\!\! \begin{array}[t]{l}
+  \{\wpp = \wClean\ t,\ \histS = h,\, %
+  \histJ = j \hunion t \hpts (p,v), E = e \}\\
+  \{\wpp = \wInit,\, \histS = h \hunion t \hpts (p,v),\, %
+     \histJ = j,\ E = e \hunion t \hpts \mathsf{last}\ \hist \}
+ \end{array}
+\end{array}
+\]\vspace{-8mm}
+\caption{\label{fig:writeauxcode}}
+\hrulefill
+\end{subfigure}
+\begin{subfigure}[b]{1\textwidth}
+\small
+\[\begin{array}{l@{\, :\ }l}
+%% setbit
+  \aux{setS}(b) &
+  \!\!\! \begin{array}[t]{l}
+            \{ \sss = \textrm{if}\ b\ \textrm{then}\ \sOff\ \_ \ 
+            \textrm{else}\ \sOn,\ \sx = \neg\, b, \sy = \neg\, b \}\\
+            \{ \sss = \textrm{if}\ b\ \textrm{then}\ \sOn\ %
+            \textrm{else}\ \sOff\ (\mathit{max}\, (\dom{H})),\
+             \sx = \neg\, b, \sy = \neg\, b \}
+
+\end{array}\\[2.5pt]      
+%% clear
+   \aux{clear}(p) &
+      \{\sss = \sOn,\ \spp = \FF,\ \C = c \}\quad
+      \{\sss = \sOn,\ \spp = \TT,\
+      \C = c[\histp \hpts \mathsf{green}] \}\\[2.5pt]
+%% re-link
+   \aux{relink}(r_x, r_y) &
+  \!\!\! \begin{array}[t]{l}
+    \{\sss = \sOff\ \toff, \C = c, \ordlist = l,\, %
+%      t_x = \admissible\ \histx, t_y = \admissible\ \histy, rx = \histx(t_x), r_y = \histy(t_y) \}\\
+        \hist = h \hunion t_x \hpts (x, r_x) \hunion t_y \hpts (y, r_y),\\
+      %% \ (t_x = \aux{last\_green}\ \histx \vee
+      %%     \C(t_x) = \mathsf{yellow}),
+      %% \ (t_y = \aux{last\_green}\ \histy \vee
+      %%     \C(t_y) = \mathsf{yellow}) \}\\
+      \ p \in \{x,y\}:\ \spp =\TT, (t_p = \aux{last\_green}\ \histp \vee
+                \C(t_p) = \mathsf{yellow})\}\\
+     \{\sss = \sOff\ \toff, \sx=\FF, \sy=\FF,%
+        \C = c[t_x, t_y \hpts \mathsf{green}],\\
+      \ \ordlist = \textrm{if}\ (d = \mathsf{Yes}\ x\ t')\
+                \textrm{then}\ \aux{push}\ t'\, t_y\, l\\
+                 \phantom{\ \ordlist =\ } \textrm{else\ if}\
+                 (d = \mathsf{Yes}\ y\ t')\ \textrm{then}\
+                 \aux{push}\ t'\, t_x\, l\ \textrm{else}\ l\}\
+  \quad \mbox{where $d = \aux{inspect}\ t_x\, t_y\, l\, \C$}
+  \end{array}
+\end{array}
+\]\vspace{-8mm}
+\caption{\label{fig:scanauxcode}}
+\end{subfigure}
+\caption{\label{fig:auxcode} Auxiliary procedures for (\subref{fig:writeauxcode}) {\tt write} and (\subref{fig:scanauxcode}) {\tt scan}. Small caps variables (e.g., $l$) record the pre-values of auxiliaries (e.g., $L$).}
+\end{figure}
+}
+
+
+The key auxiliary procedure of our method is $\aux{relink}$. It is
+executed just before the scanner returns the pair $(r_x, r_y)$. Its
+task is to modify the logical order of the writes, to make $(r_x,
+r_y)$ \emph{appear} as a valid snapshot. This will always be possible
+under the precondition of $\aux{relink}$ that the timestamps $t_x$,
+$t_y$ of the events that wrote $r_x$, $r_y$ respectively, are either
+the last green or the yellow ones in the respective histories $\histx$
+and $\histy$, and $\aux{relink}$ will consider all four cases. This
+precondition holds after line~14 in Figure~\ref{fig:fcsl-snapshot}, as
+one can prove from the algorithm invariants (e.g.,
+Propositions~\ref{inv:color} and~\ref{inv:readFP}).
+%
+%Given $(r_x,r_y)$, $\aux{relink}$ does is to identify their timestamps
+%$t_x$ and $t_y$. The precondition of $\aux{relink}$ ensures that this
+%is either the yellow or--- if there is no such ---the last green
+%timestamp in each of $\histx$ and $\histy$. This comes as a result of
+%Propositions~\ref{inv:color} and~\ref{inv:readFP} above, amongst
+%others.
+
+%% It starts by finding the timestamps $t_x$ and $t_y$ that are
+%% responsible for writing $r_x$ and $r_y$ into $\histx$ and $\histy$,
+%% respectively. There may be many such timestamps, but we focus on the
+%% ones that are yellow, or last green in the respective subhistories of
+%% their pointer. It follows from invariants (\ref{inv:forward}) and
+%% (\ref{inv:scanner}) that such must exist.
+%
+
+$\aux{Relink}$ uses two helper procedures $\aux{inspect}$ and
+$\aux{push}$, to change the logical order. $\aux{inspect}$ decides if
+the selected $t_x$ and $t_y$ determine a valid snapshot, and
+$\aux{push}$ performs the actual reordering. The snapshot determined
+by $t_x$ and $t_y$ is valid if there is no event $t'$ such that
+$t_x \tle t' \tle t_y$ and $t'$ is a write to $x$ (or, symmetrically
+$t_y \tle t' \tle t_x$, and $t'$ is a write to $y$). If such $t'$
+exists, $\aux{inspect}$ returns $\mathsf{Yes}\ x\ t'$ (or
+$\mathsf{Yes}\ y\ t'$ in the symmetric case). The reordering is
+completed by $\aux{push}$, which moves $t'$ right after $t_y$ (after
+$t_x$ in the symmetric case) in $\tleq$. Finally, $\aux{relink}$
+paints $t_x$ and $t_y$ green, to fix them in $\jleq{\ordlist}$. We can then
+prove that $(r_x, r_y)$ is a valid snapshot wrt.~$\jleq{\ordlist}$, and remains
+so under interference. 
+%
+Notice that the timestamp $t'$ returned by $\aux{inspect}$ is always
+uniquely determined, and yellow. Indeed, since $t_x$ and $t_y$ are not
+red, no timestamp between them can be red either
+(Proposition~\ref{inv:redzone}). If $t_x \tle t' \tle t_y$ and $t'$ is
+a write to $x$ (and the other case is symmetric), then $t_x$ must be
+the last green in $\histx$, forcing $t'$ to be the unique yellow
+timestamp in $\histx$, by Proposition~\ref{inv:color}.
+
+%
+To illustrate, in Figure~\ref{fig:reorder:before} we have $r_x = 2$,
+$r_y = 1$, $t_x$ and $t_y$ are both the last green timestamp of
+$\histx$ and $\histy$, respectively, and $t_x \tle t_y$. However,
+there is a yellow timestamp $t'$ in $\histx$ coming after $t_x$,
+encoding a write of $3$. Because $t_x \tle t' \tle t_y$, the pair
+$(r_x, r_y)$ is not a valid snapshot, thus $\aux{inspect}$ returns
+$\mathsf{Yes}\ x\ t'$, after which $\aux{push}$ moves $3$ after $1$.
+
+%Next, $\aux{relink}$ uses the helper procedure $\aux{inspect}$ to
+%decide if selected $t_x$ and $t_y$ determine a valid snapshot (i.e.,
+%there are no other events between $t_x$, $t_y$ that make $(r_x, r_y)$
+%not be a snapshot).
+%
+%By way of example, in Figure~\ref{fig:reorder:before} we have $r_x =
+%2$, $r_y = 1$, $t_x$ and $t_y$ are both the last green timestamp of
+%$\histx$ and $\histy$, respectively, and $t_x \tle t_y$. However,
+%there is a yellow timestamp $t'$ in $\histx$ coming after $t_x$,
+%encoding a write of $3$. Because $t_x \tle t' \tle t_y$, the pair
+%$(r_x, r_y)$ is not a valid snapshot. $\aux{inspect}$ will recognize
+%the situation, and indicate to $\aux{relink}$ that $t'$ has to be
+%reordered by returning $\mathsf{Yes}\ x\ t'$. The move is completed by
+%the helper function $\aux{push}$, which reorders $t'$ right after
+%$t_y$ in $\tleq$, as shown in Figure~\ref{fig:reorder:after}.
+%Finally, $\aux{relink}$ paints $t_x$ and $t_y$ green, to fix them in
+%$\jleq{\ordlist}$. We can then prove that $(r_x, r_y)$ is a valid snapshot
+%wrt.~$\jleq{\ordlist}$, and remains so under interference.
+
+% \gad{TO DO: The explanation for relink is still a bit too
+% long.}\gad{Do Do I need to explain all auxiliaries? we might consider
+% explaining only relink and pushing the rest to the appendices.}
+
+\begin{comment}
+%
+$\aux{relink}$ works as follows: first, the auxiliary function 
+$\mathsf{decide}$ checks $l$ to see if $t_x$ and $t_y$ form a valid 
+snapshot, in which case it will return $\mathsf{No}$ and then 
+$\ordlist = l$, else it will return $\mathsf{Yes}\ p\ t_r$, indicating 
+that there is a miss and that $t_r \in \hist_{p}$--- and is such that 
+$t_r \leq t_{\neq p}$ ---should be {\it pushed} in $\ordlist$ past 
+$t_{\neq p}$, the latter being $t_y$ if $p=x$, and vice 
+versa. Finally, the returned timestamps are painted green.
+
+
+
+In Figure~\ref{fig:relink}, we revisit the example from
+Section~\ref{sc:overview}, adding the colors to the time-stamps. There
+we see in Figure~\ref{fig:relink:before} that $(r_x,ry)$ points to
+$(2,1)$ and both timestamps are green. We notice that there is a
+yellow in between, $\mathsf{yellow}\, \histx$.  In
+Figure~\ref{fig:relink:after}, we see that it has been pushed after
+$r_y$.
+
+$\aux{Relink}$ works as follows: first, the auxiliary function 
+$\mathsf{decide}$ checks $l$ to see if $t_x$ and $t_y$ form a valid 
+snapshot, in which case it will return $\mathsf{No}$ and then 
+$\ordlist = l$, else it will return $\mathsf{Yes}\ p\ t_r$, indicating 
+that there is a miss and that $t_r \in \hist_{p}$--- and is such that 
+$t_r \leq t_{\neq p}$ ---should be {\it pushed} in $\ordlist$ past 
+$t_{\neq p}$, the latter being $t_y$ if $p=x$, and vice 
+versa. Finally, the returned timestamps are painted green.
+
+We clarify how $\mathsf{decide}$ works: without any loss of
+generality, assume $t_x \tleq t_y$. The pre-condition of
+$\aux{relink}$ says $t_x$ and $t_y$ are, respectively, the last green
+or yellow timestamps of $\histx$ and respectively $\histy$. From the
+latter facts facts and Invariant~\ref{inv:redzone}, we know that every
+timestamp in the chain from $t_x \tleq t_y$ will be green or yellow
+and there will be, at most, two yellow timestamps, one for each
+$\histx$ and $\histy$. Then, if $t_x$ is yellow, $\mathsf{decide}$
+will return $\mathsf{No}$-- if there are further elements in $\histx$,
+they will be in the red tail, and outside the chain-- e.g. the token 7
+in Figure~\ref{fig:relink}. Now, if $t_x$ is green and there is no
+yellow key in $\histx$, $\mathsf{decide}$ will return
+$\mathsf{No}$. If there is, we need to compare it with $t_y$: if
+$\mathsf{yellow}\ \histx \tle t_y$, as in Figure~\ref{fig:relink},
+$\mathsf{decide}$ will return $\mathsf{Yes}\ x\
+(\mathsf{yellow}\, \histx)$ and the latter will be pushed right after
+$t_y$ in \ordlist-- $\mathsf{push}$ implements the pointer-swing-like
+manipulation on $l$. Last, if $ t_y \tle \mathsf{yellow}\ \histx$
+there will be no $\mathsf{push}$ either.
+
+\end{comment}
+
+%% \gad{The figure might change to include the red-zone invariant as well,
+%%   as the endpoints if we need to}. Here give a proof-sketch on how
+%% re-link satisfies the invariants.

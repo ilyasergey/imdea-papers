@@ -1,0 +1,39 @@
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+% In this paper we have presented FCSL---a mechanized framework, based
+% on a Hoare-style logic, for specification and verification of
+% fine-grained concurrent programs.
+
+Our experience with implementing a number of concurrent data
+structures in FCSL indicates a recurring pattern, exhibited by the
+formal proof development.
+%
+Verification of a new library in FCSL starts from describing its
+invariants and evolution in terms of an STS. It's common to consider
+parts of real or auxiliary state, which are a subject of a logical
+split between parallel threads, as elements of a particular PCM.
+%
+Such representation of resources makes the verification to be uniform
+and compositional, as it internalizes the library protocol, so the
+clients can reason out of the specifications.
+
+This observation indicates that STSs and PCMs can be a robust basis
+for understanding, formalizing and verifying existing fine-grained
+programs. We conjecture that the same foundational insights will play
+a role in future designs and proofs of correctness of novel concurrent
+algorithms.
+
+% \ab{Shouldn't we re-emphasize the 4 points in the intro., uniformity,
+%   expressivity, ...?}
+%
+% \is{Okay, I incorporated the scalability here}
+
+% \ab{Have we convinced the reader that the self/other dichotomy is
+%   essential? May be a sentence or 2 needs to be added earlier and
+%   refer to the arXiv paper?}
+% %
+% \is{Hmm. I don't think that the PCMs are the main message of this
+%   paper. It's more about the whole methodology and a tool, which are
+%   scalable and bring new insights. So we say in the conclusion.}

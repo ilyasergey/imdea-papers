@@ -1,0 +1,32 @@
+Requirements for the 2nd version of this paper
+
+Dear Authors,
+
+Congratulations on your paper getting on to the second round. The
+opinions on your paper were divided, and therefore we would like you
+to take our requirements for the second version of your paper very
+seriously:
+
+1. Expand on the novel contributions compared to your past works
+[34,31,39]. Discuss the insight that led you to realize that you could
+use FCSL to work with lock free algorithms. You give a summary of this
+in your rebuttal, but you need to convince the readers that this
+merits a new paper.
+
+2. Start with the example from your response to motivate histories and
+FCSL.
+
+3. Compare with TaDa and CSL in terms of at least one example. Write out
+the major steps needed in these, and argue the advantages (and
+disadvantages) of the use of FCSL. If you argue that things cannot be
+done in TaDa or FCSL, then point to the part that cannot be done, and
+ideally also obtain confirmation from their authors that indeed it
+cannot be done.
+
+4. Address all other questions raised in the reviews.
+
+5. Overall, since this paper is about the use of FCSL in novel ways,
+and as you have extra pages for the paper, you may take the
+opportunity to explain to a wider audience.
+
+We are looking forward to the next version of this work.

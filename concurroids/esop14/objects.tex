@@ -1,0 +1,783 @@
+\section{The rest}\label{sec:concurroids}
+%\an{Heh, are the last two names foreboding?}
+
+Notes for revision (but there's too much material here):
+\begin{enumerate}
+\item Finite maps, heaps, states, PCMs, state, zipping, zigging,
+  zagging, erasure. Broccoli definition of $\jpts$, $\spts$, $\opts$,
+  $\lsep$, $\ssep$.
+\item Concurroids abstractly as n-tuples: properties of coherence predicates and
+  transitions. Motivation for the various properties.
+\item Examples: concurroid for private state, and spin locks: state
+  and transitions formally.
+\item Entanglement. The properties for injection rule to be valid. The
+  CSL concurroid as the entanglement $P \entangle (L_1 \apart L_2
+  \cdots \apart L_n)$.
+\item Actions. List the properties, and implement CAS and unlock.
+\item Language and logic. The rules. Not much discussion about rules
+  already covered in overview. Rather, just point out how they
+  correspond to CSL. I.e., the hiding rule gives us the implementation
+  of let-resource, but endowed with auxiliary state.
+\item Concurroid for ticketed locks.
+\end{enumerate}
+
+How should we refer to a pair of acquire-release transitions? It can
+be a channel, or better yet, a wire, since it may be dangling.
+
+\paragraph{Main mathematical concepts}
+
+We use finite maps in many different guises in the formulation of
+SCLP, so we introduce some common notation for them.
+
+\emph{Heaps} are finite maps from non-null pointers to values of an
+arbitrary type. \emph{PCM components} are finite maps from labels to
+values of an arbitrary partial commutative monoid (PCM). \emph{Type
+  components} are finite maps from labels to values of an arbitrary
+type. Pointers and labels are isomorphic to natural numbers.
+
+We overload the notation $x \mapsto v$ to denote a heap (resp. pcm or
+type component), containing a single pointer $x$ (resp. label x),
+storing the value $v$. If we want to make the type $A$ of $v$
+explicit, we write $x \mapsto_A v$. Finite maps can be nested in a
+stratified manner, e.g., we can have a component storing a heap,
+\[
+\mathsf{label} \mapsto_{\mathsf{heap}} (x \mapsto_{\mathsf{nat}} 3),\]
+%
+but heaps can't store components. We use $\mathsf{empty}$ for the
+empty finite map/heap/component. Given a finite map $f$, we write
+$\mathsf{dom}\ f$ for the set of arguments on which $f$ is defined.
+
+
+\paragraph{PCMs}
+A PCM consists of a type $U$, and a partial binary operation $\oplus$
+on $U$ with a neutral element $1_U$. The operation $\oplus$ is
+commutative and associative. The PCM also contains a boolean predicate
+$\mathsf{valid}$ on $U$, which selects a subset of $U$. All the
+elements out of that subset are considered \emph{undefined}. The
+partiality of $\oplus$ is modeled by having it return an undefined
+element.
+
+Finite maps (with an addition of an undefined element) form a PCM with
+the operation of \emph{disjoint union}, which is undefined if the maps
+overlap on some argument, and with $\mathsf{empty}$ as the unit
+element.
+
+\paragraph{Subjective state and joining}
+
+The state of a concurroid is divided into three parts, which we call
+self, joint, and other, part.
+
+The intuition is that when a thread $t$ is ascribed a concurroid as
+its specification, the self part of the concurroid state is treated by
+$t$ as a chunk of private state. Other is the chunk state that the
+thread can't modify, as it is private to the threads running in
+parallel with $t$. Joint is the state that is shared by $t$ and
+other. Thus, the specification via concurroids are always specific to
+the view-point of the thread being specified, and we will frequently
+refer to this thread as ``self'', overloading the terminoliogy with
+state.  The totality of all threads running in parallel with the
+``self'' thread, is called ``other'', again, overloading the
+terminology.
+
+We refer to such an approach with 3-way split of the state, and the
+thread-relative style of specification in terms of ``self'' and
+``other'' as \emph{subjectivity}, following in the style of Subjective
+Concurrent Separation
+Logic~\cite{LeyWild-Nanevski:POPL13}.\footnote{The existing approaches
+  to concurrency logics divide the state into only private and shared
+  portion, and ignore the other portion, as the thread $t$ can't
+  modify it. In SCPL we expose the other part. As argued by the
+  previous work on SCSL, the other part is important for specifying
+  the global invariants of the state. But this point is better made in
+  the related work section.}
+
+Self and Other are PCM components, and Joint is a type component.
+Self and Other are PCM components, because the contents of their
+labels will often have to be \emph{joined} by $\oplus$ in order to
+describe the global state invariants. We won't need such operation
+with the Joint component, so we don't impose that its labels must
+store values that belong to a PCM.
+
+We use the following notation for the describing the 3 components of a
+state.
+\[
+\begin{array}[t]{l}
+[self = \mathsf{label}_{11} \mapsto x_{11}, \mathsf{label}_{12} \mapsto x_{12}, \ldots\\ 
+ joint = \mathsf{label}_{21} \mapsto x_{21}, \mathsf{label}_{22} \mapsto x_{22}, \ldots\\
+ other = \mathsf{label}_{31} \mapsto x_{31}, \mathsf{label}_{32} \mapsto x_{32}, \ldots]
+\end{array}
+\]
+where all the labels may be different. 
+
+When the components contain a unique label, we use
+\[
+\mathsf{label} \mapsto [self = x, joint = y, other = z]
+\]
+to abbreviate
+\[
+[self = \mathsf{label} \mapsto x, joint = \mathsf{label} \mapsto y, other = {label} \mapsto z]
+\]
+
+We use special notation for states where one component contains a
+single label, but others are empty.
+
+\[
+\begin{array}{rcl}
+label@self \mapsto x & = & [self = label \mapsto x, joint=empty, other=empty]\\
+label@joint \mapsto x & = & [self = empty, joint=label \mapsto x, other=empty]\\
+label@other \mapsto x & = & [self = empty, joint=empty, other=label \mapsto x]
+\end{array}
+\]
+
+
+As states are triples of finite maps, they form a PCM with the
+operation of \emph{pointwise} disjoint union. We are thus justified in
+denoting this operation with the PCM notation $\oplus$. Similarly, we
+use $1_\mathsf{state}$ (or simply $1$ when the PCM is determined from
+the context), to denote the state consisting of three empty finite
+maps.
+
+Further notation: Given a state $s$, we write $s.self$, $s.joint$ and
+$s.other$ for the three components of $s$.
+
+
+\paragraph{Zipping, zigging, zagging}
+
+In addition to $\oplus$ operation on PCM-components, which joins up
+the finite maps disjointly, we need an operation $\otimes$ (pronounced
+zip) which joins the \emph{contents} of equally named labels.
+
+\[
+\begin{array}{rcl}
+\mathsf{empty} \otimes \mathsf{empty} & = & \mathsf{empty}\\
+(\mathsf{label} \mapsto_U v_1), t_1 \otimes (\mathsf{label} \mapsto_U v_2), t_2 & = & 
+   (\mathsf{label} \mapsto v_1 \oplus v_2), t_1 \otimes t_2
+\end{array}
+\]
+
+Notice that $t_1 \otimes t_2$ may be undefined if $t_1$ and $t_2$
+contain different labels, or if some label contains values of
+different types in $t_1$ and $t_2$.
+
+Given a state $s = [self=t_S, joint=t_J, other=t_O]$ and a component
+$t$, we define \emph{zigging} $s \zig t$ and \emph{zagging}
+$s \zag t$ of $s$ and $t$, as follows
+\[
+\begin{array}{rcl}
+s \zig t = [self = t_s \otimes t, joint=t_J, other=t_O]\\
+s \zag t = [self = t_s, joint=t_J, other=t_O \otimes t]\\
+\end{array}
+\]
+
+
+\paragraph{Erasure}
+
+The split into the various components, and label fields within them is
+a logical representation of the actual physical state in which the
+programs are executed. The logical representation contains much more
+information than needed for execution. For example, some labels may
+store values that correspond to \emph{auxiliary} state that should be
+erased before execution. We assume that the labels storing values of
+non-heap types are auxiliary, and introduce \emph{erasure} operators
+to remove them: ${\flatten -}_\mathsf{comp}$ which works on components
+(pcm or type ones), and ${\flatten -}_{\mathsf{state}}$ which works on
+states.
+\[
+\begin{array}{rcl}
+\flatten{\mathsf{empty}}_{\mathsf{comp}} & = & \mathsf{empty}_\mathsf{heap}\\
+\flatten{\mathsf{label}\mapsto_A v, t}_{\mathsf{comp}} & = & 
+  (\mbox{if} A = \mathsf{heap}\ \mbox{then}\ v\ \mbox{else}\ \mathsf{empty}_\mathsf{heap}) \oplus {\flatten t}_{\mathsf{comp}}
+\end{array}
+\]
+
+\[
+\flatten{[self=t_1, joint=t_2, other=t_3]}_{\mathsf{state}} = \flatten{t_1}_{\mathsf{comp}} \oplus \flatten{t_2}_{\mathsf{comp}} \oplus \flatten{t_3}_{\mathsf{comp}}
+\]
+When there is no confusion, we will simply write $\flatten -$ without
+the index.
+
+\begin{lemma}\label{lemma:join-valid}
+ Let $s_1, s_2$ be either components or states. Then: $\flatten{s_1
+   \oplus s_2} = \flatten{s_1} \oplus \flatten{s_2}$ if
+ $\mathsf{valid} (s_1 \oplus s_2)$, and is undefined otherwise.
+\end{lemma}
+
+
+
+We proceed to illustrate the subjective division of state, by
+presenting two basic concurroids: $\mathsf{priv}$ for private state
+only, and $\mathsf{spinlock}$ for spinlocks in the style of CSL (see
+some figure).
+
+Both concurroids are indexed by a label which identifies their
+individual states, in a larger, compounded state. Thus, for example,
+we can have concurroids $\mathsf{spinlock}\ l_1$ and
+$\mathsf{spinlock}\ l_2$, to reprent two different spinlocks.
+
+\paragraph{Private state}
+
+The concurroid $\mathsf{priv}$ for private state (with the label $p$),
+splits the state as follows:
+\[
+p \mapsto [self = \hL, joint = (), other = \hE]
+\]
+
+The self and other components are two heaps $\hL$ and $\hE$, and the
+joint component is the (unique) value of the unit type, symbolizing
+that the concurroid doesn't deal with shared state. The heap $\hL$ is
+the local heap for threads specified by $\mathsf{priv}$, and $\hE$ is
+the heap belonging to the environment.
+
+One condition on the state space of the $\mathsf{priv}$ concurroid is
+that $\hE$ and $\hL$ are disjoint heaps, i.e., that no location can be
+private to two different concurrent threads at the same time. Using
+the notation for PCMs, we write this condition as
+$\mathsf{valid}\ (\hL \oplus \hE)$.
+
+We denote the set of states of a concurroid by $\mathsf{coh}$ (for
+\emph{coherent} states). When we want to make the concurroid explicit,
+we index $\mathsf{coh}$ with the name of the concurroid, but omit the
+index when it can be inferred.
+
+In the case of $\mathsf{priv}$, the coherent states are defined as:
+
+\[
+\mathsf{coh}_{(\mathsf{priv}\ p)} = \{p \mapsto [self = \hL, joint = (), other = \hE] | \mathsf{valid}\ (\hL \oplus \hE)\}
+\]
+
+
+\paragraph{Spin lock}
+
+The concurroid for spin locks (over the label $\mathsf{sl}$) splits
+the state as follows.
+\[
+sl \mapsto [self = \mL, joint = (lk \mapsto b) \oplus \hS, other = \mE]
+\]
+
+The joint component contains the shared \emph{heap}, consisting of the
+actual lock address $lk$ which is a pointer storing the boolean $b$,
+and the heap $\hS$ that the lock protects.
+
+The concurroid encodes the mutual exclusion protocol following the CSL
+and Owicki-Gries' resource invariant method~\cite{LeyWild-Nanevski:POPL13},
+whereby a thread that acquires the lock also acquires ownership of the
+heap $\hS$. When a thread releases the lock, the heap $\hS$ is moved
+from the thread's private state, back into the shared portion. When
+the lock is free, the shared heap $\hS$ satisfies a predetermined
+invariant $I$. More formally, the components of $\mathsf{spinlock}$
+state satisfy the property:
+\[
+\mbox{if}\ b\ \mbox{then}\ I\ \hS\ \mbox{else}\ \hS = \mathsf{empty}
+\]
+
+While the boolean $b$ specifies whether the lock taken or not, it
+doesn't specify who owns it -- the ``self'' or ``other'' threads. The
+fields $\mL$ and $\mE$ from the self and other components, are
+\emph{auxiliary state} that provides this information. They can be
+either $\lockOwn$ or $\lockNown$. For example, if $\mL = \lockOwn$
+(resp. $\lockNown$), then the ``self'' thread owns (resp. doesn't own)
+the lock, and similarly for $\mE$. $\mL$ and $\mE$ can't both be equal
+$\lockOwn$ at the same time, as the lock can't be owned by two
+different concurrent threads at the same time. However, if the lock is
+taken, i.e. $b = true$ than one of $\mL$ and $\mE$ must be $\lockOwn$.
+
+The type $\mathsf{mutex} = \{\lockOwn, \lockNown\}$ forms a PCM with
+the following partial operation which describes \emph{joining} of lock
+ownership:
+\[
+\begin{array}{rcl}
+\lockOwn \oplus \lockNown & = & \lockNown \oplus \lockOwn = \lockOwn,\\
+\lockNown \oplus \lockNown & = & \lockNown\\
+\lockOwn \oplus \lockOwn & = & \mbox{undefined}
+\end{array}
+\]
+Collecting the described conditions, the coherence set for the
+$\mathsf{spinlock}$ concurroid is formally defined as:
+\[
+\begin{array}{l}
+\mathsf{coh}_{(\mathsf{spinlock}\ sl)} = \\
+\quad \{\!\!\!\begin{array}[t]{l}
+  sl \mapsto [self = \mL, joint = (lk \mapsto b) \oplus \hS, other = \mE] \mid \\
+  \mathsf{valid} (\mL \oplus \mE) \aand \mathsf{valid} ((lk \mapsto b) \oplus \hS) \aand \hbox{}\\
+  \mbox{if}\ b\ \!\!\!\begin{array}[t]{l}
+            \mbox{then}\ \hS = \mathsf{empty} \aand \mL \oplus \mE = \lockOwn\\
+            \mbox{else}\ I\ \hS \aand \mL \oplus \mE = \lockNown\}
+            \end{array}
+  \end{array}
+\end{array}
+\]
+
+\paragraph{Transitions}
+
+Transitions are relations on states describing how the state of
+concurroid may change. Each concurroid has three different
+transitions: (1) internal, (2) acquire, and (3) release transition.
+
+The internal transition describes the modifications to the contents of
+the concurroid state, such as, e.g. changing the value stored into
+some pointer of the private state. Acquire and release transitions are
+indexed by a heap, and describe how the concurroid can receive (dually
+send) a chunk of heap from/to the outside world.
+
+\paragraph{Transitions of the priv concurroid}
+
+The internal transition of the $\mathsf{priv}$ concurroid allows that
+the self heap $\hL^1$ in the input state may change to an arbitrary
+$\hL^2$ in the result state, \emph{as long as $\hL^1$ and $\hL^2$ have
+  the same domains (i.e., contain the same pointers, possibly storing
+  different values)}. The other state must remain unchanged, as that
+state is private to other threads.
+\[
+\mathsf{internal}_{\mathsf{priv}\ p} = \{
+\!\!\!\begin{array}[t]{l}
+ (\!\!\!\begin{array}[t]{l}
+    p \mapsto [self = \hL^1, joint=(), other=\hE], \\\relax
+    p \mapsto [self = \hL^2, joint=(), other=\hE]) \mid 
+ \end{array}\\\relax
+    \mathsf{dom}\ \hL^1 = \mathsf{dom}\ \hL^2 \aand \hbox{}\\\relax
+    p \mapsto [self = \hL^i, joint=(), other=\hE] \in \mathsf{coh}_{\mathsf{priv}\ p}\}
+  \end{array}
+\]
+
+The acquire transition states that $\mathsf{priv}$ can receive a heap
+$h$, only if $h$ is disjoint from the two heaps already in the
+concurroid.
+
+\[
+\mathsf{acquire}_{\mathsf{priv}\ p}\ h = \{
+\!\!\!\begin{array}[t]{l}
+ (\!\!\!\begin{array}[t]{l}
+    p \mapsto [self = \hL, joint=(), other=\hE], \\\relax
+    p \mapsto [self = \hL \oplus h, joint=(), other=\hE]) \mid 
+ \end{array}\\\relax
+    \mathsf{valid} (\hL \oplus h \oplus \hE) \aand \hbox{}\\\relax
+    \mathsf{p} \mapsto [self = \hL, joint=(), other=\hE] \in \mathsf{coh}_{\mathsf{priv}\ p}\}
+  \end{array}
+\]
+
+Dually, the release transitionstates that $\mathsf{priv}$ can give
+away a heap $h$ only if $h$ is contained within its private heap.
+
+\[
+\begin{array}{l}
+\mathsf{release}_{\mathsf{priv}\ p}\ h = \\
+\qquad \{
+\!\!\!\begin{array}[t]{l}
+ (\!\!\!\begin{array}[t]{l}
+    p \mapsto [self = \hL \oplus h, joint=(), other=\hE], \\\relax
+    p \mapsto [self = \hL, joint=(), other=\hE]) \mid 
+ \end{array}\\\relax
+    p \mapsto [self = \hL \oplus h, joint=(), other=\hE] \in \mathsf{coh}_{\mathsf{priv}\ p}\}
+  \end{array}
+\end{array}
+\]
+
+In a sense, the acquire and release transitions may be seen as
+generalization of allocation and deallocation, as they account for a
+concurroid (and the programs the concurroid may specify) increasing
+and decreasing the number of pointer in its state. And indeed, SCSP
+doesn't contain primitive operations for allocation and deallocation,
+as these will be encoded inside SCSP as interactions of the
+$\mathsf{priv}$ concurroid with another concurroid for allocation.
+However, acquire and release transitions are much more general. 
+
+\paragraph{Transitions of the $\mathsf{spinlock}$ concurroid}
+
+For example, we use them to encode that upon locking and unlocking,
+the lock-protected resource changes ownership, switching from shared
+to private state, and back. We overloading the transition names, and
+for the $\mathsf{spinlock}$ concurroid, define them as follows.
+
+\[
+\begin{array}{l}
+\mathsf{acquire}_{\mathsf{spinlock}\ sl}\ h = \\
+\qquad \{
+\!\!\!\begin{array}[t]{l}
+ (\!\!\!\begin{array}[t]{l}
+   sl \mapsto [self = \lockOwn, joint=lk \mapsto \mathsf{true}, other=\lockNown], \\\relax
+   sl \mapsto [self = \lockNown, joint=lk \mapsto \mathsf{false} \oplus h, other=\lockNown]) \mid 
+ \end{array}\\\relax
+    \mathsf{valid} (lk \mapsto \mathsf{false} \oplus h) \aand I\ h\}
+  \end{array}
+\end{array}
+\]
+
+\[
+\begin{array}{l}
+\mathsf{release}_{\mathsf{spinlock}\ sl}\ h = \\
+\qquad \{
+\!\!\!\begin{array}[t]{l}
+ (\!\!\!\begin{array}[t]{l}
+   sl \mapsto [self = \lockNown, joint=lk \mapsto \mathsf{false} \oplus h, other=\lockNown], \\\relax
+   sl \mapsto [self = \lockOwn, joint=lk \mapsto \mathsf{true}, other=\lockNown]) \mid 
+ \end{array}\\\relax
+    \mathsf{valid} (lk \mapsto \mathsf{false} \oplus h) \aand I\ h\}
+  \end{array}
+\end{array}
+\]
+
+In other words, $\mathsf{spinlock}$ acquires a heap $h$ only upon
+unlocking the lock; that is, setting the contents of the lock $lk$ to
+false and the lock self status $\mL$ to $\lockNown$. The acquired heap
+$h$ is disjoint from the lock $lk$ and satisfies the invariant
+$I$. Dually, the lock-protected shared heap $h$ is released only upon
+a succesful locking, which sets the contents of $lk$ to true, and the
+self lock status $\mL$ to $\lockOwn$.
+
+The internal transition of $\mathsf{spinlock}$ is trivially the
+identity, symbolizing that lock's heap and auxiliary state can only be
+changed by means of acquire and release tranitions.
+
+\[
+\mathsf{internal}_{\mathsf{spinlock}\ sl} = \{(s, s) \mid s \in \mathsf{coh}_{\mathsf{spinlock}\ sl}\}
+\]
+
+\paragraph{Entanglement}
+
+Given concurroids $V$ and $W$, their entaglement $V \bowtie W$ is a
+new concurroid that unions the states of $V$ and $W$, while also
+\emph{connecting} the transitions of $V$ and $W$ of opposite polarity
+(as we define shortly).
+
+Intiutively, the idea is that $V \bowtie W$ is a product STS for $V$
+and $W$, and is used to specify programs that logically perform an
+ownership transfer between their components.
+
+For example, in the concurroid $(\mathsf{priv}\ p) \bowtie
+(\mathsf{spinlock}\ sl)$, the $\mathsf{acquire} h$ transition of
+$\mathsf{priv}\ p$ will be ``connected'' with the
+$\mathsf{release}\ h$ transitions of $\mathsf{release}\ h$.  In
+particular, upon locking, the heap $h$ will be \emph{transfered} out
+of the joint portion of $\mathsf{spinlock}\ sl$, and received into the
+self component of $\mathsf{priv}\ p$. Such a connection thereby
+encodes the logical protocol of Owicki-Gries style resources (also
+used in CSL), whereby upon locking, the shared heap protected by the
+lock is transfered into the private ownership of the locking thread.
+
+
+\paragraph{Entangled states}
+
+The coherent states of $V \bowtie W$ are those that can be obtained as
+a union of coherent states of $V$ and of $W$, \emph{with disjoint
+  erasures}.
+\[
+\mathsf{coh}_{V \bowtie W} = \{s_1 \oplus s_2 \mid 
+s_1 \in \mathsf{coh}_V \aand s_2 \in \mathsf{coh}_W \aand \mathsf{valid} \flatten {s_1 \oplus s_2}\}
+\]
+
+By Lemma~\ref{lemma:join-valid}, the condition $\mathsf{valid}
+\flatten {s_1 \oplus s_2}$ implies that $\flatten{s_1}$ and
+$\flatten{s_2}$ are disjoint heaps. It also implies that $s_1$ and
+$s_2$ \emph{have disjoint labels}. Indeed, had $s_1$ and $s_2$ shared
+labels, then $s_1 \oplus s_2$ would be undefinded, making $\flatten
+{s_1 \oplus s_2}$ undefined as well, by Lemma~\ref{lemma:join-valid}.
+
+\paragraph{Entangled transitions}
+
+The internal transition of $V \bowtie W$ is defined as:
+
+\[
+\begin{array}{l}
+\mathsf{internal}_{V \bowtie W} = \{(s_1 \oplus s_2, s'_1 \oplus s'_2) \mid s_1 \oplus s_2, s'_1 \oplus s'_2 \in \mathsf{coh}_{V\bowtie W} \aand \hbox{}\\
+\quad\!\!\!\begin{array}[t]{l}
+  (s_1, s'_1) \in \mathsf{internal}_V \aand s_2 = s'_2  \oor \hbox{}\\
+  s_1 = s'_1 \aand (s_2, s'_2) \in \mathsf{internal}_W \oor \hbox{}\\
+  \exists h : \mathsf{heap}. \hbox{}\\
+  \quad  (s_1, s'_1) \in \mathsf{acquire}_V\ h \aand (s_2, s'_2) \in \mathsf{release}_W\ h \oor \hbox{}\\
+  \quad  (s_1, s'_1) \in \mathsf{release}_V\ h \aand (s_2, s'_2) \in \mathsf{acquire}_W\ h \}
+  \end{array}
+\end{array}
+\]
+
+The conjunct $s_1 \oplus s_2, s'_1 \oplus s'_2 \in
+\mathsf{coh}_{V\bowtie W}$ ensures that the transition only applies to
+states that belong to the state space of the $V \bowtie W$ STS.  After
+that, $V \bowtie W$ can internally step whenever $V$ steps but $W$
+stays idle ($(s_1 \oplus s'_1) \in \mathsf{internal}_V \aand s_2 =
+s'_2$), or whenever $W$ steps but $V$ stays idle ($s_1 = s'_1 \aand
+(s_2 \oplus s'_2) \in \mathsf{internal}_W$, or when $V$ and $W$
+exchange the ownership of some heap $h$.
+
+
+The entangled concurroid $V \bowtie W$ should itself have a release
+and an acquire transition in order to communicate and entangle with
+additional concurroids. For example, entangling $(\mathsf{priv}\ p)
+\bowtie (\mathsf{spinlock}\ sl_1)$ gives us a concurroid to describe
+the behavior of programs with state and \emph{one} spinlock $sl_1$. If
+we want to add another spinlock $sl_2$, we'd have construct
+$(\mathsf{priv}\ p) \bowtie (\mathsf{spinlock}\ sl_1) \bowtie
+(\mathsf{spinlock}\ sl_2)$.
+
+In this ``iterated'' entanglement, we want to avoid that the
+concurroids for spinlocks $sl_1$ and $sl_2$ communicate between
+themselves. Indeed, we don't want the locking of $sl_2$ to transfer
+the ownership of the $sl_2$'s shared heap to $sl_1$; we want the heap
+to be transfered to the private state.
+
+To disable such communication, we de-symmetrize the definition of the
+acquire and release transitions of $V \bowtie W$, so that they inherit
+the behavior of the acquire and release transitions of $V$, but ignore
+those of $W$. Formally:
+
+\[
+\begin{array}{l}
+\mathsf{acquire}_{V \bowtie W}\ h = \{(s_1 \oplus s_2, s'_1 \oplus s'_2) \mid 
+\!\!\!\begin{array}[t]{l}
+  s_1 \oplus s_2, s'_1 \oplus s'_2 \in \mathsf{coh}_{V\bowtie W} \aand \hbox{}\\
+  (s_1, s'_1) \in \mathsf{acquire}_V\ h \aand s_2 = s'_2\}
+\end{array}
+\end{array}
+\]
+
+
+\[
+\begin{array}{l}
+\mathsf{release}_{V \bowtie W}\ h = \{(s_1 \oplus s_2, s'_1 \oplus s'_2) \mid 
+\!\!\!\begin{array}[t]{l}
+  s_1 \oplus s_2, s'_1 \oplus s'_2 \in \mathsf{coh}_{V\bowtie W} \aand \hbox{}\\
+  (s_1, s'_1) \in \mathsf{release}_V\ h \aand s_2 = s'_2\}
+\end{array}
+\end{array}
+\]
+
+
+\begin{lemma}[Reordering properties of $\bowtie$]\label{lemma:entangleAC}
+\[
+\begin{array}{rcl}
+\mathsf{coh}_{V \bowtie W} & = & \mathsf{coh}_{W \bowtie
+  V}\\ \mathsf{coh}_{(U \bowtie V) \bowtie W} & = & \mathsf{coh}_{U \bowtie (V \bowtie W)}\\
+\end{array}
+\]
+
+\[
+\begin{array}{rcl}
+\mathsf{internal}_{V \bowtie W} & = & \mathsf{internal}_{W \bowtie V}\\
+\mathsf{internal}_{(U \bowtie V) \bowtie W} & = & \mathsf{internal}_{(U \bowtie W) \bowtie V}\\
+\mathsf{acquire}_{(U \bowtie V) \bowtie W} & = & \mathsf{acquire}_{(U \bowtie W) \bowtie V}\\
+\mathsf{release}_{(U \bowtie V) \bowtie W} & = & \mathsf{release}_{(U \bowtie W) \bowtie V}
+\end{array}
+\]
+
+\end{lemma}
+
+
+\subsection{Concurroids abstractly}
+
+A concurroid is a tuple $V = (D, \mathsf{coh},
+\mathsf{internal}, \mathsf{acquire}, \mathsf{release})$ satsisfying a
+number of properties (listed below).
+
+$D$ is a set of labels, refered to as the \emph{label footprint} of $A$,
+listing the labels that appear in the well-formed
+states. $\mathsf{coh}$ is the set of well-formed states, the
+transition $\mathsf{internal}$ is a relation on states, and so are
+$\mathsf{acquire}\ h$ and $\mathsf{release}\ h$ for every heap $h$.
+
+
+\paragraph{coherence-set properties}
+
+The state sets of a concurroid satisfy the following properties, for
+every state $s$.
+\[
+\begin{array}{rcl}
+\mathsf{coh_D} & : & s \in \mathsf{coh} \implies \mathsf{dom}(s.self) = \mathsf{dom}(s.joint) = \mathsf{dom}(s.other) = D\\
+\mathsf{coh_H} & : & s \in \mathsf{coh} \implies \mathsf{valid}{\flatten s}\\
+\mathsf{coh_{SO}} & : & s \in \mathsf{coh} \implies \mathsf{valid}(s.self \otimes s.other)\\
+\mathsf{coh_Z} & : & \forall t\ldot s \zig t \in \mathsf{coh} \iff s \zag t \in \mathsf{coh}.
+\end{array}
+\]
+
+Properties $\mathsf{coh_D}$ and $\mathsf{coh_H}$ are straightforward,
+so we don't discuss them.  
+
+$\mathsf{coh_{SO}}$ requires that composition of the self and other
+view of the concurroid state is well-formed. To illustrate, in the
+case of the concurroid $\mathsf{priv}$, $\mathsf{coh_{SO}}$
+corresponds to the requirement that $\hL$ and $\hE$ are disjoint
+heaps, i.e. that the private states of parallel threads can't
+overlap. In the case of the concurroid $\mathsf{spinlock}$,
+$\mathsf{coh_{SO}}$ corresponds to the requirement that the mutexes
+$\mL$ and $\mE$ are not both $\lockOwn$, i.e. that parallel threads
+can't simultanously own one and the same lock. In the case of
+entanglement $\mathsf{priv}\ p \bowtie \mathsf{spinlock}\ sl$,
+$\mathsf{coh_{SO}}$ corresponds to the conjunction of the
+$\mathsf{coh_{SO}}$ properties for the individual concurroids.
+
+$\mathsf{coh_Z}$ allows that the boundary between the self and other
+components can be realigned, as the component $t$ added onto the self
+(i.e., zigged) can always be moved onto the other (i.e. zagged), and
+vice-versa.  Concretely, $\mathsf{coh_Z}$ in the case of
+$\mathsf{priv}$ shows that the state $[self=\hL \oplus h,
+  joint=(),other=\hE]$ is coherent iff the state $[self=\hL,
+  joint=(),other=\hE + h]$ is coherent too.
+
+The $\mathsf{coh_Z}$ property will be important when considering
+properties of fork-join composition of threads. Following CSL, in SCPL
+we consider that the private state of a thread is divided among its
+children upon forking. The left child becomes part of the environment
+for the right child, and vice versa. Thus, the state assigned to the
+left child's self component, is zagged onto the right child's other
+component (and vice versa). $\mathsf{coh_Z}$ property thus ensures
+that upon forking, a thread that is in a coherent state leaves both of
+its children in coherent states too, albeit the particular alignments
+of the boundary between self and other may differ among the children
+themselves and the parent thread.
+
+\paragraph{Transition properties}
+
+Let $G$ vary over a transitions $\mathsf{internal}$, and
+$\mathsf{acquire}\ h$ and $\mathsf{release}\ h$ (for every heap
+$h$). Then $G$ is required to satisfy the following properties.
+
+\[
+\begin{array}{rcl}
+\mathsf{trans_C} & : & (s, s') \in G \implies s \in coh \aand s' \in coh\\
+\mathsf{trans_E} & : & (s, s') \in G \implies s.other = s'.other\\
+\mathsf{trans_Z} & : & \forall t\ldot \!\!\!\begin{array}[t]{l}
+  s.other = s'.other \implies \hbox{}\\
+  (s \zag t, s' \zag t) \in G \implies (s \zig t, s' \zig t) \in G
+  \end{array}
+\end{array}
+\]
+
+The $\mathsf{trans_C}$ property restricts $G$ to only relate states
+that are coherent, that is, they belong to the state space of the STS.
+
+The $\mathsf{trans_E}$ property restricts that $G$ can't modify the
+other component of the concurroid. Thus, $G$ only bounds how the
+concurroid can change the self and joint component. In relation to the
+work on Rely-Guarantee
+reasoning~\cite{Jones:IFIP83,Feng-al:ESOP07,Feng:POPL09,Vafeiadis-Parkinson:CONCUR07},
+the $\mathsf{trans_E}$ property implies that the transitions of
+concurroids are \emph{guarantee} transitions.
+%
+Given a concurroid $V$, the transitions that correspond to rely
+transitions in Rely-guarantee reasoning (that is, they bound the steps
+of the environment threads), may be computed as the internal, acquire
+and release transitions of the \emph{transposed} concurroid $V^\top$,
+in which the self and other components of the states in the definition
+of $\mathsf{coh}$ set and the relations are interchanged.\is{This is
+  an important and not entirely intuitive definition. Shall we state
+  it more formally?} The transposition of concurroids will be used in
+the definition of the important concept of \emph{stability}.
+
+The $\mathsf{trans_Z}$ property show shows that a chunk $t$ may be
+moved from the other components of related states (zagged) into the
+self components (zigged). 
+
+More concretely, in the case of $\mathsf{priv}$ after the expansion of
+the definitions of $\zag$ and $\zig$, and some simplification, the
+$\mathsf{trans_Z}$ property states that, if:
+\[
+(\!\!\!\begin{array}[t]{l}
+  [self=\hL, joint=(),other=\hE + h], \\\relax
+  [self=\hL', joint=(),other=\hE + h]) \in G
+ \end{array}
+\]
+then 
+\[
+(\!\!\!\begin{array}[t]{l}
+ [self=\hL \oplus h, joint=(),other=\hE],\\\relax
+ [self=\hL' \oplus h, joint=(),other=\hE]) \in G
+\end{array}
+\]
+
+Thus $\mathsf{trans_Z}$ represents a generalized notion of
+\emph{locality} of transitions, whereby if a transition relates states
+with certain self components, then it also relates states in which the
+self components have been \emph{enlarged} (i.e., framed by) by a fixed
+quantity.
+
+Whereas related work on separation logic only considers framing by a
+heap, $\mathsf{trans_Z}$ considers framing by any component.
+
+Whereas in related work the framing heap is materialized out of
+nowhere, $\mathsf{trans_Z}$ requires that the framing component $t$ is
+appropriated from the environment; that is, $t$ has to be part of
+other in the premise of $\mathsf{trans_Z}$, and is removed from other
+in the conclusion of $\mathsf{trans_Z}$.
+
+\paragraph{Specific properties of transitions}
+
+Additionally, there's a few properties that only $\mathsf{internal}$
+transitions, or only $\mathsf{acquire}$ and $\mathsf{release}$
+transitions has to satisfy.
+
+\[
+\begin{array}{rcl}
+\mathsf{inter\_refl} & : & s \in \mathsf{coh} \implies (s, s) \in \mathsf{internal}_A\\
+\mathsf{inter\_foot} & : & \!\!\!\begin{array}[t]{l}
+           (s, s') \in \mathsf{internal}_A\ h \implies \hbox{}\\
+           \quad \mathsf{valid} \flatten{s} = \mathsf{valid} \flatten{s'} \aand \hbox{}\\
+           \quad \mathsf{dom} \flatten{s} = \mathsf{dom} \flatten{s'}
+           \end{array}\\
+\mathsf{acq\_foot} & : & \forall h{:}\mathsf{heap}\ldot \!\!\!\begin{array}[t]{l}
+           (s, s') \in \mathsf{acquire}_A\ h \implies \hbox{}\\
+           \quad \mathsf{valid} (\flatten s \oplus h) = \mathsf{valid} \flatten{s'} \aand \hbox{}\\
+           \quad \mathsf{dom} (\flatten s \oplus h) = \mathsf{dom} \flatten{s'}
+           \end{array}\\
+\mathsf{rel\_foot} & : & \forall h{:}\mathsf{heap}\ldot \!\!\!\begin{array}[t]{l}
+           (s, s') \in \mathsf{release}_A\ h \implies \hbox{}\\
+           \quad \mathsf{valid} {\flatten s} = \mathsf{valid} (h \oplus \flatten{s'}) \aand \hbox{}\\
+           \quad \mathsf{dom} {\flatten s} = \mathsf{dom} (h \oplus \flatten{s'})
+           \end{array}
+\end{array}
+\]
+
+$\mathsf{inter\_refl}$ shows that the internal transition is
+reflexive, thus allowing the programs specified by the concurroid to
+be \emph{idle}, that is, transition to their initial state.
+
+$\mathsf{inter\_foot}$ requires that internal transition preserves the
+heap obtained by erasure of states. Related states may move the
+ownership of various heaps between self and joint components; they may
+also change the auxiliary state, and change the \emph{contents} of
+individual heap pointers. However, they can't add new pointers or
+remove old ones. Adding new pointers or removing old ones is the job
+of $\mathsf{acquire}$ and $\mathsf{release}$ transitions, as
+formalized by $\mathsf{acq\_foot}$ and $\mathsf{rel\_foot}$
+properties.
+
+
+\begin{lemma}[Entanglement]
+If $V$ and $W$ are concurroids, then $V \bowtie W$ is a concurroid as
+well, whose label footprint is the union of the label footprints of
+$V$ and $W$.
+\end{lemma}
+
+
+\paragraph{Stability}
+
+\begin{definition}[Environment stepping]
+Let $V$ be a concurroid, and $W = V^\top$ its transpose. The
+\emph{environment stepping} relation for $V$ is defined as the
+following reflexive-transitive closure.
+\[
+\begin{array}{rcl}
+\mathsf{env\_step}_V & = &
+  \{(s, s') | (s, s') \in \mathsf{internal}_W \oor \hbox{}\\
+& & \qquad \exists h\ldot (s, s') \in \mathsf{acquire}_W\ h \cup 
+                           \mathsf{relase}_W\ h\}\\
+\mathsf{env\_steps}_V & = & (\mathsf{env\_step}_V)^*
+\end{array}
+\]
+\end{definition}
+
+
+\begin{definition}[Stability]
+A state predicate $p$ is \emph{stable} under a concurroid $V$ iff
+\[
+\forall i\ j{:}state, p\ i \implies (i, j) \in \mathsf{env\_steps}_V \implies p\ j.
+\]
+A state relation $r$ is \emph{stable} under a concurroid $V$ iff
+\[
+\forall i\ j\ k{:}state, (i, j) \in r \implies (j, k) \in \mathsf{env\_steps}_V \implies (i, k) \in r.
+\]
+\an{Maybe it's better to write these in a point-free way, with
+  composition? Though one can do that for relations, there's no
+  standard way to do it for predicates, as there's no standard
+  operator for composing a predicate with a relation.}
+
+\end{definition}
+
+

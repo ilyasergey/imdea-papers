@@ -1,0 +1,33 @@
+Thank you for agreeing to review the artifact for our submission entitled "Hoare-style Specifications as Correctness Conditions for Non-linearizable Concurrent Objects".
+
+The artifact is represented by the Coq sources of the implementation of Fine-grained Separation Logic (FCSL) in the Coq proof assistant, as well as the case studies conducted for the OOPSLA'16 submission.
+
+There are two possible ways to try it out, which we describe below.
+
+1. Using the ZIP archive with the sources of FCSL and case studies.
+
+In order to compile and check the sources, you will need to have Coq 8.5pl1 and Ssreflect 1.6 installed. They can be downloaded from the following sites:
+
+* https://coq.inria.fr/coq-85
+* https://math-comp.github.io/math-comp/
+
+We recommend to use Emacs with installed Proof General mode (https://github.com/emacsattic/proofgeneral) to browse and step through the sources.
+
+Once you have Coq/Ssreflect installed, follow the instructions in the README.md file of the fcsl-oopsla16.zip archive to build the project. It takes around 40 minutes to build the project and all case studies, so, please, be patient.
+
+The README.md file also provides commentary on the case studies from the paper, located in the folder [Examples/NonLinearizable].
+
+If you are interested in more details of FCSL and past case studies,
+we encourage you to check the FCSL reference manual:
+
+* http://software.imdea.org/fcsl/papers/fcsl-manual.pdf
+
+2. Using the VirtualBox VM image.
+
+You can also use the VirtualBox VM image with Coq/Ssreflect/Emacs/Proof General installed. The VM image is available by the link in the artifact description. It requires VirtualBox 5.0 (https://www.virtualbox.org/wiki/Downloads) to run.
+
+Once downloaded and launched, navigate to the ~/fcsl-oopsla16 folder to browse the project sources. The project is already compiled, but you can follow the instructions from README.md file in order to re-build the project (this will automatically check all the proofs).
+
+Use Emacs with Proof General mode to step through *.v files from the [Examples/NonLinearizable] folder. The commentary with respect to specific case studies is provided in the README.md file.
+
+Whenever necessary, use "coquser" as the username and password.

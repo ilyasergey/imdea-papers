@@ -1,0 +1,537 @@
+\section{Discussion}
+%\section{Client-side reasoning}
+\label{sc:discussion}
+
+\begin{comment} 
+We put a discussion section back in, to discuss/address the complaints
+from the ETAPS reviewers: the comparison with linearizability, the
+unclear generalization principle, and the complexity of the
+specs. Moreover, I think that the comparison with Jayanti's proof and
+the read-pair example belong here rather than in the related work
+section.
+\end{comment}
+
+%% In this section, we try to anticipate the questions that a reader
+%% might have as to the general approach to concurrent data structures
+%% verification advocated in this paper. Some of these concerns have been
+%% raised by our fellow colleagues while discussing these work, and some
+%% of them have already been discussed elsewhere.\todo{[Citation-Needed]}
+
+%In this section we discuss different aspects of the general approach
+%to concurrent data structures verification advocated in this paper.
+%
+%% , its connection to linearizability, and, in particular how our
+%% proof of correctness for Jayanti's snapshot construction relates to
+%% its original proof.
+
+\begin{comment}
+Aleks' comments on 04/10 w.r.t. why our spec is better than what
+linearizability provides, even if the spec looks a priory more
+complicated:
+
+We could reduce the spec by (rule of consequence) weakening, to get
+the assertion of the sequential spec $r =\mathsf{eval}\ \hist $, but
+that would not be useful for client reasoning, as you would be losing
+the information needed to combine the client in parallel with others:
+take the example in Figure~2---the client, we've (almost) proved in
+Coq---and a linearization of the client on the left and the center
+{\tt l: write x 2; c: scan; l: write y 1 } and do a proof using the
+sequential spec. Now if you are given a different linearization, {\tt
+  l: write x 2; l: write y 1; c: scan () }, you need to re do the
+proof. Moreover, there is no way to scale up adding more threads, if
+you add the client on the right, r, none of the proofs you have can be
+reused.
+
+In our setting, and with our specs, client reasoning depends solely on
+the API for scan and write, regardless of the different linearizations
+of a program. We use this to our advantage while building up the proof
+for the client in Figure~2.
+
+\gad{ After talking with Aleks' on 10/01, it became clear that
+  we should tone down certain comparisons with linearizability:
+  whenever we were thinking of sequential specs clients, I at least,
+  was thinking that in terms of {\it sequential} Hoare-logic specs
+  which don't feature any auxiliary state. According to Reviewer 1
+  and, also to Artem et. al. a sequential spec can be forced by
+  histories as well, tough sequential. \\ In 1.(1) Reviewer 1 states
+  that%
+  \begin{quotation}
+    (...) In client reasoning, method calls are replaced by atomic
+    commands (e.g. a call to the method write will be replaced by an
+    atomic write), thus existing concurrent program logics should
+    still apply. (...)
+  \end{quotation}%
+  A similar observation was made to me by Artem in one of my meetings
+  last week: for them, specs are predicates over abstract histories
+  and their interpretation of a ``sequential spec'' is not necessarily
+  a predicate over state but rather one which is satisfied by a
+  sequential history $$ H \models \{P_{\textrm{seq}}\} c
+  \{Q_{\textrm{seq}}\} \iff H \models \{P\} c \{Q\} \wedge
+  H\ \textrm{is sequential} $$ 
+\end{comment}
+
+\subparagraph*{Comparison with linearizability, revisited}
+  
+As we argued in Section~\ref{sc:formal}, our specifications for the
+snapshot methods directly capture that the method calls can be placed
+in a linear sequence, in a way that preserves the order of
+non-overlapping calls. This is precisely what linearizability achieves
+as well, but by technically different means. We here discuss some
+similarities and differences between our method and linearizability.
+
+The first distinction is that linearizability is a property of a
+concurrent object, whereas our specifications are ascribed to
+individual methods, as customary in Hoare logic. This immediately
+enables us to use an of-the-shelf Hoare logic, such as FCSL, for
+specification. 
+
+Second, linearizability draws its power from the connection to
+contextual refinement~\cite{FilipovicOHRW+TCS10}: one can substitute a
+potentially complex method $A$ in a larger context, by a simpler
+method $B$, to which $A$ linearizes. In our setting, such a property
+is enabled by a general substitution principle, which says that
+programs with the same spec can be interchanged in a larger context,
+without affecting the larger context's proof. Moreover, contextual
+refinement (and thus linearizability) is defined for general programs,
+without regard to their preconditions and postconditions. However, it
+is often the case that the refinement only holds if the substituted
+programs satisfy some Hoare logic spec. In this sense, our setting is
+more expressive, since the substitution principle is given relative to
+a Hoare logic spec.
+
+Finally, while our specification of the snapshot methods are motivated
+by linearizability, there is no requirement---and hence no
+proof---that an FCSL specification implies linearizability. But this
+is a feature, rather than a bug. It enables us to specify and combine,
+in one and the same logic, programs that are linearizable, with those
+that are not. We refer to~\cite{SergeyNBD+OOPSLA16} for examples of
+how to specify and verify non-linearizable programs in FCSL.
+
+
+\begin{comment}
+First of all, we do not see at this moment how to formally connect the
+specifications in FCSL in general with linearizability for the
+following reasons. Linearizability is a property of a concurrent
+objects, whereas FCSL specifications are ascribed to individual
+methods. Moreover, it is not the case that if methods of some object
+are ascribed FCSL specs that the linearizability of the structure
+follows. In fact, as we have argued in the previous
+work~\cite{SergeyNBD+OOPSLA16}, FCSL can be used to specify
+\emph{non-linearizable} objects. But this is a strength, not a
+weakness: one can use one and the same logic to reason about and
+combine programs that are specified by different criteria. 
+%\end{draft}
+
+Since we do not propose a new correctness criteria, we do not see the
+need to prove {\it formally} a connection between FCSL specifications
+and linearizability. Moreover, it is not clear how to formally
+establish such a connection: linearizability is a property of a
+concurrent data structure, whereas FCSL, being a concurrent separation
+logic, is concerned with providing specifications to individual
+methods. Moreover, FCSL has been used to prove coarse-grained
+concurrent data structures~\cite{LeyWildN+POPL13}, different
+fine-grained linearizable data structures~\cite{SergeyNB+ESOP15}, some
+of them supporting {\it helping}~\cite{SergeyNB+PLDI15}, and even
+non-linearizable ones~\cite{SergeyNBD+OOPSLA16}. Then, it is quite
+likely that if such a connection does indeed exist, it has to be
+proven for each concurrent data structure.
+
+In this paper's case, we have also taken the fact that Jayanti's data
+structure is linearizable---something that Jayanti already
+did~\cite{Jayanti+STOC05}---as a starting point to the design of the
+auxiliary state and its invariants. This is witnessed by the fact the
+two non-overlapping events are always sorted by $\stableorder$
+(Lemma~\ref{def-jleq}); and by Invariant~\ref{inv:overlap} which
+explicitly forbids reordering such non-overlapping events.
+
+An intermediate step could be to encode linearizability as an FCSL
+assertion, and include the latter as part of the specification of each
+of the data structure's methods. We argue that such approach would be
+too expensive in the mechanization effort and there would yield little
+or no benefit to either proving a correct specification of a method
+and/or the verification of the data structure's clients.
+
+If we were to follow this path, we would definitely have to extend the
+auxiliary state space with extra structure: e.g. moving away from FCSL
+style of histories---\ie one history entry per method---to
+linearizability histories where every line of code is instrumented
+and/or timestamped. This would result in several more invariants added
+to the definition of the concurrent resource.
+
+In our experience with the mechanized verification of fine-grained
+concurrent programs, we have learned that it is important to avoid
+adding unnecessary structure to the auxiliary state and its
+invariants. Even when proving some book-keeping property might be
+trivial, if it has to be done inductively---e.g. for each of the
+auxiliary code methods in Figure~\ref{fig:auxcode}---you would better
+be sure that the set of invariants is as optimal as
+possible.
+%\footnotemark.
+
+%% %% This example was too much detail
+
+%% \footnotetext{An example of such optimization is the following:
+%% consider Invariant~\ref{inv:readFP} and
+%% Lemma~\ref{lemma:first-read}. Both establish similar properties,
+%% that at a certain point in the execution of the scanner a timestamp
+%% points to the last green or yellow write event in the history
+%% $\histp$. They were both originally invariants of the snapshot's
+%% concurrent resource $C$, but then we proved the latter follows from
+%% the the rest of the invariants. If it remained an invariant, we
+%% should have proved that it was preserved by each of the auxiliary
+%% code methods presented in Figure~\ref{fig:auxcode}. Consequently,
+%% we remove it of the invariants and prove it only once as a derived
+%% lemma.}
+
+Even so, we argue that our specs already capture some essence of
+linerizability: the set $\scanned{\stableorder}$ is a chain
+(Lemma~\ref{lemma:complete-green}), which totally orders the complete
+history of the data structure
+(Invariants~~\ref{lem:scanned}.\ref{lem:scanned:total}
+and~~\ref{lem:scanned}.\ref{lem:scanned:wkn}) before and after the
+execution of each command. Then, each call to \jyscan\ possibly
+extends the current linearization of the data-structure, resolving the
+order of events that have being left out of the last
+linearization. The monotonicity of $\scanned{\stableorder}$, by
+Invariant~\ref{inv:mono}.\ref{inv:mono:stable}, acts then as a safety
+property stating that the linearizations of previous existing events
+is respected on each step.
+
+Finally, we argue that not proving linearizability is a feature, not a
+bug. As we stated in the Introduction, and illustrated in
+Section~\ref{sc:clients}, proving linearizability is orthogonal to
+performing client reasoning. And if our specs can already establish
+the relevant ordering information of events required to proving
+interesting properties of client programs, proving linearizability
+would become a detour.
+
+\gad{I had Juanma (Crespo) comment on this paragraph in particular---I
+  wanted an outsider opinion with a verification background and he had
+  the free time. Moreover my feeling was that this paragraph was
+  coming across as smug, and he being my friend, he knows when I'm
+  being a bit pedantic and enjoys calling me out. Surprisingly, he
+  told me that he found it {\bf quite defensive}. Which, after a third
+  look I agree. \\ He suggested whether it wouldn't be a better idea
+  to establish the comparison with linearizability here as a trade-off
+  in between having a unique ``simple'' spec that requires a
+  specialized, more complex logic to having a tailored spec in a more
+  general purpose logic which doesn't require extra metatheory. Then,
+  from a theorem proving perspective it's better to commit to a
+  simpler logic at the cost of having to tailor the specs, than giving
+  a general spec which is harder to implement/ proof properties
+  in. \\ Its an interesting opinion, and I'm trying to see whether I
+  can use his input somehow. At least the part about being too
+  defensive.}
+
+%% Reinforce the argument we made in the client's section, even if we
+%% have to repeat it again. Linearizability alone doesn't give you
+%% enough to prove clients.
+
+%% \gad{Say that in the end linearizability is a strait-jacket, and as
+%%   Section~4 shows, even a detour if your goal is to prove clients.}
+
+\end{comment}
+
+
+%% We believe that the quality of any Hoare-style specification is not
+%% determined only by its apparent simplicity but that other factors
+%% should be considered, the foremost being their applicability to client
+%% reasoning.
+
+%%\subparagraph*{Are these \emph{good} specs?}
+%% We claim the specification given to \jyscan\ and \jywrite\ is sensible
+%% because, as we shown in Section~\ref{sc:clients}, it enables reasoning
+%% about clients, and, moreover, it does so in cases where the obvious
+%% sequential Hoare logic specification which just asserts the contents
+%% of memory would work for an atomic method call, but no for a client
+%% involving a parallel composition.
+
+%% It is debatable whether there exists a \emph{simpler} spec than ours
+%% which allows for the same client reasoning. We argue that our spec is
+%% nonetheless a good spec, and propose two orthogonal experiments to
+%% justify that claim.
+
+%% First, we claim that our spec does not introduce any further
+%% complexity from the obvious sequential spec mentioned above, which is
+%% not used for dealing with the concurrent nature of the data-structure.
+%% We argue that, by restricting syntactically the environment
+%% interference as we did in Section~\ref{sc:clients} we can prove that
+%% this coarse-grained version of our methods satisfy the sequential,
+%% memory only specification:
+%% %
+%% %
+%% %% We omit here the formal details about its implementation using this
+%% %% construct, called $\mathbf{hide}$ , and refer the reader
+%% %% to~\cite{NanevskiLSD+ESOP14}.  Using this construct, it is possible to
+%% %% give the obvious sequential specs to this coarse-grained version of
+%% %% our methods:
+%% %
+%% \[
+%% \begin{array}{l l}
+%% \mathtt{writeX_{\text{seq}}}\ n &:
+%% % \logvar{v,w}\,
+%%        {\tsPre{\{\, \heapS = x \hpts v \hunion y \hpts w \}}}
+%%        {\tsPos{\{\, \heapSP = x \hpts n \hunion y \hpts w]\}}}\\
+%% \mathtt{scan_{\text{seq}}}\ &:
+%% % \logvar{v,w}\,
+%%        {\tsPre{\{\, \heapS = x \hpts v \hunion y \hpts w \}}}
+%%        {\tsPos{\{\, r\ldot\, \heapSP = \heapS \wedge
+%%                     r = (v,w)\}}}
+%% \end{array}
+%% \]
+%% %%
+%% %%
+%% %% \[
+%% %% \begin{array}{l l}
+%% %% \mathtt{write_{\text{seq}}}\ (p, n) &\eqdef \mathbf{hide}\ (\mathtt{write}\ (p, n)):\
+%% %% \logvar{v,w}\,
+%% %%        {\tsPre{\{\, \heapS = x \hpts v \hunion y \hpts w \}}}
+%% %%        {\tsPos{\{\, \heapSP = \heapS[p \hpts n]\}}}\\
+%% %% \mathtt{scan_{\text{seq}}}\ & \eqdef \mathbf{hide}\ \mathtt{scan}\ :
+%% %% \logvar{v,w}\,
+%% %%        {\tsPre{\{\, \heapS = x \hpts v \hunion y \hpts w \}}}
+%% %%        {\tsPos{\{\, r\ldot\, \heapSP = \heapS \wedge
+%% %%                     r = (v,w)\}}}
+%% %% \end{array}
+%% %% \]
+%% %
+%% Here, $\heapS$ denotes the contents of the underlying heap. The
+%% derived specs for $\mathtt{writeX_{\text{seq}}}$ and
+%% $\mathtt{scan_{\text{seq}}}$ assert then the obvious sequential
+%% behavior of a snapshot: the precondition of
+%% $\mathtt{writeX_{\text{seq}}}$, and dually for $y$, asserts that the
+%% heap that contains the snapshot is well defined and points to two
+%% values, $v$ and $w$. The postcondition just states that the pointer
+%% $x$ stores $n$ and the contents of $y$ have not changed. Similarly,
+%% the precondition of $\mathtt{scan_{\text{seq}}}$ captures the initial
+%% contents of the memory, while the postcondition states that the
+%% contents of did not change and that the snapshot is constructed from
+%% the values present in memory when $\mathtt{scan_{\text{seq}}}$ was
+%% called.
+
+%% \gad{Somebody check this part.}
+
+%In a way, this exercise becomes a lightweight proof of the
+%\highlight{{\it adequacy}} of the specs given in
+%Figure~\ref{fig:specs}.
+
+%\gad{Is {\bf adequacy} the right word here? I'm trying to say a proof
+%  it implements its sequential specification on the heap.}
+
+% \gad{Aleks was not sure about presenting hide here since (i) we are
+%   not giving details about it and (ii) I haven't finished
+%   implementing the decorator/hiding infrastructure for it. We could
+%   add something in the Appendix about hide and also, nobody
+%   complained with the sequential version in Section~\ref{sc:clients}
+%   and I am confident we can finish this proof, so I'm inclined to
+%   leave it. After talking with Anindya, I'm going for presenting the
+%   sequential version without presenting the implementation using
+%   {\bf hide}, as we did in Section~\ref{sc:clients}.}
+
+%\todo{Incorporate Anindya's comments on the first half}
+
+%\gad{Here we show that the specs aren't complex beyond what's needed
+%  for client reasoning.}  \gad{We should consider moving the
+%  discussion regarding readpair here.}
+
+\input{readpair}
+
+%\subparagraph*{Alternative snapshot implementations and substitution
+%principle.}
+
+\subparagraph*{Alternative snapshot implementations.}
+FCSL's substitution principle can be exploited further in an
+orthogonal way: it allows us to re-use the specs for \jywrite\ and
+\jyscan\ in Figure~\ref{fig:specs}, ascribing them to a different
+concurrent snapshot algorithm. For that matter, we re-visit the
+previous verification in FCSL of the pair-snapshot
+algorithm~\cite{SergeyNB+ESOP15}. We present only \jyscan\ in
+Figure~\ref{fig:readpair}, as \jywrite\ is trivial.
+
+In this example, the snapshot structure consists of pointers $x$ and
+$y$ storing tuples $(c_x, v_x)$ and $(c_y, v_y)$, respectively. $c_x$
+and $c_y$ are the payload of $x$ and $y$, whereas $v_x$ and $v_y$ are
+version numbers, internal to the structure. Writes to $x$ and $y$
+increment the version number, while {\tt scan} reads $x$, $y$ and $x$
+again, in succession. Snapshot inconsistency is avoided by restarting
+if the two version numbers of $x$ differ. In this paper's notation,
+the specification proved for \jyscan in~\cite{SergeyNB+ESOP15} reads:
+\[\hfill
+\esc{scan} : \tsPos{\{\histS = \hempty\}}\
+\tsPos{\{\exists t\ldot \histS' = \hempty \wedge
+  r = \eval\ t\ \histP \wedge \dom{\hist}
+  \subseteq \ideal{\histP}{t}\}}\hfill
+\]
+This spec is indeed very similar to the one of \jyscan in
+Figure~\ref{fig:specs}, but exhibits that the algorithm does not
+require dynamic modification to the event ordering. Thus, by defining
+$\stableorder$ to be the natural ordering on timestamps in the global
+history $\hist$ (so that $\ideal{\stableorderP}{t} =
+\ideal{\histP}{t}$), and taking $\scanned{\stableorder}$ to be the set
+of all timestamps in $\hist$ (so that $t \in \scanned{\stableorder}$
+is trivially true and can be added to the postcondition above), the
+above spec directly weakens into that of Figure~\ref{fig:specs}.
+%
+Since client proofs are developed in FCSL out of the specs, and not
+the code of programs, we can substitute different implementations of
+snapshot algorithms in clients, without disturbing the clients'
+proofs.
+%
+This is akin to the property that programs that linearize to the same
+sequential code are interchangeable in clients.
+
+\begin{comment}
+% I'm removing this section after my conversation with Anindya. The
+% point there it is that it's an informal comment that might be
+% interesting but at the same time ``increasing the attack surface of
+% the paper'' from a reviewers perspective.
+ 
+\subparagraph*{Scalability of our approach.}
+%
+Even when we have, in practice, only formalized one case study, we can
+distill how the proposed verification technique of {\it relinking in
+  time} would scale to other more complex data structures. As we have
+mentioned throughout our paper, the crux of our technique is the
+ability to change atomically the apparent order of past events as long
+as they satisfy the invariants of the data-structure and the {\it
+  real-time} order of non-overlapping events inherited from {\it
+  linearizability}.
+
+An informal taxonomy of the auxiliary code methods can be given,
+dividing them into three families according on how they relate with
+the logical ordering of events:
+
+\begin{description}
+\item[register] Auxiliary code methods whose role is to witness the
+  existence of a new atomic event. In Jayanti's snapshot case, we have
+  only one: $\aux{register}$. This needs not be the start of the
+  method, but rather the atomic moment when it becomes visible to the
+  environment: the pointer is written, the value is enqueued,
+  dequeued, pushed, popped, \etc.
+
+\item[forward] This class of auxiliary code methods update the
+  auxiliary state in order to reflect certain dynamic events. Their
+  purpose is to contribute/refine the evidence the $\aux{relink}$
+  method needs to assess whether the order of events is correct, and
+  if it is not the case, how to fix it. In our case study:
+  $\aux{checkS}$, $\aux{forward}$, $\aux{finalize}$, $\aux{set}$, and
+  $\aux{clear}$.
+
+\item[relink] auxiliary code methods which change the order to justify
+  the correctness of a result. In our case study $\aux{relink}$
+  implements such behavior.
+\end{description}
+
+The concurrent resource we presented in this paper for Jayanti's
+snapshot algorithm considers only {\it write} events in the history,
+and computes snapshots by evaluating $\mathsf{scanned}$ segments of
+the history. Thus, there could only be one \aux{register}-class
+auxiliary method. If we had encoded scan events as well---a needless
+and painful exercise, as per our argument above---there would be a
+another method of this kind. In a similar way, it is easy to envision
+that data-structures with more than one {\it effectful} method like
+queues or stacks, will define two auxiliary state code
+\aux{register}-like operations of this class, one per thread. Or at
+least, two instances of such.
+
+As for \aux{relink}, in the case of a snapshot data structure we argue
+that it is optimal to have only one of such methods, and place it in
+the \jyscan\ method before returning the snapshot, just as we have
+done in this paper.
+%
+Checking the correctness of this auxiliary code
+and, the stability of its specification and proving it satisfies the
+2-step invariants defined in Invariant~\ref{inv:mono} constitutes a
+significant part of the proof burden in our
+mechanization\footnotemark.
+%
+If we had gone for a design in which a \aux{relink}-like auxiliary
+code operation was happening, for instance, together with each of the
+reading loops in \jyscan, we would have increased significantly the
+size and complexity of our mechanization.\todo{I should try tomorrow
+  to crunch the numbers to illustrate the claim about relink being the
+  most heavy of the auxiliary code operations.}
+
+We have identified a potential candidates for applying our technique
+in the future, such as the TS stack~\cite{DoddsHK+POPL15} and the ever
+ubiquitous Herlihy--Wing~\cite{HerlihyW+TOPLAS90,SchellhornWD+CAV12,
+  HenzingerSV+CONCUR13, KhyzhaGP+ESOP17} queue. Our preliminary
+understanding is that our approach would be to add one \aux{relink}
+auxiliary code operation in those cases as well: respectively at the
+end of the the \esc{pop} and \esc{dequeue} methods. Of course, we do
+not have any evidence to claim this hints to a general rule. Nor we
+believe it should be the case. A tailored suit fits better than a
+\emph{one-size-fits-all} jacket.
+
+\gad{This last paragraph is very speculative, and we might as well
+  scrap it altogether. Also, sorry about the flare at the closing,
+  but, I needed to complain.  In our last meeting on Tuesday Aleks
+  kept repeating ``Linearizability is a strait-jacket'', and I felt
+  compelled to use his wisdom somehow.}
+
+\footnotetext{Some numbers be crunched and placed here.}
+\end{comment}
+
+%% This follows the philosophy of previous history-based concurrent
+%% resource designs in
+%% FCSL~\cite{SergeyNB+ESOP15,SergeyNB+PLDI15,SergeyNBD+OOPSLA16},
+%% where histories entries denote the effect
+
+%% We could have gone for an alternative design where the both
+%% \jyscan~and \jywrite~methods are recorded in the histories. Again,
+%% that would have been an unnecessary complication: introducing {\it
+%%   scan} events into $\hist$, would require extra book-keeping
+%% invariants with an increased proof burden. The resulting spec is
+%% likely to be similar to the one given in Section~\ref{sc:spec}.
+
+
+%% This has been done in FCSL before--- \eg\, for the {\it Treiber} stack
+%% in~\cite{SergeyNB+ESOP15}---.
+
+%\gad{Also, we could move here the comparison with Jayanti's proof.}
+
+\subparagraph*{Relation to Jayanti's original proof.}
+\label{sec:relat-jayant-orig}
+%
+Finally, we close this section by noting that our proof of Jayanti's
+algorithm seems very different from Jayanti's original proof. Jayanti
+relies on so-called \emph{forwarding principles}, as a key property of
+the proof. For example, Jayanti's First Forwarding Principle says (in
+paraphrase) that if {\tt scan} misses the value of a concurrent write
+through lines~\lineScanReadsX--\lineScanReadsY\ of
+Figure~\ref{fig:jayanti-snapshot}, but the write terminates before the
+scanner goes through line~\lineScanUnsetsS\ (the linearization point
+of \jyscan), then the scanner will catch the value in the forwarding
+pointers through lines~\lineScanReadsFX--\lineScanReadsFY.
+%
+Instead of forwarding principles, we rely on colors to algorithmically
+construct the status of each write event as it progresses through
+time, and express our assertions using formal logic. For example,
+though we did not use the First Forwarding Principle, we nevertheless
+can express a similar property, whose proof follows from
+% the auxiliary state
+Invariants introduced in Section~\ref{sc:auxiliaries}:
+%
+\begin{proposition}\label{inv:fwd1}%
+If $\sss = \sOff\ \toff$ and $\sx = \sy = \TT$---i.e., the scanner is
+in lines~\lineScanReadsFX--\lineScanChoosesRY\ and it has unset $\s$
+in line~\lineScanUnsetsS\ at time $\toff$---then: $ \forall t \in
+\hist\ldot\ t \leq \E(t)< \toff \implies \C(t)= \mathsf{green}$.
+%% %
+%% \[\forall t \in
+%%   \hist\ldot\ t \leq \E(t)< \toff \implies \C(t)= \mathsf{green}\]
+\end{proposition}
+% This proposition is still somewhat different from the forwarding
+%principle, because it states that \emph{all} events, not just the
+%missed ones, that terminated before the scanner goes through
+%line~\lineScanUsetS, are colored green; hence, are ``observed'' by
+%the scanner.  Notice that our forwarding principle is a bit stronger
+%than Jayanti's: it states that at the moment the scanner reads from
+%the forwarding pointers on lines~\lineScanReadsFX--\lineScanReadsFY,
+%all write events that finished before \jyscan's
+%line~\lineScanUnsetsS---including those originally missed---are green
+%and thus will not be missed by the current scan.  \gad{Better names
+%are welcome! Does this explanation helps? In fact, the statement
+%reads as if we are verifying that we comply with Jayanti's First FP.}
+
+%%\gad{Something for the second?}

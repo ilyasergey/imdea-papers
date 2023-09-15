@@ -1,0 +1,732 @@
+\section{Semantics and Soundness}
+\label{sec:semantics}
+
+The semantic model for \SCST programs largely relies on the
+denotational semantic of \emph{action
+  trees}~\cite{LeyWild-Nanevski:POPL13}, which implement finite,
+partial approximations of the behavior of \SCST commands.  Action
+trees are a generalization of the Brookes' action traces in the
+following sense. Where action trace semantics approximate a program by
+a set of traces, we approximate with a set of trees. A tree differs
+from a trace in the following: a trace is a sequence of actions and
+their results, whereas a tree contains an action followed by a
+\emph{continuation} which itself is a tree parametrized wrt.~the
+output of the action. In this appendix we introduce a number of
+notions in order to formalize the safety of \SCST.
+
+The high-level view of the development is as follows. We first define
+semantic behavior (\ie, operational semantics) for action trees wrt.~a
+program state (Section~\ref{sec:opsem}). We consider program state
+that, in addition to concrete heaps includes the logical information
+such as auxiliary state, or division of state between concurroid
+labels. Thus, the operational semantics of trees is
+\emph{instrumented}. In Section~\ref{sec:ersem}, we prove the standard
+erasure result of shared-memory concurrency logics, whereby logical
+information in program states doesn't influence the result of the
+computation.
+
+Taking the low-level operational semantics of threes from
+Section~\ref{sec:opsem} as a base for our soundness result, we relate
+it to the high-level transitions of a concurroid by an
+$\mathsf{always}$ predicate (Section~\ref{sec:modal-pred}) that
+ensures a tree is resilient to any amount of a concurroid's
+rely-interference, and that all operational steps by a tree are
+\emph{safe} (\ie, providing an analogue to \emph{preservation}
+property for the \emph{action safety} predicate) and correspond to
+concurroid interference. %
+
+The denotational semantics (Section~\ref{sec:denot-sem}) interprets
+Hoare tuple judgments by the \emph{monadic Hoare type}
+$\ST{p}{A}{q}{U}$, which is a \emph{complete lattice} of trees that
+are $\mathsf{always}$-safe to run from any initial configuration that
+satisfies precondition $p$ and if they terminate produce a final
+configuration that satisfies postcondition $q$ (under possible
+interference from programs respecting the transitions of the
+concurroid $U$). The complete lattice structure makes the semantic
+domain suitable for modeling recursion.  A command is denoted by the
+set of its tree approximations, and a procedure is denoted by a
+function into a set of trees.
+%
+The \emph{soundness} of \SCST (Section~\ref{sec:soundness}) follows
+from showing that the denotations of the commands listed in
+Section~\ref{sec:logic} satisfy the appropriate $\mathsf{always}$
+predicate (\ie, adhere to the \emph{progress-and-preservation}
+property), and that $\mathsf{always}$ satisfies certain closure
+conditions. 
+
+We choose the Calculus of Inductive Constructions
+(CiC)~\cite{coq-team,Bertot-Casteran:04} as our meta logic.  This has
+several important benefits.  First, we can define a \emph{shallow
+  embedding} of \SCST into CiC that allows us to program and prove
+directly \emph{with the semantic objects}, thus immediately lifting
+\SCST to a full-blown programming language and verification system
+with higher-order functions, abstract types, abstract predicates, and
+a module system.  We also gain a powerful dependently-typed
+$\lambda$-calculus, which we use to formalize all semantic definitions
+and metatheory, including the definition of action trees by
+\emph{iterated inductive definitions}~\cite{coq-team},
+specification-level functions, and programming-level higher-order
+procedures.
+%
+Finally, we were able to mechanize the entire semantics and
+metatheory~\cite{fcsl-coqscripts} in the Coq proof assistant
+implementation of~CiC.
+
+Following~\cite{LeyWild-Nanevski:POPL13}, we use set-theoretic and
+type-theoretic notation as appropriate.
+%
+The reader unconcerned with the fine points of the type theory, may
+read a typing judgment $x \ty A$ as a set membership predicate $x \in
+A$.
+
+
+\subsection{Action trees and their operational semantics}
+\label{sec:opsem}
+%
+The type family $\mathsf{tree}~U~A$ of $A$-returning action trees is
+defined by an iterated inductive definition, as follows.
+
+\begin{definition}[Action trees]
+\label{def:trees}
+\[
+\begin{array}{lcr}
+  \mathsf{Unfinished} & : & \mathsf{tree}~U~A
+  \\
+  \mathsf{Ret}\ (v \ty A) & : & \mathsf{tree}~U~A
+  \\
+  \mathsf{Act}~(a \ty (U, A, \sigma, \mu)) & : & \mathsf{tree}~U~A
+  \\
+  \mathsf{Seq}~(t \ty \mathsf{tree}~U~B)~(k \ty B \arrow \mathsf{tree}~U~A) & : & 
+  \mathsf{tree}~U~A
+  \\
+  \mathsf{Par}~(t_1 \ty \mathsf{tree}~U~B_1)\ (t_2 \ty \mathsf{tree}~U~B_2)\ (k \ty B_1 \times B_2 \arrow \mathsf{tree}~U~A) & : & 
+  \mathsf{tree}~U~A 
+  \\
+  \mathsf{Inject}~(t \ty \mathsf{tree}~V~A) &:&
+  \mathsf{tree}~U~A 
+  \\
+  \mathsf{Hide}_{\Ghi,g}~(t \ty \mathsf{tree}~V~A) &:&
+  \mathsf{tree}~U~A 
+\end{array}
+\]  
+\end{definition}
+
+Most of the constructors in Definition~\ref{def:trees} are
+self-explanatory.
+%
+Since trees have finite depth, they can only \emph{approximate}
+divergent computations, thus the $\mathsf{Unfinished}$ tree indicates
+an incomplete approximation. %
+%
+$\mathsf{Ret}\ v$ is a terminal computation that returns value
+$v\,{:}\,A$. %
+%
+The constructor $\mathsf{Act}$ takes as a parameter an action $(U, A,
+\sigma, \mu)$, defined in concurroid $U$~(Section~\ref{sec:logic}).
+%
+$ \mathsf{Seq}~t~k$ sequentially composes a $B$-returning tree $t$
+with a continuation $k$ that takes $t$'s return value and generates
+the rest of the approximation.
+%
+$\mathsf{Par}\ t_1\ t_2\ k$ is the parallel composition of trees $t_1$
+and $t_2$, and a continuation $k$ that takes the pair of their results
+when they join. %
+CiC's iterated inductive definition permits the recursive occurrences
+of $\mathsf{tree}$ to be \emph{nonuniform} (\eg, $\mathsf{tree}\ B_i$
+in $\mathsf{Par}$) and \emph{nested} (\eg, the \emph{positive}
+occurrence of $\mathsf{tree}\ A$ in the continuation). %
+Since the CiC function space $\arrow$ includes case-analysis, the
+continuation may branch upon the argument, which captures the pure
+computation of conditionals. %
+This closely corresponds to the operational intuition and leads to a
+straightforward denotational semantics.
+%
+
+The $\mathsf{Inject}$ constructor embeds a tree $t \ty
+\mathsf{tree}~V~A$ (of a \emph{different}, \ie, smaller, concurroid
+$V$) for the underlying computation and generates a tree in the
+concurroid $U$.  $V$ and $U$ are not arbitrary, but it has to be
+possible to \emph{inject} $V$ into $U$, as we shall define shortly.
+In particular, we will be able to prove that we can inject $V$ into $U
+= V \entangle W$ for any $W$. 
+
+%
+The $\mathsf{Hide}$ constructor embeds a \emph{generalized refinement
+  function} $\Ghi$, an abstract state $g$ and a tree $t \ty
+\mathsf{tree}~V~A$ for the underlying computation and generates a tree
+in the concurroid $U$. Again, $U$ and $V$ are not arbitrary but it has
+to be possible to \emph{refine} $V$ into $U$. In particular, we will
+be able to prove the we can refine $U = P \entangle V_1 \entangle V_2$
+into $V = P \entangle V_1$.
+
+In general, in Coq, the proof that $V$ injects into $U$, or that $V$
+refines $U$, has to be an annotation on the $\mathsf{Inject}$ and
+$\mathsf{Hide}$ constructors, but we omit the annotations for brevity.
+
+
+
+\subsection{Injection and Refinement}
+\label{sec:prop-inject-hiding}
+
+We define the predicate $\mathsf{injects}~V~U$, which intuitively
+means that the ``larger'' concurroid $U$ can be considered as an
+entanglement of the ``smaller'' concurroid $V$ with some additional
+concurroid $W$. 
+
+\begin{definition}[Injection predicate]
+\label{def:inj-pred}
+
+$\mathsf{injects}~V~U$ $\iff$ there exists $W$, such that the
+following three statements hold:
+
+\begin{enumerate}
+
+\item $w \in {\cal W}_U \iff w = w_1 \hunion w_2 \aand w_1 \in
+  {\cal W}_V \aand w_2 \in  {\cal W}_W$;
+
+\item $\forall w_1~w_2~w.~w_1 \hunion w \in {\cal W}_U \aand w_2
+  \hunion w \in {\cal W}_U \aand (w_1, w_2) \in \tau_V \implies
+  (w_1 \hunion w, w_2 \hunion w) \in \tau_U$;
+
+\item $\forall w_1~w_1'~w_2~w_2'.$ 
+
+\[
+\begin{array}{cl}
+s_1 \in {\cal W}_V \aand s_2 \in
+  {\cal W}_V \aand (s_1 \hunion s_1', s_2 \hunion s_2') \in \guar{U} &
+  \implies \\
+  (s_1, s_2) \in \guar{V} \aand (s_1', s_2') \in \guar{W}, & \text{ where }
+\end{array}
+\]
+%
+$\guar{X}$ is a \emph{guarantee} relation of a concurroid $X$
+(Definition~\ref{def:guarantee}).
+
+\end{enumerate}
+
+\end{definition}
+The first requirement ensures that the states of $U$ can be
+constructed as Cartesian products of states of $V$ and $W$. The second
+requirement ensures that internal transitions of the smaller
+concurroid~$V$ do not break the coherence of it enclosing
+concurroid~$U$. The third requirement ensures that the transitions
+within $U$ can be always uniquely split to the transitions done by $V$
+and by the ``addition'' $W$.
+%
+Notably, the first requirement ensures that if $\mathsf{injects}~V~U$
+holds, there always exists a ``smaller'' state $w_V$, such that $w_V
+\in {\cal W}_V$ for any $w_U \in {\cal W}_U$.
+
+We will also introduce another auxiliary definition in order to have a
+handle to the existential concurroid $W$ in
+Definition~\ref{def:inj-pred}.
+
+\begin{definition}
+\label{def:bbt}
+%
+We will write $U = V \opentangle W$, when $\mathsf{injects}~V~U$ and
+$W$ is an additional concurroid from Definition~\ref{def:inj-pred}. 
+\end{definition}
+
+The notation $\opentangle$ hints that already familiar entanglement
+operators $\entangle$ and $\rentangle$ can be seen as particular cases
+of $\opentangle$.
+
+\begin{lemma}$\mathsf{injects}~V~{(V \entangle W)}$ for every $V$ and $W$ with disjoint label sets. \end{lemma}
+
+We next define the refinement relation on concurroids. The concurroid
+$U$ is refined into $V$, if we can, intuitively, elaborate the states
+of $U$ into those of $V$. In other words, if $V$'s states can be seen
+to contain the states of $U$, plus some other additional
+state. Abstractly, we capture the dependence by positing an
+elaboration predicate $\Ghi$ between the state spaces of $U$ and
+$V$, with a number of properties shown below. Additionally, $\Ghi$
+takes a value $g : G$ of user-specified type, which is an abstraction
+of the mentioned additional state. Thus, we read $\Ghi(g)(w, w')$
+to say that $g$ elaborates $w$ into $w'$ (via $\Ghi$).
+
+\begin{definition}[Elaboration predicate]
+\label{def:hid-pred}
+
+Given a type $G$ of abstract states and a function $\Ghi: G
+\rightarrow ({\cal W}_U, {\cal W}_V) \rightarrow \mathsf{prop}$,
+$\mathsf{refines}~U~V~{\Ghi}$ $\iff$ the following statements
+hold:
+
+\begin{enumerate}
+%1
+%\forall g, w, w_1, w_2, 
+\item $\Ghi(g)(w, w_1) \aand \Ghi(g)(w, w_2) 
+\implies w_1 = w_2;$
+
+%2 
+%\forall g_1, w_1, g_2, w_2, w, 
+\item $\Ghi(g_1)(w_1, w) \aand
+  \Ghi(g_1)(w_2, w) \implies g_1 = g_2 \aand w_1 = w_2;$
+
+%3
+%\forall g, w, w', 
+\item $\Ghi(g)(w, w') \implies w \in {\cal W}_U
+  \aand w' \in {\cal W}_V;$
+
+%4
+% \forall g, w_1, w_1', w_2, 
+\item $\Ghi(g)(w_1, w_1') \aand (w_1, w_2)
+  \in \rely{U} \implies \exists w_2', \Ghi(g)(w_2, w_2') \aand (w_1',
+  w_2') \in~\rely{V};$
+
+%5
+% \forall g1, w1, w1', g2 w2, w2',
+\item $\Ghi(g_1)(w_1, w_1') \aand (w_1',
+  w_2') \in \tau_V \implies \exists g_2\ w_2\ldot \Ghi(g_2)(w_2, w_2') \aand (w_1, w_2) \in \tau_U;$
+%\item $\Ghi(g_1)(w_1, w_1') \aand \Ghi(g_2)(w_2, w_2') \aand (w_1',
+%  w_2') \in \tau_V \implies (w_1, w_2) \in \tau_U;$
+
+%6
+% \forall g1, w1, w1', g2, w2, w2'
+\item $\Ghi(g_1)(w_1, w_1') \aand \Ghi(g_2)(w_2, w_2') \implies
+  (w_1.\mathother = w_1.\mathother \iff w_1'.\mathother = w_2'.\mathother);$
+
+%7 
+\item $\forall p. \exists q.$
+\[
+\begin{array}{llc}  
+\forall g~w~w'. & \Ghi(g)(w \zag p, w') \implies
+\left(\exists w_1', w' = w_1' \zag q \aand \Ghi(g)(w \zig p, w_1' \zig
+  q) \right)
+& ~\aand \\
+\forall g~w~w'. & \Ghi(g)(w, w' \zig q) \implies
+\left(\exists w_1, w = w_1 \zig p \aand \Ghi(g)(w_1 \zag p, w' \zag
+  q) \right); 
+\end{array}
+\]
+
+%8
+\item 
+% \forall g, w, w',
+$\Ghi(g)(w, w') \implies \flatten{w} = \flatten{w'};$
+
+
+\end{enumerate}
+
+\end{definition}
+
+If the properties in Definition~\ref{def:hid-pred} are satisfied, we
+call $\Ghi$ and elaboration predicate for $U$ and $V$.  In
+Definition~\ref{def:hid-pred}, (1) states that $\Ghi$ uniquely
+determines refined states (however, some states in $U$ need not refine
+into anything in $V$, \ie, $\Ghi$ is a partial function); (2)
+states that the $\Ghi$ is injective: abstracting back from a
+refinement is unique. Thus, (1) and (2) state that $\Ghi$ is a
+partial bijection. (3) ensures that the elaboration maps well-formed
+states to well-formed states; (4) specifies that environment steps in
+the ``coarse'' world do not change introduced abstractions in the
+``fine'' world, as environment steps in the coarse world can't see the
+refinement; (5) states that ``abstracting back'' preserves internal
+transitions. The properties (4) and (5) can be seen as stating
+commutativity of the apparent categorical diagrams. They may also be
+seen as stating simulation properties. In (4), a rely transitions of
+$U$ can always be matched by a rely transition of $V$. In (5), an
+internal transition of $V$ may always be matched by an internal
+transition of $U$.  (6) postulates that refinement realigns \self and
+\joint parts, but doesn't move things into/out of \other; (7) is a
+version of framing, namely, every every extension to \other of a
+coarse state is is uniquely refined into an addition to fine state;
+finally, (8) ensures that refinement only deals with abstract parts of
+the state and does not change the heap.
+
+\begin{lemma}[Hiding and refinement]
+\label{lm:hiding}
+
+  Let $U$ and $V$ be concurroids, and let $\Phi$ be an abstraction
+  function from a \textsc{Hide}; that is, $\Phi$ satisfies the
+  properties about concurroid $V$ from
+  Section~\ref{sec:phi-properties}. Let $\Ghi$ be constructed as
+  follows.
+\[
+\begin{array}{l}
+\Ghi (g)(w, w') \iff 
+ \exists h\ w_1\ w_2,
+   \begin{array}[t]{lcl}
+   w & = & (\hpriv \hpts (h \hunion \flatten {w_1})) \hunion w_2\aand\hbox{}\\
+   w' & = & (\hpriv \hpts h) \hunion w_1 \hunion {w_2}\aand\hbox{}\\
+   w_1 & \in & \Phi(g)\aand\hbox{}\\
+   w & \in & {\cal W}_{P \entangle U} \aand w' \in {\cal W}_{{P \entangle U}\entangle V}
+   \end{array}
+\end{array}
+\]
+Then $\Ghi$ is a valid elaboration predicate, that is
+$\mathsf{refines}~(P \entangle U)~(P \entangle U \entangle
+V)~\Ghi$.
+\end{lemma}
+
+\subsection{Operational semantics of action trees}
+The judgment for small-step operational semantics of action trees has
+the form $w; t \tsteps{\Path} w', t'$ (Figure~\ref{fig:tsteps}). It
+operates on program states $w$ and paths $\Path$ to step the tree $t$
+from initial state $w$ to a reduced tree $t'$ in ending state $w'$.
+Intuitively, the path $\Path$ identifies the position in the tree to
+be reduced, which may be an action, or a beta redex.
+\[
+\begin{array}{rclclclcl}
+\Path & ~::=~ & \ChoiceAct &~~|~~& \SeqRet &~~|~~& \SeqStep~\Path &~~|~~&   \\
+&&                   \ParRet &~~|~~& \ParL~\Path &~~|~~& \ParR~\Path &~~|~~& \tag{\arabic{tags}}\refstepcounter{tags} \\
+&&                   \HideStep~\Path &~~|~~& \HideRet &~~|~~&  \InjStep~\Path &~~|~~& \InjRet .
+\end{array}
+\label{eq:path}
+\]
+%
+Stepping is undefined for the $\mathsf{Unfinished}$ and $\mathsf{Ret}$
+trees. %
+For the $\mathsf{Seq}$ and $\mathsf{Par}$ trees, the path $\Path$
+selects a $\beta$-redex and performs the appropriate reduction. 
+%
+For the $\mathsf{Inject}$ tree in the non-$\mathsf{Ret}$ case the
+reduction of the tree $t_1$ is performed for a smaller state $w_V$
+instead of the large state $w_U$, and the resulted state $w_V'$ is
+``plugged'' back using the addition $w_0$ in order to obtain the
+resulting large state $w_U'$. The situation for $\mathsf{Hide}$ is
+symmetric: the coarse-grained state $w_U$ and the fine-grained state
+$w_V$ are related by the elaboration $\Ghi$. Note that the
+modifications of the changes to the abstract values $g$ are recorded
+into $g'$.
+
+\begin{figure}[t] 
+\figsize
+\figStepTree
+\caption{Tree stepping $w; t \tsteps{\Path} w'; t'$ with respect to
+  the path $\Path$}
+\label{fig:tsteps}
+\end{figure} 
+
+The decorated semantics in Figure~\ref{fig:tsteps} may not make a step
+for two different reasons. The first, benign, reason is that the the
+chosen path $\Path$ doesn't actually determine an action or a redex in
+the tree $t$. For example, we may have $t = \mathsf{Unfinished}$ and
+$\Path = \mathsf{ParR}$. But we can choose the right side of a
+parallel composition only in a tree whose head constructor is
+$\mathsf{Par}$, which is not the case with $\mathsf{Unfinished}$.  We
+consider such paths that don't determine an action or a redex in a
+tree ill-formed.
+
+The second reason arises when $\Path$ is actually well-formed. In that
+case, the constructors of the path uniquely determine a number of
+rules of the operational semantics that should be applied to step the
+tree. However, what is some of the rules can't be applied because
+their side-conditions are not satisfies by the current state.
+
+We next state a form of the progress property, showing that the latter
+case can't occur in trees that approximate well-proved programs. We
+first formally define paths which are well-formed wrt.~a tree.
+
+\begin{definition}[Good paths]
+\label{def:good}
+Let $t \ty \mathsf{tree}~U~A$ and $\Path$ be a path.  Then the
+predicate $\mathsf{good}~t~\Path$ is defined as follows:
+\[
+\begin{array}{rllcl}
+  \mathsf{good} & (\mathsf{Act}~(U, A, \sigma, \mu)) & \ChoiceAct
+  & ~\eqdef~ & \mathsf{true}   
+  \\
+  \mathsf{good} & (\mathsf{Seq}~(\mathsf{Ret}~v)~\_) & \SeqRet
+  & ~\eqdef~ & \mathsf{true}  
+  \\
+  \mathsf{good} & (\mathsf{Seq}~t~\_) & \SeqRet~\Path 
+  & ~\eqdef~ & \mathsf{good}~t~\Path 
+  \\
+  \mathsf{good} & (\mathsf{Par}~(\mathsf{Ret}~\_)~(\mathsf{Ret}~\_)~\_) & \ParRet 
+  & ~\eqdef~ & \mathsf{true}  
+  \\
+  \mathsf{good} & (\mathsf{Par}~t_1~t_2~\_) & \ParL~\Path
+  & ~\eqdef~ & \mathsf{good}~t_1~\Path
+  \\
+  \mathsf{good} & (\mathsf{Par}~t_1~t_2~\_) & \ParR~\Path 
+  & ~\eqdef~ & \mathsf{good}~t_2~\Path
+  \\
+  \mathsf{good} & (\mathsf{Inject}~(\mathsf{Ret}~\_)) & \InjRet
+  & ~\eqdef~ & \mathsf{true}
+  \\
+  \mathsf{good} & (\mathsf{Inject}~t) & \InjStep~\Path 
+  & ~\eqdef~ & \mathsf{good}~t~\Path 
+  \\
+  \mathsf{good} & (\mathsf{Hide}~\_~\_~(\mathsf{Ret}~\_)) & \HideRet
+  & ~\eqdef~ & \mathsf{true}
+  \\
+  \mathsf{good} & (\mathsf{Hide}~\_~\_~t) & \HideStep~\Path 
+  & ~\eqdef~ & \mathsf{good}~t~\Path 
+  \\
+  \mathsf{good} & t & \Path 
+  & ~\eqdef~ & \mathsf{false} \text{~~otherwise}
+\end{array}
+\]
+
+\end{definition}
+
+We next require a notion of safety for a tree and a path.
+
+\begin{definition}[Safe path for an action tree]
+\label{def:safe}
+Let $t \ty \mathsf{tree}~U~A$, $\Path$ be a path $\Path$, and state $w
+\in {\cal W}_U$.  $\mathsf{safe}~t~\Path~w$ is defined as follows:
+\[
+\begin{array}{rlllcl}
+  \mathsf{safe} & (\mathsf{Act}~(U, A, \sigma, \mu)) & \ChoiceAct & w 
+  & ~\eqdef~ & (w \in \sigma) 
+  \\
+ % \mathsf{safe} & (\mathsf{Ret}~v) & \mathsf{nil} & w 
+ % & ~\eqdef~ & \mathsf{true}  
+ % \\ 
+  \mathsf{safe} & (\mathsf{Seq}~(\mathsf{Ret}~v)~\_) & \SeqRet & w 
+  & ~\eqdef~ & \mathsf{true}  
+  \\
+  \mathsf{safe} & (\mathsf{Seq}~t~\_) & \SeqStep~\Path & w 
+  & ~\eqdef~ & \mathsf{safe}~t~\Path~w  
+  \\
+  \mathsf{safe} & (\mathsf{Par}~(\mathsf{Ret}~\_)~(\mathsf{Ret}~\_)~\_) &\ParRet & w 
+  & ~\eqdef~ & \mathsf{true}  
+  \\
+  \mathsf{safe} & (\mathsf{Par}~t_1~t_2~\_) & \ParL~\Path~ & w 
+  & ~\eqdef~ & \mathsf{safe}~t_1~\Path~w
+  \\
+  \mathsf{safe} & (\mathsf{Par}~t_1~t_2~\_) & \ParR~\Path~ & w 
+  & ~\eqdef~ & \mathsf{safe}~t_2~\Path~w
+  \\
+  \mathsf{safe} & (\mathsf{Inject}~(\mathsf{Ret}~\_)) & \InjRet & w 
+  & ~\eqdef~ & \mathsf{true}
+  \\
+  \mathsf{safe} & (\mathsf{Inject}~(t \ty \mathsf{tree}~V~A)) & \InjRet~\Path & w 
+  & ~\eqdef~ & \mathsf{injects}~V~U  \aand w = w_V \hunion w_0 ~\aand \\ 
+  &&&&& \mathsf{safe}~t~\Path~w_V
+  \\
+  \mathsf{safe} & (\mathsf{Hide}~\_~\_~(\mathsf{Ret}~\_)) & \HideRet & w 
+  & ~\eqdef~ & \mathsf{true}
+  \\
+  \mathsf{safe} & (\mathsf{Hide}~\Phi~g~(t \ty \mathsf{tree}~V~A)) & \HideStep~\Path & w 
+  & ~\eqdef~ & \mathsf{hides}~U~V~\Phi \aand \Phi(g)(w, w_V) ~\aand \\
+  &&&&& \mathsf{safe}~t~\Path~w_V
+  \\
+  \mathsf{safe} & t & \Path & w 
+  & ~\eqdef~ & \mathsf{true}  \text{~~otherwise}
+  % \\
+  % \mathsf{safe} & t & \Path & w 
+  % & ~\eqdef~ & \mathsf{true} \text{~~otherwise}
+\end{array}
+\]
+
+\end{definition}
+
+The definition traverses the path and the tree, and in those cases
+when the tree and the path match, collects the side-conditions on the
+\emph{initial states} of the operational semantics rules.
+
+\begin{lemma}[Progress on action trees]
+\label{thm:progress}
+For any concurroid $U$, state $w \in {\cal W}_U$, action tree $t \ty
+\mathsf{tree}~U~A$ and a path $\Path$, if $\mathsf{safe}~t~\Path~w$,
+then either of the following holds
+%
+\begin{enumerate}
+\item $\neg~ \mathsf{good}~t~\Path$;
+\item $\exists w'~t',~ w;t \tsteps{\Path} w';t'$.
+\end{enumerate}
+\end{lemma}
+
+The lemma shows that if we can match the tree $t$ with a path $\Path$
+and thus manage to pick an action or a redex (\ie,
+$\mathsf{good}~t~\Path$), then the safety predicate implies the side
+conditions of the inference rule determined by $\Path$.
+
+The import of the lemma is in allowing that safety and stepping
+relations may be defined independently of each other. The difficulty
+of the proof consists in showing that the various conditions from the
+reduction rules, that have \emph{not} been incorporated into the
+safety predicate, are nevertheless satisfied. For example, the
+reduction rules for \textsf{Inject} and \textsf{Hide} contain such
+side conditions on the \emph{ending} states of their premisses. We
+have proved that even though these conditions are not incorporated by
+the $\mathsf{safe}$ predicate, they are implied by it. The proof
+relies on the general properties of injection and refinement listed in
+Section~\ref{sec:prop-inject-hiding}.
+
+Defining safety independently from stepping will enable us to develop
+a semantics in the style of Milner and Wright and Felleisen, whereby
+we only give meaning to programs that are well-proved in \SCST,
+analogously to how Milner and Wright-Felleisen semantics give meaning
+to only well-typed programs. As the type of the program, we will use
+its Hoare-tuple specification, and the denotation of a program wrt.~a
+specification with precondition $p$, will only contain approximating
+action trees whose safety predicate is implied by $p$. The fact that
+the safety predicate actually means safety, \ie, it allows stepping,
+is a consequence of the Progress lemma above.
+
+\subsection{Erased \SCST action trees}
+\label{sec:ersem}
+
+% \begin{figure}[t] 
+%  \figsize
+% \figStepAction
+% \rule{1.0\textwidth}{0.2mm}
+% \figStepETree
+% \caption{Semantics of actions $h; a \asteps h'; v$ (top) and erased
+%   trees $h; t \etsteps{\Path} h'; t'$ (bottom).}
+% \label{fig:esteps}
+% \end{figure} 
+
+% The operational semantics of primitive actions $h; a\,\asteps\,h'; v$
+% (Figure~\ref{fig:esteps}, top) mimics the specifications of actions
+% given in Definition~\ref{def:actions} (Section~\ref{sec:actions}),
+% assuming that all logical actions we consider are \emph{operational}
+% (Definition~\ref{def:opact}).
+% %
+% More precisely, steps an $A$-returning action $a$ relative to an
+% initial heap $h$, and produces an ending heap $h'$ and result $v$ of
+% type $A$. %
+% The operational semantics of the basic memory operations is
+% standard. %
+% The \emph{read-modify-write} action $\mathsf{RMW}^{A~B}_{x~f~g}$
+% atomically replaces the current value $v$ of the pointer $x$ with
+% $f(v)$ of type $A$ for some pure function $f$, and returns the result
+% according to the function $g$ of type $B$. As usual, we will use the
+% notation $\hpExt{h}{x}{v}$ to indicate the strong update of the
+% pointer $x$ in the heap $h$ with value $v$.
+
+We next define an erased version of action trees that remove the
+various logical annotations. One example of such erased logical
+information is the proofs of injection and refinement that we
+implicitly elided from the \textsc{Inject} and \textsc{Hide}
+constructors. Another example is the logical information from the
+actions embedded into action trees, which, as we have shown, operate
+on \emph{decorated} states. 
+
+We then prove that such logical information doesn't influence the
+stepping of the tree. In other words, states that erase to equal
+concrete heaps, produce output states that also erase to equal
+concrete heaps.
+
+\begin{definition}[Tree erasure]
+\label{def:tree-erasure}
+
+Given a tree $t \ty \mathsf{tree}~U~A$, its erasure $\flatten{t} \ty
+\mathsf{etree}~A$ is defined as follows:
+
+\[
+\begin{array}{lcl}
+  \flatten{\mathsf{Unfinished}}  & \eqdef &  \mathsf{Unfinished} 
+  \\
+  \flatten{\mathsf{Ret}~v}  & \eqdef &  \mathsf{Ret}~v 
+  \\
+  \flatten{\mathsf{Act}~(U, A, \sigma, \mu)}  & \eqdef &  
+  \mathsf{Act}~(A, \flatten{\sigma}, \flatten{\mu}) 
+  \\
+  \flatten{\mathsf{Seq}~t~k} & \eqdef & 
+  \mathsf{Seq}~\flatten{t}~(\lambda v. \flatten{k~v})
+  \\
+  \flatten{\mathsf{Par}~t_1~t_2~k} & \eqdef &
+  \mathsf{Par}~\flatten{t_1}~\flatten{t_1}~(\lambda v. \flatten{k~v}) 
+  \\
+  \flatten{\mathsf{Inject}~t} & \eqdef &
+  \mathsf{Inject}~\flatten{t}
+  \\
+  \flatten{\mathsf{Hide}~\_~\_~t}  & \eqdef &
+  \mathsf{Hide}~\flatten{t}
+  \\
+\end{array}
+\] 
+  
+\end{definition}
+
+\begin{theorem}[Erasure irrelevance]
+\label{thm:erasure-irrel}
+For a concurroid $U$, states $w_1, w_2 \in {\cal W}_U$ and action
+trees $t_1, t_2 \ty \mathsf{tree}~U~A$, if $\flatten{w_1} =
+\flatten{w_2}$, $\flatten{t_1} = \flatten{t_2}$, 
+%
+$w_1; t_1 \tsteps{\Path} w_1'; t_1'$ and
+%
+$w_2; t_2 \tsteps{\Path} w_2'; t_2'$, then 
+%
+$\flatten{w_1'} = \flatten{w_2'}$ and $\flatten{t_1'} = \flatten{t_2'}$.
+\end{theorem}
+
+Ideally, we will need to prove a stronger result, stating that if the
+tree and state evaluate under semantics from Figure~\ref{fig:tsteps},
+so do their erased counterparts under some sort of erased
+semantics. However, we have not carried out this exercise due to time
+constraints and decided to leave it for the future work.
+
+% The small-step operational semantics of erased trees $h; t
+% \etsteps{\Path} h', t'$ (Figure~\ref{fig:esteps}) operates on
+% flattened heap $h$ rather than rich states $w$. As its rich
+% counterpart, it is defined inductively on $\Path$, and steps a tree
+% $t$ from initial heap $h$ to a reduced tree $t'$ in ending heap~$h'$. 
+
+
+\subsection{Auxiliary modal predicates}
+\label{sec:modal-pred}
+
+In this section we next define a number of \emph{modal} predicates
+over \emph{all} possible steps of execution to relate the operational
+semantics over heaps and concurroid transitions over admissible
+states.
+
+\begin{definition}[Modal predicates]
+  \label{def:modpred} 
+%
+  The predicates $\mathsf{always}^{\Paths}_U~w~t~P$,
+  $\mathsf{always}_U~w~t~P$ and $\mathsf{after}_U~w~t~Q$ are defined
+  relative to a schedule $\Paths$, concurroid $U$, state $w$,
+  $A$-returning rich tree $t \ty \mathsf{tree}~U~A$ and arbitrary
+  predicates $P \ty \mathsf{state} \to \mathsf{tree}~U~A \to
+  \mathsf{prop}$ and $Q \ty A \to \mathsf{state} \to \mathsf{prop}$:
+
+\[
+\begin{array}{l}
+\begin{array}{rcl}
+\mathsf{always}^{\Paths}_U~w~t~P & \eqdef & 
+\mathsf{if}~\Paths = \Path :: \Paths' 
+\\ 
+&& \mathsf{then}~\forall w_2. (w, w_2) \in \rely{U} \implies 
+\\
+&& ~~~~
+   ~~~~~~~
+   \begin{array}{l}\mathsf{safe}~t~\Path~w_2 ~~\aand \\
+   \left(\forall w_3~t_2.~~ w_2; t \tsteps{\Path} w_3; t_2 \implies
+   \mathsf{always}^{\Paths'}_U~w_3~t_2~P \right)
+   \end{array}
+\\
+&& \mathsf{else}~ \forall w_2. (w, w_2) \in \rely{U} \implies P~w_2~t
+\end{array}
+\\
+\\
+\mathsf{always}_U~w~t~P  \eqdef \forall \Paths.
+\mathsf{always}^{\Paths}_U~w~t~P
+\\
+\\
+~~~\mathsf{after}_U~w~t~Q \eqdef \mathsf{always}_U~w~t~(\lambda~w'~t.~\forall v'. (t' = \mathsf{Ret}~v') \implies Q~v'~w') 
+\end{array}
+\]
+
+\end{definition}
+
+The predicate $\mathsf{always}_U~w~t~P$ expresses the fact that
+starting from the state $w$, the tree $t$ remains memory-safe and the
+user-chosen predicate $P$ holds of all intermediate configurations and
+trees, for any schedule $\Paths$ and under any environment of the
+concurroid $U$. %
+The helper predicate $\mathsf{always}^{\Paths}_U~w~t~P$ is defined by
+induction on $\Paths$: the concurroid $U$ is allowed to make arbitrary
+rely-transitions from $w$ to $w_2$, in the resulting configuration the
+predicate $P~w_2~t$ holds; moreover, if the schedule is $\Path {::}
+\Paths'$, then the resulting configuration must have a state that is
+\textsf{safe} for $t$, $\Path$ and $w_2$ (so, according to
+Theorem~\ref{thm:progress}, it can step), and, if $t$ steps to $w_3$
+and $t_2$, then the predicate recurses on $\Paths'$, $w_3$ and
+$t_2$. One can notice that if the predicate
+$\mathsf{always}^{\Paths}_U~w~t~P$, it automatically implies
+``preservation'' of the $\mathsf{safe}$ predicate at each step of
+reduction of the tree $t$.
+
+The predicate $\mathsf{after}_U~w~t~Q$ encodes that $t$ is \textsf{safe};
+however, $Q\ v'\ w'$ only holds if $t$ steps completely to
+$\mathsf{Ret}\ v'$ in configuration $w'$.
+

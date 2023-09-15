@@ -1,0 +1,104 @@
+\begin{comment}
+Linearizability is the de facto correctness criterion for reasoning
+with concurrent fine-grained data-structures. It works by relating the
+concurrent history of a program with its sequential behaviour. More
+precisely, for each concurrent history of an object, linearizability
+requires that there exists a mapping to a sequential history, such
+that the ordering of matching call/return pairs is preserved either if
+they are performed by the same thread, or if they do not overlap. To
+prove linearizability, one usually has to identify linearization
+points in programs or object methods, showing that this particular
+point is the single, atomic, point where the effect of the operation
+occurs.
+
+However, for certain complex concurrent objects, proving them to be
+linearizable is not a straightforwards task: the linearization points
+of their methods are not fixed by the structure of the programs
+themselves, but rather depend on intricate interactions with the
+environment. Traditionally, verifying such objects requires a
+dedicated metatheory, e.g. supporting prophecy variables, capable of
+reasoning about their highly speculative nature.
+
+In contrast, in this paper we will present our on-going effort to
+verify such objects in an existing concurrent Hoare-style logic, FCSL,
+giving them (and proving) intuitive specifications that hide the
+speculative reasoning about the environment. We build on the
+philosophy of FCSL, where by relying upon simple, but powerful,
+abstractions like partial commutative monoids (PCMs), auxiliary
+histories, and state transition systems it is possible prove tight
+specifications for concurrent fine-grained data-structures that
+resemble those of its sequential counterparts.
+
+To that end, we introduce re-sortable histories as an abstraction that
+(i) can be implemented in FCSL off-the-shelf, without changes to the
+underlying logical framework, and (ii) in combination with other FCSL~
+features, such as history PCMs, it can internalize speculative
+reasoning about the concurrent environment, hiding it from the library
+clients.
+
+We will illustrate our technique by presenting the mechanization in
+FCSL of an optimal concurrent-snapshot algorithm originally introduced
+by Jayanti, whose correctness itself has a highly-speculative nature,
+relying on non-trivial arguments about its non-fixed linearization
+points. Furthermore, we will comment on a few interesting details
+about its mechanization in the Coq proof assistant and discuss its
+pitfalls and the challenges ahead.
+\end{comment}
+
+\begin{comment}
+Arguments about linearizability of a concurrent data structure are
+typically carried out by specifying the structure methods'
+linearization points.
+%
+Carrying proofs out of such specification is often cumbersome, because
+the linearization points' position in time is ofthen \emph{dynamic},
+that is, it may depend on the interference, run-time values and events
+from the past, or even future.
+
+In this paper we propose a new method, based on a Hoare-style logic,
+for reasoning about concurrent objects with such linearization
+points. The method embraces their dynamic nature, and encodes it as
+part of the structure's \emph{auxiliary state}, so that it can be
+dynamically changed by \emph{auxiliary code}, \emph{in place}.
+
+The method is implemented in FCSL, a recently proposed fine-grained
+variant of concurrent separation logic. The dynamic temporal ordering
+is modeled by the same logical features of separation logic, which are
+used to specify spatial linking of data structures via pointers,
+motivating us to name the idea as \emph{linking in time}. By employing
+a variant of separation logic to reason about both space and time, we
+ensure modularity of reasoning.
+
+We illustrate the method by verifying an intricate optimal snapshot
+algorithm due to Jayanti.
+\end{comment}
+
+Arguments about linearizability of a concurrent data structure are
+typically carried out by specifying the linearization points of the
+data structure's procedures.
+%
+Proofs that use such specifications are often cumbersome.  This is
+because the linearization points' position in time is
+often \emph{dynamic}; that is, it may depend on the interference,
+run-time values and events from the past, or even future.
+
+In this paper we propose a new method, based on a Hoare-style logic,
+for reasoning about concurrent objects with such linearization
+points. The method embraces their dynamic nature, and encodes it as
+part of the data structure's \emph{auxiliary state}, so that it can be
+dynamically modified \emph{in place} by \emph{auxiliary code}, as
+needed when some appropriate run-time event occurs.
+
+The method is implemented in FCSL, a recently proposed fine-grained
+variant of concurrent separation logic. The dynamic ordering of
+linearization points \emph{in time} is modeled by the same features
+used by separation logic to reason about pointer linking of data
+structures \emph{in space}, motivating us to name the idea
+as \emph{linking in time}. By employing a variant of separation logic
+to reason about both space and time, we ensure modularity of
+reasoning.
+
+We illustrate the method by verifying an intricate optimal snapshot
+algorithm due to Jayanti.
+
+

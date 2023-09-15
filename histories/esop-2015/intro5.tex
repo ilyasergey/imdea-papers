@@ -1,0 +1,229 @@
+\section{Introduction}
+\label{sec:intro}
+
+For sequential programs and data structures, Hoare-style
+specifications (or specs) in the form of pre- and postconditions are %uniformly
+%accepted as 
+a declarative way to express a program's behavior. For example, an
+abstract specification of stack operations can be given as follows:
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:seqstack-spec} 
+{\small
+\hspace{-5pt}
+\begin{array}{r@{\ }c@{\ }l}
+\spec{~s \hpts \mathit{xs}~} &\Cmd{push}{x} & \spec{~ s \hpts
+  x::\mathit{xs}~}
+\\[3pt]
+\spec{~s \hpts \mathit{xs}~} & \Cmd{pop}{} &\spec{
+\begin{array}{l}
+  \res = \None \aand \mathit{xs} = \nil \aand s \hpts \nil \oor \hbox{}\\
+  \res = \Some x \aand \exists \mathit{xs'},~\mathit{xs} = x ::\mathit{xs'} \aand
+  s \hpts \mathit{xs'}
+\end{array}
+}
+\end{array}
+}
+\]
+% 
+where $s$ is an ``abstract pointer'' to the data structure's logical
+contents, and the logical variable $\mathit{xs}$ is universally
+quantified over the spec.
+%
+The result $\res$ of $\cmd{pop}$ is either $\Some x$, if $x$ was on
+the top of the stack, or $\None$ if the stack was empty.
+%
+The spec (\ref{eq:seqstack-spec}) is usually accepted as canonical for
+stacks: it hides the details of method implementation, but exposes
+what's important about the method behavior, so that a verification of
+a stack \emph{client} doesn't need to explore the implementations of
+$\cmd{push}$ and $\cmd{pop}$.
+
+The situation is much more complicated in the case of concurrent data
+structures. In the concurrent setting, the
+spec~\eqref{eq:seqstack-spec} is of little use for implementations
+with server-side locking, as the interference of the threads executing
+concurrently may invalidate the assertions about the stack. For
+example, a call to $\cmd{pop}$ may encounter an empty stack, and
+decide to return $\None$, but by the time it returns, the stack may be
+filled by the other threads, thus invalidating the postcondition of
+$\cmd{pop}$ in~\eqref{eq:seqstack-spec}. To soundly reason about
+concurrent data structures, one has to devise specs that are
+\emph{stable} (\ie, invariant under interference), but this may
+require trade-offs with respect to the specifications' expressivity
+and precision for the client's needs.
+% 
+
+Reasoning about concurrent data structures is further complicated by
+the fact that their implementations are often \emph{fine-grained}.
+Striving for better performance, they avoid explicit locking, and
+implement sophisticated synchronization patterns that deliberately
+rely on interference.
+% 
+For reasoning purposes, however, it is desirable that the clients can
+perceive such fine-grained implementations as if they were
+\emph{coarse-grained}; that is, as if the effects of their methods
+take place \emph{atomically}, at singular points in time.  The
+standard correctness criteria of
+\emph{linearizability}~\cite{Herlihy-WingTOPLAS90} establishes that a
+fine-grained data structure implementation \emph{contextually refines}
+a coarse-grained one~\cite{Filipovic-al:TCS10}. One can make use of a
+refined, fine-grained, implementation for efficiency in programming,
+but then soundly replace it with a more abstract coarse-grained
+implementation to simplify the reasoning about clients.
+
+% , 
+% therefore
+%taking advantage of a \emph{granularity abstraction}.
+
+Semantically, one program linearizes to another if the
+\emph{histories} of the first program (\ie, the sequence of actions it
+executed) can be transformed, in a suitable sense, into the histories
+of the second. Thus, histories are an essential ingredient in
+specifying fine-grained concurrent data structures. However, while a
+number of logical methods exist for establishing the linearizability
+relation between two programs, for a class of data
+structures~\cite{OHearn-al:PODC10,Elmas-al:TACAS10,Vafeiadis:PhD,Liang-Feng:PLDI13},
+in general, it's a non-trivial property to prove and use. First, in a
+setting that employs Hoare-style reasoning, showing that a
+fine-grained structure refines a coarse-grained one is not an end in
+itself. One still needs to ascribe a stable spec to the coarse-grained
+version~\cite{Turon-al:ICFP13,Liang-Feng:PLDI13}.
+%
+Second, the standard notion of linearizability doesn't directly
+account for modern programming features, such as ownership transfer of
+state between threads, pointer aliasing, and higher-order
+procedures. Theoretical extensions required to support these features
+are a subject of active ongoing
+research~\cite{Cerone-al:ICALP14,Gotsman-Yang:CONCUR12}.
+%
+Finally, being a relation on \emph{two} programs, deriving
+linearizability by means of logical inference inherently requires a
+\emph{relational program
+  logic}~\cite{Turon-al:ICFP13,Liang-Feng:PLDI13}, even though the
+spec one is ultimately interested in 
+%(\eg,~\eqref{eq:stack-weak} for a concurrent stack) 
+may be expressed using a Hoare triple that operates over a
+\emph{single} program.
+
+In this paper, we propose a novel method to specify and verify
+fine-grained programs by directly reasoning about histories in the
+specs of an elementary Hoare logic. We propose using
+\emph{timestamped} histories, which carry information about the atomic
+changes in the abstract state of the program, indexed by discrete
+timestamps, and tracking the history of a program as a form of
+auxiliary state.
+
+While using histories in Hoare-style specs is a simple and natural
+idea, and has been used
+before~\cite{Bell-al:SAS10,Fu-al:CONCUR10,Gotsman-al:ESOP13}, in our
+paper it comes with two additional novel observations.
+
+First, timestamped histories are technically very similar to heaps, as
+both satisfy the algebraic properties of a \emph{partial commutative
+  monoid} (PCM). A PCM is a set $\pcmS$ with an associative and
+commutative \emph{join} operation $\pcmF$ and unit element
+$\pcmU$. Both heaps and histories (considered as sets of actions with
+distinct timestamps, correspondingly) form a PCM with disjoint union
+and empty heap/history as the unit. Also, a singleton history $t \hpts
+a$ is similar to the singleton heap $x \hpts v$ containing only the
+pointer $x$ with value $v$.
+%
+We emphasize the connection by using the same notation for~both.
+%
+The common PCM structure makes it possible to reuse for histories the
+ideas and results developed for heaps in the work on separation
+logic~\cite{Calcagno-al:LICS07}. In particular, in this paper, we make
+both heaps and histories subject to the same assertion logic, the same
+rules of inference (\eg, the frame rule), and thus the same style of
+\emph{local reasoning}. Moreover, concepts such as ownership transfer,
+well-studied for heaps, apply to histories as well. For example, in
+Section~\ref{sec:flatco}, we use ownership transfer on histories to
+formalize the important design pattern of
+\emph{helping}~\cite{Hendler-al:SPAA10}, whereby a concurrent thread
+may execute a task on behalf of other threads. That helping
+corresponds to a kind of ownership transfer (though not on histories,
+but on auxiliary commands) has been noticed
+before~\cite{Turon-al:POPL13,Liang-Feng:PLDI13}.  However, commands
+don't form a PCM, while histories do---a fact that makes our
+development simple and uniform.
+
+Second, we argue that precise history-based specs have to
+differentiate between the actions that have been performed by the
+specified thread, from the actions that have been performed by the
+thread's concurrent environment. Thus, our specs will range over
+\emph{two} different history-typed variables, capturing the
+timestamped actions of the specified thread (\emph{self}) and its
+environment (\emph{other}), respectively. This split between self and
+other will provide us with a novel and very direct way of relating the
+functional behavior of a program to the interference of its
+environment, leading to specs that have a similar canonical ``feel''
+in the concurrent setting, as the specs (\ref{eq:seqstack-spec}) have
+in the sequential~one.
+
+The self/other dichotomy required of histories is a special case of
+the more general specification pattern of \emph{subjectivity},
+observed in the recent related work on Subjective and Fine-grained
+Concurrent Separation Logic
+(FCSL)~\cite{LeyWild-Nanevski:POPL13,Nanevski-al:ESOP14}. That work
+generalized Concurrent Separation Logic (CSL)~\cite{OHearn:TCS07}
+%,and its modular rules for framing and parallel composition, 
+to apply not only to heaps, but to any abstract notion of state (real
+or auxiliary) satisfying the PCM properties.
+%
+We thus reuse FCSL~\cite{Nanevski-al:ESOP14} \emph{off-the-shelf}, and
+instantiate it with histories, \emph{without any additions to the
+  logic or its meta-theory}. Surprisingly, the FCSL style of auxiliary
+state is sufficient to enable expressive history-based proofs of
+realistic fine-grained algorithms, including those with helping.
+
+
+Specifications with histories also allow the clients of a fine-grained
+data structure to pretend, for the sake of simplifying their own
+reasoning, that they are using a coarse-grained version of the data
+structure.
+%
+%Specifications with histories also provide a \emph{form} of so-called
+%\emph{granularity abstraction}, in the sense that clients of a
+%fine-grained data structure can pretend, for the sake of simplifying
+%their own verification, that they are using a coarse-grained
+%version~\cite{Turon-al:ICFP13}.
+%
+In this sense, we consider a program \emph{logically} atomic
+(irrespective of the physical granularity of its implementation), if
+its specification is a singleton history $t \hpts a$, containing only
+an abstract action $a$ time-stamped with $t$. This spec provides an
+abstraction that the effect $a$ of the program takes place at a
+singular point in time $t$, as if the program were coarse-grained,
+thus providing a uniform way to reason about coarse- and fine-grained
+programs.\footnote{An orthogonal aspect of granularity abstraction is
+  the ability of a logical framework to express synchronized changes
+  to auxiliary state that is spread across several shared data
+  structures. We don't consider such abstraction in this paper, but
+  elaborate in Section~\ref{sec:related} on how to extend FCSL to
+  support it, as well as on related
+  approaches~\cite{Svendsen-Birkedal:ESOP14,Svendsen-al:ESOP13,ArrozPincho-al:ECOOP14,Jacobs-Piessens:POPL11}.}
+%
+%Another
+%  treatment of the notion of granularity abstraction is the ability of
+%  a logical framework to express \emph{synchronized changes} of
+%  auxiliary state, which is logically spread across \emph{several}
+%  shared data
+%  structures~\cite{Svendsen-Birkedal:ESOP14,Svendsen-al:ESOP13,ArrozPincho-al:ECOOP14,Jacobs-Piessens:POPL11}. Although
+%  ortogonal to this work's idea of using histories for abstraction of
+%  granularity, such ability is currently not supported by FCSL, and we
+%  elaborate in Section~\ref{sec:related} on the ways to address this
+%  shortcoming, as well as on related approaches.}
+%
+
+We show how a number of well-known algorithms can be proved logically
+atomic, and illustrate how the specs with histories facilitate
+client-side reasoning. We consider an atomic pair snapshot data
+structure~\cite{Qadeer-al:TR09,Liang-Feng:PLDI13}
+(Section~\ref{sec:overview}), a Treiber stack~\cite{Treiber:TR} along
+with its clients (Section~\ref{sec:examples}), and Hendler \etal's
+flat combining algorithm~\cite{Hendler-al:SPAA10}, a non-trivial
+example employing first-class functions and helping
+(Section~\ref{sec:flatco}). All our proofs, including the theory of
+histories, have been checked mechanically in Coq, and the sources are
+available online~\cite{Sergey-al:ESOP15ext}.

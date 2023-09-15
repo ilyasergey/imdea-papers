@@ -1,0 +1,222 @@
+
+\section{Related and future work}
+\label{sec:related-work}
+
+Using the Coq proof assistant as a uniform platform for implementation
+of logic-based program verification tools is a well-established
+approach, which by now has been successfully employed in a number of
+projects on certified compilers~\cite{Leroy:POPL06,Appel-al:BOOK14}
+and verified low-level
+code~\cite{Shao:CACM10,Chlipala:PLDI11,Jensen-al:POPL13}, although,
+with no specific focus on abstractions for fine-grained concurrency,
+such as protocols and auxiliary state.
+%
+% Our FCSL development inherits a lot of ideas from works on
+% verification of sequential imperative programs,
+% e.g.,~\cite{Nanevski-al:ICFP08,Nanevski-al:POPL10}.
+
+
+\paragraph{Related program logics.~~}
+\label{sec:relat-logic-fram}
+
+The FCSL logic has been designed as a generalization of the classical
+Concurrent Separation Logic by~\citet{OHearn:TCS07}, combining the
+ideas of local concurrent protocols with arbitrary
+interference~\cite{Jones:TOPLAS83,Feng:POPL09} and compositional
+auxiliary state~\cite{LeyWild-Nanevski:POPL13} with the possibility to
+compose protocols.
+%
+% \ab{Do we need to say the rest of the sentence?} by means of
+% entanglement via transitions, implementing communication channels.
+%
+Other concurrency logics, close to FCSL in their expressive power, are
+iCAP~\cite{Svendsen-Birkedal:ESOP14}, CoLoSL~\cite{Raad-al:colosl},
+and CaReSL~\cite{Turon-al:ICFP13}.
+ 
+iCAP leverages the idea, originated by~\citet{Jacobs-Piessens:POPL11},
+of parametrizing specs for fine-grained concurrent data types by
+client-provided auxiliary code, which can be seen as a ``callback''. A
+form of composition of concurrent resources can be encoded in iCAP
+using fractional permissions~\cite{Bornat-al:POPL05} and
+view-shifts~\cite{DinsdaleYoung-al:POPL13}.
+%
+Since iCAP doesn't have explicit subjective dichotomy of the auxiliary
+state, encoding of thread-specific contributions in it is less direct
+comparing to FCSL.
+
+CoLoSL defines a different notion of thread-local views to a shared
+resource, and uses \emph{overlapping
+  conjunction}~\cite{Hobor-Villard:POPL13} to reconcile the
+permissions and capabilities, residing in the shared state, between
+different threads.
+%
+Overlapping conjunction affords a description of the shared structure
+mirroring the recursive calls in the structure's methods. In FCSL,
+such machinery isn't required, as \emph{self} and \emph{other} suffice
+to represent the thread-specific views, and \emph{joint} state doesn't
+need to be divided between threads.
+%
+In our opinion, this leads to simpler specs and proofs. For example,
+CoLoSL's proof that \code{span} constructs \emph{a tree} involves
+abstractions such as shared capabilities for marking nodes and
+extension of the graph with virtual edges, none of which is required
+in FCSL. Moreover, CoLoSL doesn't prove that the tree is spanning,
+which we achieve in FCSL via hiding.
+
+% \begin{comment}
+% CoLoSL defines an alternative notion of a thread-specific view to a
+% shared resource, defined \wrt the real heap (in contrast to FCSL's
+% subjective views, which are parametrized over a generic PCM structure).  CoLoSL
+% makes use of the \emph{overlapping
+%   conjunction}~\cite{Hobor-Villard:POPL13} to reconcile ``local''
+% views of several parallel threads---an idea, generalized by FCSL's
+% notion of subjectivity.
+% %
+% CoLoSL was used to verify the concurrent spanning tree algorithm,
+% proving that its result is \emph{a tree}. It was done via logical
+% action capabilities and instrumenting the graph with virtual edges.
+% %
+% However, the CoLoSL paper doesn't prove the resulting tree to be a
+% spanning one, which we achieve in FCSL via hiding.
+% %
+% % \ab{Should the above be: However, the CoLoSL paper doesn't establish
+% % that the resulting tree is a \emph{spanning} tree, which we achieve
+% % in FCSL using hiding.}
+% \end{comment} 
+
+CaReSL combines the Hoare-style reasoning and proofs about
+\emph{contextual refinement}.  Similarly to FCSL, CaReSL employs
+resource protocols, although, targeting the ``life stories'' of
+particular memory locations instead of describing a whole concurrent
+data structure by means of an STS.  While FCSL is not equipped with
+abstractions for contextual refinement, in our experience it was never
+required to prove the desired Hoare-style specs for fine-grained data
+structures.
+
+Reasoning in all the three alternative logics follows the tradition of
+Hoare-style logics,
+%
+% \ab{Shouldn't it be Hoare logic?} \is{Okay, made it Hoare-style.}
+%
+so the specs never mention explicitly the heap and state
+components. In contrast, FCSL assertions use explicit variables to
+bind heap and auxiliary state, as well as their components. In our
+experience, working directly with the state model is pleasant, and has
+to be done in Coq anyway, since Coq lacks support for contexts of
+bunched implications, as argued by~\citet{Nanevski-al:POPL10}.
+
+None of iCAP, CoLoSL or CaReSL features a mechanized metatheory,
+nor any of these logics has been implemented in a form of a mechanized
+verification tool.
+
+%\noindent\textbf{\emph{Related tools for concurrency
+%verification.~~}}
+
+\paragraph{Related tools for concurrency verification.~~}
+%
+RGSep, one of the first logics for modular reasoning about
+fine-grained concurrency~\cite{Vafeiadis-Parkinson:CONCUR07}, inspired
+creation of semi- and fully-automated verification tools:
+SmallfootRG~\cite{Calcagno-al:SAS07} and
+Cave~\cite{Vafeiadis:VMCAI10}.
+%
+These tools target basic safety properties of first-order code,  such
+as data integrity and absence of memory leaks.
+
+Chalice~\cite{Leino-Muller:ESOP09} is an experimental first-order
+concurrent language, supplied with a tool, which generates
+verification conditions (VCs) for client-annotated Chalice
+programs. Such VCs are suitable for automatic discharge by SMT
+solvers.
+%
+% \ab{Check above rewording.}
+%
+% Chalice has been recently employed as a backend in a number of
+% verification frameworks for concurrency, such as
+% VerCors~\cite{Blom-Huisman:FM14}.
+%
+For local reasoning, Chalice employs fractional
+permissions~\cite{Bornat-al:POPL05}, implicit dynamic
+frames~\cite{Smans-al:ECOOP09}, and auxiliary
+state~\cite{Leino-al:FOSAD09}, which, unlike the one of FCSL, is not a
+subject of PCM laws, and thus is not compositional, as its shape
+should match the forking pattern of the client program being verified.
+%
+Chalice also supports a form of \emph{symmetric} Rely/Guarantee
+reasoning, \ie, not allowing the threads to take different roles in a
+protocol (which is expressible in FCSL via \emph{self}-enabled
+transitions).
+%
+Chalice's specification fragment is a first-order logic, whereas FCSL
+admits higher-order functions and predicates in specs, therefore,
+enabling program composition and proof reuse, as shown in
+Figure~\ref{fig:deps}.
+
+VCC~\cite{Cohen-al:TPHOL09} is a tool for verifying low-level
+concurrent C code. VCC doesn't support reasoning about custom
+interference or compositional auxiliary state, and, similarly to
+Chalice, allows specifications only in a first-order logic to support
+an SMT-based automation back-end.
+
+VeriFast~\cite{Jacobs-al:NFM11} is a tool for deductive verification
+of sequential and concurrent programs, based on separation
+logic~\cite{Reynolds:LICS02}.
+% 
+% The specification language of VeriFast provides a possibility to
+% implement custom inductive definitions and prove propositions about
+% them, although, without a possibility to quantify over values in
+% propositions, due to the lack of dependent types.
+%
+To specify and verify fine-grained concurrent algorithms, VeriFast
+employs fractional permissions and a form of (non-compositional)
+first-class auxiliary state~\cite{Jacobs-Piessens:POPL11}. VeriFast
+has been recently extended with Rely/Guarantee
+reasoning~\cite{Jacobs-al:sharedboxes}, although, without a
+possibility to compose resources. To the best of our knowledge,
+soundness of VeriFast core has been formally proved only
+partially~\cite{Vogels:PhD}.
+
+% Other shallow-embedding-based approaches~\cite{Brady-Hammond:FI10}
+
+% Several projects has been conducted recently by means of \emph{deep}
+% embedding (\ie, by implementing a standalone language) of the XCAP
+% framework into
+% Coq~\cite{Chlipala:PLDI11,Feng-al:PLDI08,Ni-Shao:POPL06}, targeting
+% verification of different aspects of low-level code, without
+% introducing specific abstractions for fine-grained concurrency.
+
+% \citeyearpar{Gordon:PhD}
+
+Rely-Guarantee references (\textsc{RGRef}s) by~\citet{Gordon:PhD} are
+a mechanism to prove transition invariants of concurrent data
+structures.
+%
+% Comparing to FCSL, the \textsc{RGRef}s approach follows an opposite
+% path to concurrency verification, considering code as a primary entity
+% and showing that it preserves certain transitions.
+%
+While the language of \textsc{RGRef}s is implemented as a Coq DSL, the
+system's soundness is proved by hand using the Views
+framework~\cite{DinsdaleYoung-al:POPL13}.
+%
+Since \textsc{RGRef}s focuses on correctness of data structures \wrt
+specific protocols and doesn't provide auxiliary state, it's unclear
+how to employ it for client-side reasoning.
+
+
+\paragraph{Future work.~~}
+\label{sec:future-work}
+
+In the future, we plan to augment FCSL with the program extraction
+mechanism~\cite{Letouzey:CIE08} and implement proof automation for
+stability-related facts via lemma
+overloading~\cite{Gonthier-al:ICFP11}.
+%
+Due to the limitations of Coq's model \wrt impredicativity, at this
+moment, FCSL doesn't support higher-order heaps (\ie, the possibility
+to reason about arbitrary storable effectful procedures). While programs
+requiring this feature are rare, we hope that it will be possible to
+encode and verify the characteristic ones, once the development is
+migrated to Coq 8.5, featuring universe
+polymorphism~\cite{Sozeau-Tabareau:ITP14}.
+

@@ -1,0 +1,143 @@
+\section{Conclusions}
+\label{sec:conclusions}
+
+The paper illustrates a new approach allowing one to specify that the
+execution history of a concurrent data structure can be seen as a
+\emph{sequence of atomic events}. The approach is thus similar in its
+goals to linearizability, but is carried out exclusively using a
+separation-style logic to uniformly represent the state and time
+aspects of the data structure and its methods.
+
+Reasoning about time using separation logic is very effective, as it
+naturally supports \emph{dynamic and in-place updates} to the temporal
+ordering of events, much as separation logic supports dynamic and
+in-place updates of spatially linked lists. The need to modify the
+ordering of events frequently appears in linearizability proofs, and
+has been known to be tricky, especially when the order of a terminated
+event depends on the future. In our approach, the modification becomes
+a conceptually simple manipulation of auxiliary state of histories of
+colored timestamps.
+
+%The uniformity provided by separation logic is further important. It
+%enables that a program, verified against a spec that shows the
+%atomicity of its events, can easily be combined with other programs
+%whose specs are unrelated to atomicity or event ordering.
+%%
+%Moreover, when compared to linearizability, which equates a method to
+%an atomic program, our specification method is somewhat stronger, as
+%it allows one to specify the discipline of temporal reordering of
+%events. This is important, as the more expressive specs can directly
+%be used in client reasoning.
+
+%We have illustrated the approach on a snapshot algorithm of
+%Jayanti~\cite{Jayanti+STOC05}, whose linearizability proof exhibits
+%exactly such dependence on the future. This is apparent in our code
+%and proofs, where a call to \jywrite\ method may terminate with its
+%timestamps being colored yellow, \ie, available for reordering in the
+%future by a concurrent \jyscan.
+
+%We have carried out and mechanized the proof in an off-the-shelf logic
+%FCSL, without needing any additions to the logic. To the best of our
+%knowledge, this establishes FCSL as the first program logic capable of
+%mechanically proving full functional correctness of data structures
+%whose linearizability proofs exhibit non-locality \emph{and}
+%dependence on future events.
+%%
+%% \an{Fix the above sentence, depending on what is said in the related
+%%   work section. Also, consider putting this line in the intro too.}
+%%
+
+We have carried out and mechanized our proof of Jayanti's
+algorithm~\cite{Jayanti+STOC05} in FCSL, without needing any additions
+to the logic.
+%
+%% To the best of our knowledge, this establishes FCSL as the first
+%% program logic capable of mechanically proving full functional
+%% correctness of data structures whose linearizability proofs exhibit
+%% non-locality \emph{and} dependence of terminated events on the
+%% future.
+%
+Such development, together with the fact that FCSL has previously been
+used to verify a number of non-trivial concurrent
+structures~\cite{SergeyNB+ESOP15,SergeyNB+PLDI15,SergeyNBD+OOPSLA16},
+gives us confidence that the approach will be applicable, with minor
+modifications, to other structures whose linearizations exhibit
+dynamic dependence on the
+future~\cite{DoddsHK+POPL15,Morrison-al:PPoPP13,Hoffman-al:OPODIS07}.
+
+% \an{There's some overlap with related work
+%   here. Reconcile once related work is written.}
+
+One modification that we envision will be in the design of the data
+type of timestamped histories. In the current paper, a history of the
+snapshot object needs to keep only the \jywrite\ events, but not the
+\jyscan\ events. In contrast, in the case of stacks, a history would
+need to keep both events for push and pop operations. But in FCSL,
+histories are a \emph{user-defined} concept, which is not hardwired
+into the semantics of the logic. Thus, the user can choose any
+particular notion of history, as long as it satisfies the properties
+of a Partial Commutative
+Monoid~\cite{LeyWildN+POPL13,NanevskiLSD+ESOP14}. Such a history can
+track pushes and pops, or any other auxiliary notion that may be
+required, such as, \eg,~specific ordering constraints on the events.
+
+% \gad{In the same spirit, we can also say again here that the
+%   flexibility of not having histories or its invariant hardwired into
+%   the model, has allowed us to implement non-linearizable behaviour as
+%   well \cite{SergeyNBD+OOPSLA16}. For instance, we could relax
+%   Invariant~\ref{inv:overlap} in order to implement other criteria
+%   which do not impose the preservation of real time order between
+%   nonoverlapping events.}
+
+% \gad{I'm almost tempted to say we could do Local-Linearizability
+%   easily =).}
+
+\begin{comment}
+%% \gad{which is true, we might finish
+%% while they are reviewing and, if I want to have a thesis by the end of
+%% the year, surely before the notification}.
+\begin{itemize}
+\item sum up our contributions
+  
+\item Reinforce the fact that we have the first formal proof of
+  Jayanti's concurrent object.
+
+\item Say something about the formalization experience. 
+
+\item Claim we can cope with the elephants in the room:
+  ~\cite{Dodds-al:POPL15 ,PetrankT+DISC13,
+  HerlihyW+TOPLAS90}.
+\end{itemize}
+
+\paragraph{What's next}
+Immediate task is to use the snapshots for something good,
+e.g. Iterators \cite{PetrankT+DISC13}. We claim that our method could
+scale up easily to tackle other usual suspects:
+  
+\begin{itemize}
+\item  Dodds et.al.'s stack~\cite{Dodds-al:POPL15}
+
+\item Petrank and Timnat's iterators based upon Jayanti's snapshot
+  construction~\cite{PetrankT+DISC13}
+
+\item Herlihy-Wing's queue~\cite{HerlihyW+TOPLAS90}.
+
+\item \gad{Elimination Queues!! References!!}.
+
+\item \gad{Conditional
+  CAS??~\cite{HarrisFP+DISC02,FraserH+TOPLAS07}. Check Turon et al}.
+\end{itemize}
+
+\paragraph*{Mechanization} \gad{It might
+  be honest to admit here that the resulting code effort is not a neat
+  as it could be.} The process of carrying out the formalization of
+Jayanti helped us realize that FCSL's metatheory only allows for
+combining resources -- with their transitions and atomics -- from a
+communication/ownership transfer
+perspective~\cite{NanevskiLSD+ESOP14}. Whereas here, the transitions
+and atomic commands hints there is a different structure going on, and
+we look forward to acknowledge such structures in the next version of
+FCSL. We hope that in the future, a lot of \emph{boilerplate proofs}
+can be reduced further.
+\end{comment}
+

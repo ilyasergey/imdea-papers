@@ -1,0 +1,457 @@
+\subsection{Specification of Atomic Commands}
+\label{sc:atoms-pecs}
+
+We present here the stable specifications of the atomic commands
+featuring in Figure~\ref{fig:fcsl-snapshot}, we don't give a full
+detailed explanation of their proofs, which have being carried out in
+Coq~\cite{CoqFiles}, as their a mandatory part of a FCSL
+implementation. We will, however, give a general intuition on why
+these assertions hold after the atomic actions and also why there are
+stable under environment intereference. We start with \jywrite~atomic
+commands:
+
+\gad{TO DO: Update with new specs, complete. Change to proper VDM
+  stylle}.
+
+% Writer atomic commands
+% Register
+
+\[
+\begin{array}{l}
+\lat\,\actwrite{p}{v}; \aux{register}(v)\rat: \\[5pt]
+\quad \quad \logvar{h,w}
+\begin{array}[t]{l}
+{\tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO \wedge
+             w \subseteq \stableorder \wedge \wpp = \wInit\}}} \\[5pt]
+\tsPos{\{\, \exists t\ldot\, \histS = \hempty \wedge
+            h \subseteq \histO \wedge
+            w \subseteq \stableorder \wedge
+  \wpp = \wWrite\, t\, v \wedge h \subseteq \sideal{\stableorder}{t}\}}
+\end{array}
+\end{array}
+\]
+
+%% \[
+%% \begin{array}{r l}
+%% \lat\,\actwrite{p}{v}; \aux{register}(v)\rat :&
+%% \logvar{h,w}\
+%% \!\!\begin{array}[t]{l}
+%% {\tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO \wedge
+%%              w \subseteq \stableorder \wedge \wpp = \wInit\}}} \\[5pt]
+%% \tsPos{\{\, \exists t\ldot\, \histS = \hempty \wedge
+%%             h \subseteq \histO \wedge
+%%             j \hpts (p,v) \in \histJ \wedge
+%%             w \subseteq \stableorder \wedge}\\
+%% \tsPos{\phantom{\{\, \exists t\ldot\,}
+%%   \wpp = \wWrite\, t\, v \wedge h \subseteq \sideal{\stableorder}{t}\}}
+%% \end{array}
+%% \end{array}
+%% \]
+
+On line~\lineWrtWrt~in Figure~\ref{fig:fcsl-snapshot},
+$\lat\,\actwrite{p}{v}; \aux{register}(v)\rat$ atomically commits the
+write event and executes the $\aux{register}$ auxiliary method
+described in Section~\ref{sc:implementation}, and summarized in
+Figure~\ref{fig:writeauxcode}. The precondition states that
+$\aux{register}$ is safe to run in the state of a recently initiated
+writer thread. The postcondition states that the new write event has
+being processed, and thus the writer state is now $\wWrite\, t\, v$
+where, from the defintion of $\aux{register}$ in
+Figure~\ref{fig:writeauxcode}, we know $t$ is a fresh timestamp in the
+history $\hist$. By Proposition~\ref{inv:joint-hist}, we also know
+that $t$ is in $\histJ$.
+
+%%  \gad{We should have said by now that $ t \hpts
+%%  (p,v) \in \histJ \iff \wpp = \wWrite\ p\, v \vee \wpp = \wDirty\
+%%  p\, v \vee \wClean\ p\, v$ somehwere, else we need to make this as
+%%  an invariant or as the definition of $\histJ$. Technically
+%%  speaking, $\histJ$ is a function of $\wx$ and $\wy$.}
+
+The stability of the writer state assertions $\wpp = \wInit$, $\wpp
+= \wWrite\, t\, v$, and so on, as well as any scanner state assertions
+for \jyscan's atomics, are guaranteed by the fact we enforce there is
+at most one thread executing \jyscan, and at most one thread executing
+a call to \jywrite~on each of the pointers.
+%
+%% The stability of $j \hpts (p,v) \in \histJ $ follows immediately
+%% from this fact.
+
+The assertions $\histS = \hempty$ and $h \subseteq \histO$ hold
+trivially, all is left to show is that the $ w \subseteq \stableorder$
+and that $h \subseteq \sideal{\stableorder}{t}$. The former holds by
+the fact that we are snoc-ing a fresh timestamp on the tail of
+$\ordlist$, and thus, it will be on the right of every existing write
+event $t_0 \in \hist$ that has either finished---$\E(t_o) < t$---, and
+on the right of any event $t_1 \in \hist$ such that $\C(t_1)
+= \mathsf{green}$. As for the latter, we notice that $h$ binds
+finished events---$\dom{\E} = \dom{\histS \hunion \histO}$---, and as
+we stablished before they all are going to be sorted in $\stableorder$
+wirth regard to $t$, and by its definition~\eqref{eq:subset-sideal},
+included in the strict ideal $\sideal{\stableorder}{t}$.
+
+Finally, it should be noticed that the post-condition does not make
+any mention to the write event being commited to memory, other than
+having recorded the write event in the writer state $\wpp$, which is
+the last of $\histp$ in $\ordlist$. Then, by
+Proposition~\ref{inv:last-key}, we know the value must have being
+commited to memory--- else the invariant could not have being
+satisfied by the $\aux{register}$ auxiliary code.
+
+%Checkbit
+
+\[
+\begin{array}{l}
+\lat\, b \tbnd \act{read}(S);\ \aux{checkS}(p,b) \rat :\\[5pt]
+\quad\quad \logvar{h,w,t,v}
+\begin{array}[t]{l}
+\tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO \wedge
+             w \subseteq \stableorder \wedge
+             \wpp = \wWrite\, t\, v \wedge
+         h \subseteq \sideal{\stableorder}{t} \}}\ \esc{bool} \\[5pt]
+\tsPos{\{\, r\ldot\, \exists t\ldot\, \histS = \hempty \wedge
+            h \subseteq \histO \wedge  w \subseteq \stableorder \wedge}\\
+\tsPos{\phantom{\{\, r\ldot\, \exists t\ldot\,}
+   h \subseteq \sideal{\stableorder}{t} \wedge 
+    \wpp =  \textrm{if}\ r\
+  \textrm{then}\ \wDirty\ t\, \,v\ \textrm{else}\ \wClean\ t\, v\}}
+\end{array}
+\end{array}
+\]
+
+ %% \gad{Do I really need to put $j \hpts (p,v) \in \histJ$ here? It's
+ %% not in the files---as it is infered from $\wpp = \_ $ (see above). I
+ %% just put it in in order to reflect the narrative that the write event
+ %% is placed in the joint history and, to be consistent with
+ %% Figure~\ref{fig:auxcode}. I think that if we remove it I can make the
+ %% pre here fit one line. Also if we remove the assertion , and place
+ %% the definition/invariant of $\histJ$ somewhere, either at the
+ %% beginning of this section, or in Section~\ref{sc:formal}}
+
+%% \[
+%% \begin{array}{r l}
+%% \lat\, b \tbnd \act{read}(S);\ \aux{checkS}(p,b) \rat :&
+%% \logvar{h,w,t,v}\
+%% \!\!\begin{array}[t]{l}
+%% \tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO \wedge
+%%              w \subseteq \stableorder \wedge}\\
+%% \tsPre{\phantom{\{\,}            
+%%              \wpp = \wWrite\, t\, v \wedge }\\
+%% \tsPre{\phantom{\{\,}          
+%%          j \hpts (p,v) \in \histJ \wedge
+%%          \wedge h \subseteq \sideal{\stableorder}{t} \}}\ \esc{bool} \\[5pt]
+%% \tsPos{\{\, r\ldot\, \exists t\ldot\, \histS = \hempty \wedge
+%%             h \subseteq \histO \wedge  w \subseteq \stableorder \wedge }\\
+%% \tsPos{\phantom{\{\, r\ldot\, \exists t\ldot\,}
+%%   j \hpts (p,v) \in \histJ \wedge h \subseteq \sideal{\stableorder}{t} \wedge}\\
+%% \tsPos{\phantom{\{\, r\ldot\, \exists t\ldot\,} 
+%%     \wpp =  \textrm{if}\ r\
+%%   \textrm{then}\ \wDirty\ t\, \,v}\\
+%% \tsPos{\phantom{\{\, r\ldot\, \exists t\ldot\,
+%%     \wpp =  \textrm{if}\ r\ }
+%%   \textrm{else}\ \wClean\ t\, v\}}
+%% \end{array}
+%% \end{array}
+%% \]
+
+In line~\lineWrtChk~(Figure~\ref{fig:fcsl-snapshot}), $ \lat\,
+b \tbnd \act{read}(S);\ \aux{checkS}(p,b) \rat$ reads the value of the
+scanner bit $\s$ and depending on it being true or false, \aux{checkS}
+changes the writer state accordingly
+(Figure\ref{fig:writeauxcode}). The value of the scanner bit $\s$ is
+returned as a result of the computation. The precondition
+of \esc{checkS} states that we have an active ongoing write event,
+which has already been registered--- $ \wpp = \wWrite\, t\, v $ ---
+and that, moreover, its timestamp $t$ is such that every write event
+prior to the call to the \jywrite~method is included in the ideal
+$\sideal{\stableorder}{t}$. Ths postcondition here just reflects that
+depending on the returned value, the writer states changes to indicate
+the value has to be been forwarded, or alternativeley, the writer will
+finish without writing to its forwarding pointer. Since $\aux{checkS}$
+does not affect $\E$, $\C$ or $\ordlist$, $\stableorder$ can only
+change by environment interference before or after executing
+$\aux{checkS}$ (see~\cite{NanevskiLSD+ESOP14}) and then, by
+Lemma~\ref{lem:menvs} and transitivity, we assert the validity of the
+rest of the assertions which are carried down from the precondition.
+
+% Forward
+
+\[
+\begin{array}{l}
+\lat\, \actwrite{\fwdp{p}}{v};\ \aux{forward}(i,v)\rat\ :\\[5pt]
+\quad\quad\logvar{h,w,t,v}
+\begin{array}[t]{l}
+\tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO \wedge
+             w \subseteq \stableorder \wedge
+             \wpp = \wDirty\, t\, v \wedge
+             h \subseteq \sideal{\stableorder}{t}\}}\ \\[5pt]
+\tsPos{\{\, \exists t\ldot\, \histS = \hempty \wedge
+            h \subseteq \histO \wedge  w \subseteq \stableorder \wedge
+  h \subseteq \sideal{\stableorder}{t} \wedge
+    \wpp = \wClean\ t\, v\}}
+\end{array}
+\end{array}
+\]
+
+%% \[
+%% \begin{array}{r l}
+%% \lat\, \actwrite{\fwdp{p}}{v};\ \aux{forward}(i,v)\rat\ :&
+%% \logvar{h,w,t,v}\
+%% \!\!\begin{array}[t]{l}
+%% \tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO \wedge
+%%              w \subseteq \stableorder \wedge}\\
+%% \tsPre{\phantom{\{\,}          
+%%          \wpp = \wDirty\, t\, v \wedge j \hpts (p,v) \in \histJ \wedge}\\
+%% \tsPre{\phantom{\{\,} h \subseteq \sideal{\stableorder}{t}\}}\ \\[5pt]
+%% \tsPos{\{\, \exists t\ldot\, \histS = \hempty \wedge
+%%             h \subseteq \histO \wedge  w \subseteq \stableorder \wedge }\\
+%% \tsPos{\phantom{\{\, \exists t\ldot\,}
+%%   j \hpts (p,v) \in \histJ \wedge
+%%   h \subseteq \sideal{\stableorder}{t} \wedge}\\
+%% \tsPos{\phantom{\{\,\exists t\ldot\,} 
+%%     \wpp = \wClean\ t\, v\}}
+%% \end{array}
+%% \end{array}
+%% \]
+
+In line~\lineWrtFwd~(Figure~\ref{fig:fcsl-snapshot}), provided the
+previous command returned {\tt true}--- \ie $b = true$ ---
+$ \lat\, \actwrite{\fwdp{p}}{v};\ \aux{forward}(i,v)\rat $ forwards
+the new value to the forwarding pointer $\fwdp{p}$ and executes the
+auxiliary method $\aux{forward}$ which, if the scanner bit $\s$ is
+still on, will paint the entry $\mathsf{greeen}$ and mark the write
+event as {\it done} and thus ready to be transfered to the self
+history by $\aux{finalize}$. Again, here the specs do not need to
+mention the effect on the heap memory, as, this is captured by the
+invariants of the auxiliary state, in particular, the ``Green/Yellow
+Forwarded Values'' Invariant from Proposition~\ref{inv:readFP}.
+
+In the case that $\aux{forward}$ paints $t$ green in $\C$,
+$\stableorder$ grows adding relations $ t \stableorder t'$ for those
+$t'$ such that $ t \tleq t'$. Since this were not included in $w$ and,
+by definition, $ t' \notin \sideal{\stableorder}{t}$, the validity of
+assertions $ w \subseteq \stableorder $ and $
+h \subseteq \sideal{\stableorder}{t}$ follows immeadiately.
+
+% Finalize
+
+\[
+\begin{array}{l}
+\lat\,\aux{finalize}(i,v)\rat :\\
+~\logvar{h,w,t,v}\
+\!\!\!\!\begin{array}[t]{l}
+\tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO \wedge
+             w \subseteq \stableorder \wedge \wpp = \wClean\, t\, v \wedge
+             h \subseteq \sideal{\stableorder}{t}\}}\ \\[5pt]
+ \tsPos{\{\, \exists t\ldot\, \histS = j \hpts (p,v) \wedge
+            h \subseteq \histO \hunion \histS \wedge
+            w \subseteq \stableorder \wedge
+            h \subseteq \sideal{\stableorder}{t} \wedge \wpp = \wInit\}}
+\end{array}
+\end{array}
+\]
+
+ \gad{I'll look into making this one fit the linewidth later. It'll be
+ a shame to have to break the line for 2 characters worth of space.}
+
+%% \[
+%% \begin{array}{r l}
+%% \lat\,\aux{finalize}(i,v)\rat :&
+%% \logvar{h,j,w}\
+%% \!\!\begin{array}[t]{l}
+%% \tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO \wedge
+%%              w \subseteq \stableorder \wedge \wpp = \wClean\, t\, v \wedge }\\
+%% \tsPre{\phantom{\{\,}
+%%          j \hpts (p,v) \in \histJ \wedge
+%%          h \subseteq \sideal{\stableorder}{t}\}}\ \\[5pt]
+%%  \tsPos{\{\, \exists t\ldot\, \histS = j \hpts (p,v) \in \histJ \wedge
+%%             h \subseteq \histO \hunion \histS \wedge  w
+%%             xs\subseteq \stableorder \wedge }\\
+%% \tsPos{\phantom{\{\, \exists t\ldot\,}
+%%   h \subseteq \sideal{\stableorder}{t} \wedge \wpp = \wInit\}}
+
+%% \end{array}
+%% \end{array}
+%% \]
+
+In line~\lineWrtFnz~(Figure~\ref{fig:fcsl-snapshot}),
+$ \lat\,\aux{finalize}(i,v)\rat $ finalizes the write event in
+process, tranfering $t \hpts (p,v)$ from $\histJ$ to $\histS$ and
+recording the ending time of the event in $\E$, as per the definition
+of $\aux{finalize}$ in Fifgure~\ref{fig:writeauxcode}. By doing so,
+new relations are added to the stableorder $\stableorder$. The key is
+to prove that by doing so, we don't contradict the hypothesis $
+w \subseteq \stableorder $. Again, we succed by the fact that we add
+at this step relations $t \stableorder t'$ such that $t \tle t'$ and,
+$\aux{finalize}$ does not make any changes to $\ordlist$. Again, any
+$t'$ such that $ t \stableorder t'$ is not in the ideal
+$\sideal{\stableorder}{t}$ by definition, and thus $
+h \subseteq \sideal{\stableorder}{t} $.
+
+% Scanner!
+We focus now on the atomic commands of the \jyscan~method in
+Figure~\ref{fig:fcsl-snapshot}. But, before that, we introduce a
+couple of auxiliary assertions and establish their stability. Again,
+the proof of the stability statements has being carried out in our Coq
+source files~\cite{CoqFiles}.
+
+\begin{definition}[Last Green / Yellow Timestamp]\label{def:lgVy}%
+Forall $p \in \{\x, \y\}$, the assertion $ \lgVy\ p\, t$ holds iff the
+timestamp $t$ is the last green timestamp of $\histp$ in $\ordlist$ or
+the yellow one:
+%
+\begin{align*}
+\lgVy\ p\, t\, v\, \eqdef & t = \mathsf{last\_green}_{\ordlist}\,
+\histp \vee \C(t) = \mathsf{yellow}
+\end{align*}
+\end{definition}
+
+\begin{lemma}[Stability of Assertions II]\label{lem:menvs-scan}
+The following assertions are stable under interference from
+environment steps:
+
+\begin{enumerate}
+ \item \label{lem:menvs:green-phist}
+
+ \item\label{lem:menvs:green-subhist} Forall history $h$ such that $ h
+   \subseteq \hist$, $\C(\{ \ordlist \cap \dom{h}\})$ is stable.
+
+ \item \label{lem:menvs:none-lgVy} Forall $p \in \{x, y\}$ the
+   assertion $\fwdp{p} \hpts \bot \implies \lgVy\ p\, t\, v$ is stable.
+
+ \item \label{lem:menvs:some-lgVy} Forall $p \in \{x, y\}$, if $\sss =
+   \sOn$ and $\spp = \TT$ then the assertion $ \lgVy\ p\, t\, v$ is
+   stable.
+\end{enumerate}
+\end{lemma}
+
+\gad{It should! be $\implies$, else we wouldn't be able to assert the
+  property, or its stability). More to follow.}
+
+%% For clarity sake, we further abbreviate the assertion in
+%% Lemma~\ref{lem:menvs-scan}, item~\ref{lem:menvs:none-lgVy} with the
+%% following notation:
+%% %
+%% \begin{equation} \label{def:none-lgVy}
+%%  \bot{-}\aux{last}_{G \vee Y}\ p\ t\ v \eqdef \fwdp{p}
+%%  = \bot \implies \lgVy\ p\, t\, v\, \histp\, \ordlist
+%% \end{equation}
+
+%
+% setBit
+\[
+\begin{array}{l}
+\lat\,\actwrite{\s}{b};\ \aux{setS}(b) \rat :\\
+~~ \logvar{h,w,t_x,t_y,v_x,v_y}\\
+~~~
+   \tsPre{\{\, \histS = \hempty \wedge h \subseteq \hist \wedge
+                    w \subseteq \stableorder \wedge}\\
+~~~
+   \tsPre{\phantom{\{\,}
+   \textrm{if}\ b~
+   \textrm{then}\ (\sss, \sx, \sy) = (\sOff\,\_, \neg b, \neg b)} \\
+~~~
+\tsPre{\phantom{\{,\textrm{if}\ b~}
+   \textrm{else}\ (\sss, \sx, \sy) = (\sOn, \neg b, \neg b) \wedge
+  \C(\{ t \in \ordlist | t \in \dom{h}\}) = \mathsf{green} \wedge}\\
+~~~
+%% \tsPre{\phantom{\{,\textrm{if}\ b\ \textrm{else}}\
+%%        \bot{-}\aux{last}_{G \vee Y}\ \x\, t_x\, v_x \wedge
+%%        \bot{-}\aux{last}_{G \vee Y}\ \y\, t_y\, v_y \}}\\[5pt]
+\tsPre{\phantom{\{,\textrm{if}\ b\ \textrm{else}}\
+       (\fwdp{x} \hpts \bot \implies \lgVy\ x\, t_x\, v_x) \wedge
+       (\fwdp{y} \hpts \bot \implies \lgVy\ y\, t_y\, v_y)\}}\\[5pt]
+~~~
+   \tsPos{\{\ \histS = \hempty \wedge h \subseteq \hist \wedge
+                    w \subseteq \stableorder \wedge}\\
+~~~
+   \tsPos{\phantom{\{\,}
+   \textrm{if}\ b~
+   \textrm{then}\ (\sss, \sx, \sy) = (\sOn, \neg b, \neg b)} \\
+~~~
+\tsPos{\phantom{\{,\textrm{if}\ b~}
+   \textrm{else}\ \exists\, t\ldot\,
+         (\sss, \sx, \sy) = (\sOff\ t, \neg b, \neg b) \wedge
+  \C(\{ t \in \ordlist | t \in \dom{h}\}) = \mathsf{green} \wedge}\\
+~~~
+\tsPre{\phantom{\{,\textrm{if}\ b~\textrm{else}\ \exists\, t\ldot\,}
+       \bot{-}\aux{last}_{G \vee Y}\ \x\, t_x\, v_x \wedge
+       \bot{-}\aux{last}_{G \vee Y}\ \y\, t_y\, v_y \}}
+\end{array}
+\]
+
+\gad{ToDo:Explain!}
+
+%% % clear
+%% \[
+%% \begin{array}{l}
+%% \lat\,\actwrite{\fwdp{p}}{\bot};\ \aux{clear}(p)\rat :\\
+%% ~\logvar{h,w}\
+%% \!\!\!\!\begin{array}[t]{l}
+%% \tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO \wedge
+%%              w \subseteq \stableorder \wedge \wpp = \wClean\, t\, v \wedge
+%%              h \subseteq \sideal{\stableorder}{t}\}}\ \\[5pt]
+%%  \tsPos{\{\, \exists t\ldot\, \histS = j \hpts (p,v) \wedge
+%%             h \subseteq \histO \hunion \histS \wedge
+%%             w \subseteq \stableorder \wedge
+%%             h \subseteq \sideal{\stableorder}{t} \wedge \wpp = \wInit\}}
+%% \end{array}
+%% \end{array}
+%% \]
+
+%% \gad{ToDo:Explain!}
+
+%% % read p
+%% \[
+%% \begin{array}{l}
+%% \lat \act{read}(p) \rat :\\
+%% ~\logvar{h,w}\
+%% \!\!\!\!\begin{array}[t]{l}
+%% \tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO \wedge
+%%              w \subseteq \stableorder \wedge \wpp = \wClean\, t\, v \wedge
+%%              h \subseteq \sideal{\stableorder}{t}\}}\ \\[5pt]
+%%  \tsPos{\{\, \exists t\ldot\, \histS = j \hpts (p,v) \wedge
+%%             h \subseteq \histO \hunion \histS \wedge
+%%             w \subseteq \stableorder \wedge
+%%             h \subseteq \sideal{\stableorder}{t} \wedge \wpp = \wInit\}}
+%% \end{array}
+%% \end{array}
+%% \]
+
+%% % read fp
+%% \[
+%% \begin{array}{l}
+%% \lat \act{read}(\fwdp{p}) \rat :\\
+%% ~\logvar{h,w,t_p,v_p}\
+%% \!\!\!\!\begin{array}[t]{l}
+%% \tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO \wedge
+%%              w \subseteq \stableorder \wedge \wpp = \wClean\, t\, v \wedge
+%%              h \subseteq \sideal{\stableorder}{t}\}}\ \\[5pt]
+%%  \tsPos{\{\, \exists t\ldot\, \histS = j \hpts (p,v) \wedge
+%%             h \subseteq \histO \hunion \histS \wedge
+%%             w \subseteq \stableorder \wedge
+%%             h \subseteq \sideal{\stableorder}{t} \wedge \wpp = \wInit\}}
+%% \end{array}
+%% \end{array}
+%% \]
+
+%% % relink
+%% \[
+%% \begin{array}{l}
+%% \lat\,\aux{relink}(\var{rx}, \var{ry})\rat :\\
+%% ~\logvar{h,w,t_x,t_y}\
+%% \!\!\!\!\begin{array}[t]{l}
+%% \tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO \wedge
+%%              w \subseteq \stableorder \wedge \wpp = \wClean\, t\, v \wedge
+%%              h \subseteq \sideal{\stableorder}{t}\}}\ \\[5pt]
+%%  \tsPos{\{\, \exists t\ldot\, \histS = j \hpts (p,v) \wedge
+%%             h \subseteq \histO \hunion \histS \wedge
+%%             w \subseteq \stableorder \wedge
+%%             h \subseteq \sideal{\stableorder}{t} \wedge \wpp = \wInit\}}
+%% \end{array}
+%% \end{array}
+%% \]
+
+
+
+\gad{Complete with scanner methods!}
+

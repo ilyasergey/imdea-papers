@@ -1,0 +1,202 @@
+
+\section{Related Work}
+\label{sec:related-work}
+
+\is{TODO}
+
+\subsection{Separation Logic and Rely/Guarantee-based approaches}
+\label{sec:separ-logic-relyg}
+
+
+
+\subsection{Concurrent Abstract Predicates}
+\label{sec:conc-abstr-pred}
+
+Comparing to the work on Concurrent Abstract Predicates~\cite{DinsdaleYoung-al:ECOOP10}...
+
+Points to emphasise:
+
+\begin{itemize}
+
+\item CAP guys claim that they can allocate the locks, but it means
+  that they don't provide any sort of a fixed invariant with them. 
+
+\item The don't have the ``shared'' state - it's only environment part
+  (boxed stuff). 
+
+\end{itemize}
+
+In fact (after talking to Alexey), it turns out that one can ``pack''
+a ``raw'' lock region (implemented and abstracted through CAP) with an
+invariant management facility in order to restore the Owicki-Gries
+reasoning. That is, only the disjointness of the \textsf{isLock}
+predicate matters: it enforces the mutual exclusion for threads. One
+can then wrap the invariant logic around it. That is, in order return
+the \textsf{Locked} token, one needs to fulfil the
+invariant. Conversely, when acquiring the lock, one gets this invariant
+into its possession. \is{So, may be, what we \emph{really} need from
+  the lock is just a mutual exclusion? And the rest is just a fancy
+  stuff that can be plugget later on? }
+
+Given so, what should be the main critique of CAP from our side?
+
+\begin{enumerate}
+
+\item A lot of complication comes from the recursive nature of the
+  definitions of actions, i.e., an action in its own definition may
+  contain a permission to execute itself. For instance, the definition
+  of the $\textsc{Next}(k)$ actions in the ticketed lock development
+  is stated as follows:
+
+\[
+\textsc{Next}(k) : x.\text{owner} \mapsto k \leadsto x.\text{owner}
+\mapsto (k + 1) \sep [\textsc{Next}(k) ]^t_1,
+\]
+
+where $[\textsc{Next}(k) ]^t_1$ is a \emph{full} permission, allowing
+one to execute the action.\footnote{In fact, this moment is subtle, as
+no one is going to execute it again, as the preconditions will not be
+fulfilled, but it's required to be present for the consistency of the
+logical reasoning.}
+
+In contrast, we do not have any permission management machinery in our
+framework. Neither we need to have predicates mentioning infinite sets
+(e.g., accounting for actions with \emph{all} not yet issued
+tickets). Instead, the ``permissions'' to release the ticketed lock
+are just a part of a precondition for the atomic \emph{unlock} action.
+
+\item The CAP development does not provide explicit machinery to deal
+  with scoped locks. Of course, in CAP one can allocate the lock
+  region and then deallocate it, after all permission for its actions
+  will be collected. \is{But what exactly makes us better here?}
+
+\item In our framework, we manage to avoid using fine-grained, but
+  hard to use techniques like
+  \emph{repartitioning}~\cite{DinsdaleYoung-al:ECOOP10} or \emph{view
+    shifts}~\cite{Svendsen-al:ESOP13} in order to reason about
+  ownership transfer. Instead, this logic is defined in a clean ans
+  separate way by definitions of \emph{acquire}/\emph{release}
+  transitions.
+
+\item Building on a ground of the idea of using PCM to account for
+  threads' separate contribution, employed in
+  SCSL~\cite{LeyWild-Nanevski:POPL13}, we provide an easy mechanism to
+  specify the \emph{local} and \emph{other} resources as well as the
+  \emph{shared} componen. In contrast, encoding similar ideas in CAP
+  usually requires one to come with a non-standard model of permission
+  in order to split the rights to invoke atomic
+  actions.\footnote{Private communication with Thomas Dinsdale-Young.} 
+
+\item The authors of CAP don't mechanise the proofs, and generally
+  their proofs are much longer and harder to grok (or this is jus me
+  (\is{}) being too stupid).
+
+\item They use the framework of \emph{actions} and then check the
+  stability \emph{at place} (check their \textsc{Atomic} rule!),
+  instead we do it at the definition stage. In fact, all our lemmas a
+  re equivalent to \emph{self-stability} check, when defining an
+  abstract predicate (may be, this is exactly what we are
+  doing). However, or lemmas do more, since we \emph{define} atomic
+  actions, and CAP guys allow anything being atomic, but on the
+  condition of proving the stability.  We eliminate this need by
+  sealed specifications and the entanglement. In fact, we still don't
+  have stability checks embedded for actions, but we are going to
+  implement them.
+
+\end{enumerate}
+
+Can we do the same by separating the invariant from the
+mutex/ticketed-managing machinery? That is, by creating higher-order
+concurroid. And what should be its specification then? 
+
+In the work on \emph{higher-order concurrent abstract
+  predicates}~\cite{Svendsen-al:ESOP13}...
+
+\subsection{Local Rely Guarantee}
+
+Our injection and retraction rules are similar in spirit to the
+Feng's~\cite{feng:popl09} Frame and Hide rule of Local Rely-Guarantee
+logic (LRG). 
+
+The significant difference that seems to exist between our retraction
+rule and LRG's Hide rule is in the following. LRG uses the same
+precondition $p$ and postcondition $q$ in the premise and the
+conclusion of the rule. This implies that, while the relies,
+guarantees and the invariants in the premise are larger than those in
+the conclusion, the actual state in which the program runs remains the
+same. This is roughly similar to the requirement in SCLP that the
+states in the premise and in the conclusion remain the same \emph{up
+  to erasure of auxiliary state}. But in order to properly support
+modular reasoning, SCLP allows these states to actually be different
+wrt.~the auxiliaries, which LRG does not account for.
+
+\subsection{CaReSL}
+
+CaReSL is a recent logic for reasoning about linearizability. One
+first proves a fine-grained program contextually equivalent to the
+coarse-grained variant, and then at the second level, prove that the
+coarse-grained variant satisfies a desired Hoare triple.
+
+The coase-grained reasoning in CaReSL also employes state transition
+systems to express communication protocols, similar in spirit to our
+concurroids.
+
+There are significant differences, however.
+
+Our concurroids are subjective, which means the proofs have access to
+the state (auxiliary or real) of the environment. Such access is
+needed in critical sections, to express that the auxiliary state
+doesn't change.  CaReSL provides a modicum of subjectivity, by
+introducing a notion of \emph{tokens} that may be split between
+threads, and the proof of one thread can compute which tokens the
+other threads posses. The programs are subject to the \emph{token
+  preservation} discipline; that is, the sum total of all the tokens
+used by the program remains constant. This is similar to our
+requirement that the join of self and other auxiliaries is invariant
+accross threads. Thus, it seems clear that tokens are a special case
+of subjective auxiliary state, and in CaReSL one needs to engage in
+coding tricks in order to recover the generality of subjectivity,
+which accounts for a good deal of complexity of proofs in CaReSL.
+
+For example, to do a proof of increment, it seems CaReSL needs two
+different infinite sets of tokens, whereas in SCLP a PCM of natural
+numbers suffices. Tokens are not endowed with any algebraic structure
+beyond mere sets.
+
+CaReSL doesn't support a rule similar to our retraction. An installed
+island can't be de-installed, though one can bake into the STS of the
+island the transition which ``empties'' the island, by privatizing its
+shared heap, and moving the island into a terminal state, after which
+it sits idle. It's not clear at the moment what can one infer about
+the emptied state of the island. Just before the island is emptied,
+the environment threads may interfere on it, thus making the moved
+state have unpredicted values. In order to prevent such interference,
+one again has to engange in coding tricks with tokens.
+
+Our injection rule looks like a framing rule in CaReSL, though I'm a
+bit puzzled as to how they pulled it off without the conditions that
+we put into concurroids, e.g., that internal transitions preserve
+footprints. These conditions were important for us, precisely to get
+the injection rule to work so that one can focus on a specific
+concurroid and ignore the entanglements. CaReSL also makes a claim
+about not needing to reason about stability, which at this point I
+find very suspicious, and probably a consequence of them not yet
+trying out examples where specifications are sufficiently expressive.
+
+They rely on Kripke semantics to make the programs insensitive to the
+addition of future islands. In SCLP we do not require Kripke
+semantics, so our semantics is much simpler (though not sure this is
+an acceptable selling point).
+
+CaReSL doesn't seem to consider yet abstraction over island
+properties, and combinators for building larger islands out of smaller
+ones. (Heh, can this complaint be made stronger).
+
+
+CaReSL's rule for atomic commands allows syncronization over one
+island only in the UpdIsl rule. HOCAP makes a major point in the
+ESOP'13 paper that we need syncronization over two (or more) islands,
+in order to exchange the necessary phantom fields. Also, this is
+something that SCLP easily does by means of communication.
+
+

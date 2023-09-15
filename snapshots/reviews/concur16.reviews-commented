@@ -1,0 +1,410 @@
+----------------------- REVIEW 1 ---------------------
+PAPER: 45
+TITLE: Concurrent Data Structures Linked in Time
+
+AUTHORS: Germán Andrés Delbianco, Ilya Sergey, Aleksandar Nanevski and
+Anindya Banerjee
+
+OVERALL EVALUATION: 1 (weak accept)
+REVIEWER'S CONFIDENCE: 5 (expert)
+
+----------- Review -----------
+Summary:
+
+This paper uses Fine-grained Concurrent Separation Logic with a novel
+method for specifying and reason about data structures that satisfy
+Linearizability with non-local linearizable points. The method shown
+in the paper supports reasoning of data structures that exhibit
+linearization points in other threads or even linearization points
+that depend on the future behaviour of other operations. The method
+uses histories at the specification for each linearization point that
+form a partial commutative monoid. Moreover, they have formalised the
+majority of the theory shown in the paper in Coq.
+
+Pros:
+
++ The method proposed is able to reuse a Hoare logic to specify and
+reason about data structures that exhibit non-local linearization
+points. As far as I know, this is the first logic that is able to
+reason about such algorithms. Other logics either target a specific
+class of problems (e.g. queues) or otherwise use adhoc arguments.
+
++ Unlike Linearizabiliy approaches, this method is able to reason
+about clients as well as implementations.
+
++ It is mostly formalised in Coq.
+
+Cons:
+
+- The specification given for the snapshot would benefit from applying
+  it to a client and having a sketch proof for a different simple
+  implementation.
+
+[ G: Well, we new this was a short-coming, and it's a pitty we still
+don't have it. It is hwoever on our inmediate plan of action, call it
+APLAS, POPL, or PPoPP. to at least have a proof of the client in
+Section 3 by hand]
+
+
+- The current specification given for the snapshot is far more
+  complicated than a sequential specification given in Linearizability
+  style approaches. At the moment, you have not motivated properly why
+  we should use instead of Linearizability.
+
+[ G: Is it that complicated?
+     Can we prove that our spec simplifies to the
+     sequential spec after linearization points ? ]
+
+- I missed a more detailed discussion of how the approach handles
+  ownership transfer, which is a known problem in Linearizability
+  approaches.
+
+[ G: There is now ownership of the shared memory, but of the
+     histories/tokens. FCSL's subjective states handles that.
+     We might want to add a brief introduction to FCSL section. ]
+
+
+Other Comments:
+
+* In the introduction you mention "The method improves on
+  Linearizability by offering natural abstractions...", can you
+  clarify what do you mean by this?
+
+* At the penultimate paragraph, I believe it is worth mentioning the
+  queue data structure described in the original Linearizability paper
+  which exhibits the same non-local linearization points. Moreover,
+  could you be able to prove such a data structure?
+
+* In the section 2, you mention that you use a
+  single-writer/single-scanner version of the algorithm. However, your
+  figure 2. (b) has concurrent writes to different components. Given
+  that you have not shown the mutual exclusion protocol that makes
+  sure that single-writer/single-scanner is ensured, can you clarify
+  in your description if you mean single-writer/single-scanner per
+  component or the whole implementation.
+
+* In the beginning of section 3, you argue that your approach improves
+  over Linearizability as mentioned in section 1. However, I failed to
+  see how. With Linearizability, you would have two sequential
+  specifications, one for scan and one for write, that you could treat
+  as being atomically. With Linearizability, the meaning of an
+  operation does not depend on how it is interleaved with concurrent
+  operations, its meaning can be given simply by pre and post
+  conditions. The specifications presented in section 3, expose the
+  interfering environment, meaning they are less abstract than the
+  sequential specifications given by Linearizability.
+
+* In section 5, it would be useful for the reader if you actually
+  shown a sketch proof of a client (ideally the one in figure 2) to
+  illustrate how complex it is. You have given a complex
+  specification, but you have not motivated properly the benefits for
+  client reasoning.
+
+* About the related work, the paper "Aspect-oriented linearizability
+  proofs" should be discussed and how it related to your
+  work. Additionally, the original Linearizability has a proof for a
+  queue that displays non-regional linearization points. How does it
+  compare to yours in terms of scalability? The example they proof is
+  far bigger than the snapshot shown on the paper.
+
+
+----------------------- REVIEW 2 ---------------------
+PAPER: 45
+TITLE: Concurrent Data Structures Linked in Time
+
+AUTHORS: Germán Andrés Delbianco, Ilya Sergey, Aleksandar Nanevski and
+Anindya Banerjee
+
+OVERALL EVALUATION: -1 (weak reject)
+REVIEWER'S CONFIDENCE: 4 (high)
+
+----------- Review -----------
+
+This paper verifies linearizability of a simplified version of a very
+intricate snapshot algorithm. The code itself is very short (a mere 15
+lines), but its correctness argument is very complex, and lies at the
+edge (actually, probably beyond the edge) of what has been achieved
+before.
+
+Nevertheless, the presented proof is admittedly very complex even for
+experts in this domain.  I trust that the proof is technically sound:
+the proof is mechanized in Coq and the proved specifications in Figure
+4 are sensible.  What I worry about is: (1) whether this is the "right
+approach" and (2) what would the reader gain from this paper.
+
+For point (1), given how complex the proof is, it is completely
+unclear whether a simpler approach would be possible.  The
+linearization points (LPs) of the writes are described as
+"future-dependent non-local non-regional", but it is not clear to me
+whether this is necessarily so.  While future dependence seems
+necessary, I don't see why non-local LPs are necessary.  Couldn't one,
+for example, pick the LP of a write to be either at line 3 or line 5
+depending on the future.  Similarly, I don't understand why the
+specifications record in the history a total order of writes, which
+gets fiddled with over time, rather than recording a partial order,
+which gets strengthened over time.  A snapshot can also be defined
+over a cut through the partial order.
+
+For point (2), the paper claims (Intro, para 3) that [it] "presents a
+novel specification and verification method for concurrent objects,
+based on Hoare logic." Later in the introduction (last para) it is
+claimed that the method is illustrated by applying it to the snapshot
+algorithm of Jayanti.  In my opinion, verifying one algorithm (complex
+though it may be) is not sufficient evidence that the method is
+generally useful. One should also use the same method to verify some
+of the simpler algorithms and produce a proof of similar complexity as
+the existing ones.  Further, if one wants to claim that the
+Hoare-style specification of Figure 4 is more useful than the
+refinement-style one, one should at least have an example uses of the
+specification to verify some client program.
+
+So, overall I am weakly negative. I think there is some great work
+done here, but the stated goal of the paper is not met: the proof is
+too complex to "illustrate" the proposed method of specifying and
+verifying linearizability.  For this goal, a simpler example might
+have been more appropriate.  If the stated goal were to verify this
+particular algorithm, then perhaps a somewhat higher-level and more
+easy to follow explanation of the proof would be necessary.
+
+
+----------------------- REVIEW 3 ---------------------
+PAPER: 45
+TITLE: Concurrent Data Structures Linked in Time
+
+AUTHORS: Germán Andrés Delbianco, Ilya Sergey, Aleksandar Nanevski and
+Anindya Banerjee
+
+OVERALL EVALUATION: -1 (weak reject)
+REVIEWER'S CONFIDENCE: 3 (medium)
+
+----------- Review -----------
+
+The authors present a new technique for verifying an important safety
+condition of concurrent data structures. They hope that the approach
+they advocate, which they term linking-in-time, can alleviate some of
+the difficulties in classical linearization proofs by reducing the
+temporal reasoning inherent in the dynamic nature of linearization
+points to spatial reasoning (namely, reordering of a linked
+list). They demonstrate this approach by applying it to a
+size-restricted simple single-writer/single-scanner snapshot algorithm
+due to Jayanti.
+
+I find the timing model of the paper confusing and it is unclear
+exactly how the timestamps are generated and what they represent. It
+is also not clear that the auxiliary function E given on page 6 is
+well-defined in the absence of a global clock. It would be very
+helpful if the authors made the timing model they use explicit.
+
+The notation employed to define the Hoare-like triples in Figures 4
+and 6 is ambiguous. For example, it is unclear exactly how the
+variables h and \omega in Figure 4 are quantified.  Is it the authors'
+intent that Figure 4 not represent a single triple, but rather a
+collection of triples with a member for each h \subseteq H_o and
+\omega \subseteq \sqsubseteq_L? This may well be a misunderstanding on
+the part of the reviewer; if so it may be in some measure due to
+notational opacity. The triples given in Figure 6 suffer this
+ambiguity more severely as they are far more verbose.
+
+The organization and presentation of results requires improvement. For
+example, the colour invariants (Propositions 2-4 on page 7) and
+Section 4 present technically demanding results in prosy, rambling
+fashion, with little attempt made to build the reader's intuition for
+these results. Some information is simply missing (e.g. pseudocode or
+some clear specification for the helper procedures inspect and push, a
+definition of the function `fresh' used in register(p, v)'s triple.)
+This part of the paper is very difficult to follow and salient ideas
+difficult to extract.
+
+If indeed this paper ``...is the first that provides a logic for
+reasoning about non-regional linearization points'' then this
+represents a significant contribution to the field (this reviewer is
+not sufficiently versed in the relevant literature to assess the
+veracity of this claim).  Any successful attempt to mechanize
+notoriously complicated linearization proofs is, of course,
+welcome. However, given the unwieldiness and complexity of the results
+of this paper for a simple, highly-constrained snapshot algorithm,
+this reviewer remains skeptical of the fruitfulness of the
+`linking-in-time' approach put forward by the authors. It should also
+be pointed out that the difficulty of linearization proofs does not
+lie in ``[establishing] Hoare triples for the sequential equivalents
+[of concurrent procedures].'' That is relatively easy.
+
+Overall, this paper suffers shortcomings in clarity and
+presentation. The paper could be greatly improved by a clarification
+of the computational and timing model, a centralization and
+delineation of definitions, and an expansion and (if possible)
+simplification of Section 4. A thorough proof-reading would also
+assist as typos and other errors occur quite frequently.  Given that
+very few of the propositions of the paper are proved, it would behoove
+the authors to complete the Coq formalization of their results and
+verify their correctness.
+
+This reviewer cannot recommend publication of this paper in its
+present state.
+
+Detailed comments for the authors
+
+Page 2
+the node pointed by t -> the node pointed to by t
+Also, it is unclear what is meant by permuting a singular.
+
+Figure 1
+Should the return be outside the if-then-else?
+
+Page 3
+consider in our Coq proofs -> consider it in our Coq proofs
+
+Page 6
+the the scanner -> the scanner
+
+Page 7 (also other pages)
+<_L -> \sqsubset_L ?
+
+Page 9
+stage of proof -> stage of the proof
+
+
+----------------------- REVIEW 4 ---------------------
+PAPER: 45
+TITLE: Concurrent Data Structures Linked in Time
+AUTHORS: Germán Andrés Delbianco, Ilya Sergey, Aleksandar Nanevski and Anindya Banerjee
+
+OVERALL EVALUATION: -1 (weak reject)
+REVIEWER'S CONFIDENCE: 5 (expert)
+
+----------- Review -----------
+
+This paper describes a proof idiom for verifying fine-grained
+concurrent datastructures, based on concurrent logic FCSL [19]. In
+other words, it presents no new metatheory, but rather demonstrates
+how FCSL is capable of verifying a particular class of
+data-structure. The targets here are data-structures where the
+linearization order is fixed outside method execution
+boundaries. These are known to be particularly difficult to verify
+with traditional forward-simulation-style proofs, because the logic
+must reason about ordering imposed by future behaviour.
+
+The paper verifies a simple two-thread atomic snapshot algorithm. Just
+as in previous work on FCSL, the abstract specification is not
+linearizability, but rather special-purpose Hoare triples which expose
+the order of events as ghost fields in the pre and post. In fact, the
+specification here was previously verified in [19] for a different
+implementation. The novelty here is that the internal order of events
+is not fixed by the real-time order, but is dynamically manipulated in
+order to achieve correct behaviour. Nonetheless, the reasoning
+establishes that the order preceding the current operation is stable,
+i.e. will not be modified. This establishes something similar to
+linearizability: a total order compatible with call-return order on
+which all threads agree.
+
+The paper describes the lemmas necessary to verify the algorithm. Some
+but not all of these lemmas are verified in Coq.
+
+
+Comment: 
+
+This approach is very interesting, and the paper is generally
+well-written and technically solid.  The problem of out-of-method
+linearization points is one that has proved remarkably difficult to
+tackle in concurrent logic, and a successful approach would represent
+a substantial step forward.  It's also good to see that FCSL can be
+used for this kind of reasoning without modification.
+
+So basically I like this line of work.  However, I have some
+criticisms of the paper which make me feel it isn't ready for
+publication.  In particular I wish the paper had looked at more
+examples and had a more convincing story about how the approach would
+be applied in general.  That said, the paper is interesting, and it
+would be okay to accept if others want it.
+
+Some criticisms follow, roughly ordered from most to least important.
+
+
+* Unclear generality. The paper's contribution is a new approach to
+proving linearizable data-structures.  However, the paper only
+verifies a single, artificially constrained example: it's very unclear
+how this approach would apply to other data-structures, or even if it
+*would* apply.
+
+One way to fix this would be consider more examples.  I would have
+liked to see the n-thread version of the snapshot algorithm.  I would
+also like to see demonstrations of the approach on data-structures of
+different kinds. You might consider the Herlihy-Wing queue, as it is
+relatively simple, the optimistic set verified by Rinetsky, and maybe
+others. (Rinetsky's example is mentioned in this paper and [19] but I
+don't see whether it has actually been verified in FCSL.)
+
+Another fix would be to talk more clearly about the proof method, rather than
+the particular details of this algorithm. There is some of this in the paper,
+but it's not enough for me to feel that I could apply the method to another
+algorithm.  
+
+I'm also uncertain exactly how much specifications would have to
+change given different algorithms. E.g. could the snapshot
+specification still be stated if the linearization order was fixed by
+later methods separated in real-time order? (which I guess would mean
+chain(H) did not hold in the post)
+
+
+* Pre-post specifications vs linearizability. The paper is keen to
+advocate their specification approach over linearizability. However, I'm not
+sure this is sensible.
+
+The paper says their snapshot specification is as good as
+linearizability for client verification ("achieves the same goal as
+linearizability", "intuitive and usable by clients", "captures
+precisely what linearizability would be used for"). These claims are
+not evidenced: I don't think either [19] or this paper gives an
+example of using this specification in a client program. Personally,
+I'm not convinced that the specification is intuitive: it took a long
+time for me to understand exactly how each history variable is
+used. The atomic specification seems much simpler, although verifying
+a data-structure wrt it may be more difficult.
+
+The desire to avoid linearizability creates some odd rhetoric.  For
+example, in S2 the paper says that a version of the snapshot is
+unsound because "this was never the contents of the memory". But this
+isn't the reason it's unsound: in fact, the correct algorithm reads
+snapshots that were never in memory.  The real problem is that the
+faulty algorithm doesn't observationally refine the atomic
+implementation, ie. it's not linearizable.
+
+Finally, I don't understand whether the snapshot specification is
+equivalent to linearizability. I can't immediately think of a
+counterexample.  This might be an easy theorem to prove, and it would
+help a lot with understanding the paper's approach.
+
+
+* Incomplete mechanisation, dense proof explanation. A major advantage
+of FCSL is that it is implemented in Coq, and therefore proofs can be
+mechanised. It is therefore surprising to me that only some of the
+theorems have been mechanised.  The remainder are proved in sketch
+pencil-and-paper form, but these are quite dense and I found it
+difficult to get an intuitive understanding of them. It's therefore
+hard for me to be confident in the correctness the proofs.  I also
+wonder how much more difficult the proofs would be for a more complex
+algorithm such as HW, if they are as dense as this for the two-thread
+snapshot. I would have liked to see both a more substantial
+explanation of the proofs in appendix, and a completed Coq
+mechanisation.
+
+
+Minor: 
+
+* \omega and h seem to me to make the specification in Fig 4 harder to
+understand. Couldn't you just write this relationally, i.e. with
+primed variables representing pre-state values? Something like:
+
+{ Hs = empty } 
+  write(p,n)
+{ exists t. Hs = (t -> p,n) /\
+  Ho' subseteq Ho /\ sqL' subseteq sqL /\  ... } 
+
+* "Small caps variables record pre-values of aux" This is a horribly
+confusing convention, I'd again suggest using primed variables, as in
+VDM.
+
+* You should probably cite the Chakraborty et al 'Aspects' paper
+[LMCS, 2015].  This is an earlier example of applying a program logic
+to non-fixed (and non-regional?)  linearization points -- RGsep to
+verify the HW queue.

@@ -1,0 +1,361 @@
+----------------------- REVIEW 1 ---------------------
+PAPER: 58
+TITLE: Concurrent Data Structures Linked in Time
+AUTHORS: Germán Andrés Delbianco, Ilya Sergey, Aleksandar Nanevski and Anindya Banerjee
+
+OVERALL EVALUATION: -1
+REVIEWER'S CONFIDENCE: 5
+
+----------- Review -----------
+=================Summary======================
+
+This paper proposes new Hoare-style specifications for concurrent data
+structures with non-fixed linearization points (LPs). By introducing a
+list of timed events and their logical orders as shared auxiliary
+states, the specifications can encode the basic requirement (as in
+linearizability) that the logical orders of non-overlapping events are
+the same as their real-time orders. To verify, this paper instruments
+the data structure implementations with auxiliary code modifying the
+logical orders of the events (where the initial orders follow certain
+potential LPs).
+
+This paper presents the specification and the formal proofs of
+Jayanti's snapshot algorithm in detail, and provides Coq
+implementations online.
+
+=================Comments=====================
+
+Pros:
+
+1. Jayanti's snapshot algorithm is very challenging. The formal proofs
+in this paper are intuitive and convincing.
+
+2. Jayanti's snapshot represents a class of tricky algorithms where
+the location of LP may depend on the environment behavior at a future
+moment after the current method finishes. Most existing work for
+linearizability verification does not support this kind of
+algorithms. The idea illustrated in the spec and proof of Jayanti's
+snapshot in this paper looks promising to verify linearizability of
+this kind of algorithms.
+
+3. The paper is well-written, with very detailed explanations about
+the technical stuff.
+
+Cons:
+
+1. One main point of this paper is to "abandon linearizability" (see
+the second paragraph on page 2), but I am not convinced by the
+reasons. Indeed there exist non-linearizable algorithms (as in the
+authors' earlier work [35]), but Jayanti's snapshot is linearizable. I
+am wondering why this paper does not aim at verifying its
+linearizability, i.e., why not proving a theorem that relates the new
+specs to linearizability.
+
+In detail, I do not well understand some reasons listed at the
+beginning of Section 4.
+
+(1) "Linearizability is not directly concerned with verifying that
+coarse-grained equivalent itself. One has to develop separate methods
+for such client reasoning, which may very well re-introduce histories
+and orderings into the logic."
+
+First, linearizability verification (or observational refinement
+verification) and client reasoning do not have to use "separate"
+methods. We could use one program logic for both purposes (e.g. see
+Turon et al. ICFP'13 [37]).
+
+Second, I do not understand the need to "re-introduce histories and
+orderings into the logic" for client reasoning. In client reasoning,
+method calls are replaced by atomic commands (e.g. a call to the
+method write will be replaced by an atomic write), thus existing
+concurrent program logics should still apply. Even if one wants to
+verify the "timing properties" about the clients as in this paper, we
+could use existing logics (such as FCSL) with auxiliary states
+specifying the ordering (just as in this paper), but it seems that we
+do not have to introduce "histories and orderings into the logic".
+
+(2) "... our proofs rely on transferring write events from \chi_j
+(joint ownership) to \chi_s (private ownership), upon the write's
+termination. In contrast, linearizability ... has not yet been fully
+reconciled with programs that perform ownership transfer [4]."
+
+It seems that the ownership transfer in this paper occurs only inside
+the data structure implementation and auxiliary code. But this is
+already supported in existing linearizability proofs. For instance,
+lots of work supports Treiber stack where a node can be transferred
+from the thread-local state to the shared stack. Existing work
+supporting helping may also allow ownership transfers on auxiliary
+states specifying abstract operations (which may be similar to the
+write events in this paper).
+
+Another kind of ownership transfer (see Gostman & Yang, CONCUR'12) is
+between the data structure and the clients, which occurs at the method
+invocation and return points. I guess the argument in this paper does
+not refer to this kind of ownership transfer, since it is not needed
+in Jayanti's algorithm.
+
+2. The new specs proposed in this paper look a bit subtle. Will client
+reasoning be affected if we slightly weaken the specs? For instance,
+the postcondition of scan requires "dom(\chi) \subseteq \Omega'|t". If
+we weaken it to "dom(\chi_o) \subseteq \Omega'|t" (that is, we do not
+require \chi_j to be observed), are there any clients that we cannot
+prove?
+
+Since the new specs talk about event ordering, it might be easy to
+make mistakes (e.g. too weak or too strong).
+
+3. This paper verifies Jayanti's algorithm only. It is unclear if one
+could easily write down such specs and do the proofs for other
+algorithms.
+
+Moreover, I feel that the proofs for Jayanti's algorithm have not been
+well summarized. Given the specs and the algorithm, is it easy for an
+experienced verifier to do the proofs? If not, what are the challenges
+in the verification?  What kind of insights can we get from the
+proofs?
+
+In my understanding, the most important part in the proof is the
+invariant 6 (red zone), since it is the key to ensure invariant 3
+("the events reordered by the scanner do overlap"). However, its
+formulation looks specific for Jayanti's algorithm. It might be better
+to find out some general patterns in the proofs that would apply to
+other algorithms.
+
+Besides, in the proofs, the auxiliary "register" code initializes the
+timestamp and the logical orders in sigma for the new write
+event. This program point happens to be a potential LP of write. And
+accidentally, the other potential LP of write is in the code of
+scan. What if a method itself contains multiple potential LPs? How
+would one initialize the timestamp and the logical orders?
+
+
+Minor comments and typos:
+
+1. In Abstract: "modifying a temporal position of a linearization
+point can be modeled similarly to a pointer update in separation
+logic."
+
+I am not sure if they are similar. IMO, modifying the position of a LP
+in this paper (i.e. the register and relink code) looks more like
+updating a variable named sigma whose value is a sequence.
+
+2. Page 4, the last sentence in the first paragraph:
+"... linearizability only permits reordering of non-overlapping
+operations." Here "non-overlapping" should be "overlapping".
+
+3. Page 5, "the decision on the logical order of this write depends on
+the execution of scan in a different thread, and only after the
+execution of write has terminated".
+
+I think the decision is made only after the scan has executed line
+15/16 in Fig 1. It *may* be made after the write terminates, but I
+guess we cannot say that it is made "only" after the write terminates.
+
+4. Page 8, "the write appears as if it occurred atomically at time t".
+
+This sentence looks like saying that the LP of the write is at time t,
+but time t is just the time when executing line 2 in Fig 1.
+
+5. Invariants 2.3 and 2.4 on page 10. Is Omega' arbitrary or the one
+in the postcondition? In other words, do these invariants depend on
+the transitions (like invariant 1)? If Omega' is the one in the
+postcondition, then by invariant 1.2, maybe invariants 2.3 and 2.4
+could assume only "t \in scanned Omega" in the premises?
+
+6. Page 14, "A scan is active if it has cleared the forwarding
+pointers in lines 8 and 9, and is ready to read x and y."  Does this
+mean that the scan is between lines 9 and 10?
+
+7. Invariants 4 and 6: do the orders of the regular expressions follow
+sigma?
+
+8. Invariant 5: "... (i.e. scanner is in lines 13-14)". Could the
+scanner be in lines 15-16?
+
+9. Invariant 8: "W_p = Fwd t v \/ Done t v" should be "W_p = Fwd t v
+\/ W_p = Done t v".
+
+10. Fig 6, "setS" should be "set".
+
+11. Page 21, "The concurrent write may change the color of s to
+yellow, by invoking forward". Here "yellow" should be "green".
+
+12. Related work:
+
+(1) The logic in Vafeiadis' PhD thesis [38] "did not have a soundness
+proof with respect to any program semantics".
+
+Vafeiadis' logic does not have soundness proof w.r.t. linearizability,
+but it has soundness proof w.r.t. usual concurrent program
+semantics. On the other hand, this paper does not have soundness proof
+w.r.t. linearizability either.
+
+(2) "... in the works [25, 37], these two properties (i.e.,
+linearizability of a data structure and validity of its Hoare-style
+spec) are established separately, thus doubling the proving effort."
+
+Does the "Hoare-style spec" here refer to the one used to estabilish
+linearizability in [25,37], or refer to the one of the abstract atomic
+operation for client reasoning? In the former case, there is only
+proof effort for linearizability verification. In the latter case, I
+think giving specs to atomic operations is much simpler than proving
+linearizability.
+
+(3) "... the metatheory of TaDA does not support ownership transfer".
+
+It might be better to refine this sentence to, e.g. TaDA does not
+support helping (ownership transfers of atomic tracking resources).
+
+----------------------- REVIEW 2 ---------------------
+PAPER: 58
+TITLE: Concurrent Data Structures Linked in Time
+AUTHORS: Germán Andrés Delbianco, Ilya Sergey, Aleksandar Nanevski and Anindya Banerjee
+
+OVERALL EVALUATION: 2
+REVIEWER'S CONFIDENCE: 3
+
+----------- Review -----------
+
+This paper considers the problem of proving linearizability of
+concurrent data structures which have dynamic linearization points -
+i.e. the linearization point (LP) of a method can depend on run-time
+values and events from the past or future. This is a challenging
+problem, and the authors claim that existing logics cannot handle such
+proofs, especially if the decision of where the LP of a method should
+be is done after the method terminates, in another procedure.
+
+This paper presents an interesting and new approach that can handle
+such proofs. The key idea is to encode the history of the computation
+as auxiliary state of the data structure, so that auxiliary code can
+dynamically re-order the history when needed, and even linearize
+methods that have already terminated. The catch is that
+linearizability has to be specified as part of the spec of every
+method, explicitly in terms of this auxiliary state. But on the
+positive side, the authors claim that Hoare-style specs that talk
+about linearizability explicitly allows them to directly verify client
+code with the same logic. In contrast, the standard use of
+linearizability would entail replacing the concurrent procedure with
+an equivalent sequential one.
+
+One concerning issue is that there is a lot of auxiliary code and
+specification needed. For instance, the bulk of the paper is devoted
+to the proof of Jayanti's snapshot algorithm, even though the authors
+have chosen the simplest version of the algorithm (single
+scanner/single writer), and further restricted it to operate on an
+array of size 2. There is also some new concepts, such as the colours
+of events, introduced into the auxiliary state/code. One wonders
+whether the proofs can be simplified, and how much of these proofs can
+be automated.
+
+Overall, the paper presents a new idea, and the methodology presented
+extends the state of the art. The authors have also formalised their
+proof in Coq, and published it on their webpage. The paper is mostly
+well written, though I would have appreciated a short introduction to
+FCSL.
+
+
+Minor things:
+
+- Pg 4: "only permits reordering of non-overlapping operations" -> overlapping operations
+
+- An example to introduce the self and other histories would be helpful
+
+- Pg 9: the eval function is confusing. What does it do when \Omega is partial?
+
+- Pg 14, paragraph after Invariant 4: Why is there at most one
+  candidate for reordering?
+
+----------------------- REVIEW 3 ---------------------
+PAPER: 58
+TITLE: Concurrent Data Structures Linked in Time
+AUTHORS: Germán Andrés Delbianco, Ilya Sergey, Aleksandar Nanevski and Anindya Banerjee
+
+OVERALL EVALUATION: 1
+REVIEWER'S CONFIDENCE: 3
+
+----------- Review -----------
+
+The paper uses fine grained concurrent separation logic (FCSL) to
+reason about concurrent data structures that don't have fixed
+linearization points, i.e., a method can have different linearisation
+points in different executions, depending on the returned values of
+concurrently executing operations.  The encoding in FCSL is explained
+using a snapshot algorithm, an adaptation of Jayanti’s
+single-scanner/single-writer algorithm. Jayant’s algorithm is
+mechanically proved correct in Coq.
+
+To reason in a local manner about operations that don’t have fixed
+linearisation points, auxiliary global variables are introduced and
+corresponding program instructions that update them. These auxiliary
+variables record a partial order over the currently running operations
+and the (potentially finished) overlapping ones. This partial order is
+total when projected over terminated operations.
+
+Strengths:
+
++ the paper shows that one can use FCSL to reason about data
+ structures with linearization points that are not fixed, at least
+ for some snapshot algorithm.
+
++ the paper proposes a thread local manner to reason about
+non-local/not-fixed linearisation points
+
++ it presents very well the difference between the real-time global
+order of events and the order over operations induced by the flow of
+data.
+
++ having formal mechanised proofs for intricate algorithms is an
+important step that paves the way towards automated verification.
+
+Weakness:
+
+- the paper lacks a generalization principle. The verification of
+  Jayanti’s algorithm is clear, however could you give a
+  characterization (even informal) of the class of programs that you
+  expect to prove using a similar FCSL encoding ?
+
+- the number of program annotation is considerable;
+
+Questions:
+
+- how do you generalise scanned Omega and the termination events
+  associated with operations ? I guess you don’t have a new timestamp
+  associate with scan because it does not modify the array (x and
+  y). What happens if instead a reader operation the data structure
+  has another mutable operation, such as dequeue in the Herlihy queue
+  ?
+
+- The auxiliary instructions seem exclusively carved for Jayanti’s
+  algorithm.  Is there a general principle to extrapolate them, for
+  similar examples ?
+
+- i found misguiding the sentence “t is colored red, indicating that
+  the order of t will be determined by a FUTURE scan” in Sec. 6, 3rd
+  paragraph.  Why do you color red a write if there is a concurrent
+  scan, that started, Son, but did not neither set fx nor fy to
+  bottom. At this point the scan could linearise the red write,
+  transforming it in green; a FUTURE one is not yet necessary.
+
+------------------------------------------------------
+
+
+----------------------- REVIEW 4 ---------------------
+PAPER: 58
+TITLE: Concurrent Data Structures Linked in Time
+AUTHORS: Germán Andrés Delbianco, Ilya Sergey, Aleksandar Nanevski and Anindya Banerjee
+
+Overall evaluation: -1
+Reviewer's confidence: 3
+
+----------- Review -----------
+
+This is not a proper review, but rather a summary of the PC discussion
+(by somebody who did not review the paper).
+
+On the positive side, the paper verifies a non-trivial concurrent
+algorithm.
+
+On the negative side, the specifications given in the paper look
+rather complicated. The introduction dismisses linearizability, but
+does not give compelling examples showing that the more complicated
+specifications are necessary.

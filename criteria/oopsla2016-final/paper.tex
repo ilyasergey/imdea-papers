@@ -1,0 +1,159 @@
+\ifdefined\crflag
+\documentclass[10pt,reprint]{sigplanconf}
+\else
+\documentclass[10pt]{sigplanconf}
+\fi
+
+
+\usepackage[firstpage]{draftwatermark}
+\SetWatermarkText{\hspace*{20.6cm}\raisebox{10.3cm}{\includegraphics[scale=0.1]{aec-badge}}}
+\SetWatermarkAngle{0}
+
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage{mathtools} 
+\usepackage{latexsym}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage[scaled]{helvet}
+\usepackage[noend]{algorithmic}
+\usepackage{mathrsfs}
+\usepackage{mathpartir}
+\usepackage{dsfont} 
+\usepackage{stmaryrd}
+\usepackage{url}
+\usepackage{textcomp} 
+\usepackage[colorlinks=true,allcolors=blue,breaklinks,draft=false]{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{alltt} 
+\usepackage{bbm}
+\usepackage{alltt}
+\usepackage{verbdef}
+\usepackage{xspace}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage{lipsum}
+\usepackage{wrapfig}
+\usepackage[usenames,dvipsnames]{xcolor}
+\hypersetup{linkcolor=black,citecolor=black,urlcolor=black}
+\newcounter{tags}
+\usepackage{flushend}
+
+% For turned column headers 
+\usepackage{adjustbox} 
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{pifont}
+ 
+\input{defs}
+
+% Keep footnotes on one page
+\interfootnotelinepenalty=10000 
+
+\setlist[itemize]{leftmargin=*}
+
+\setlength{\parindent}{0.15in}
+\setlength{\topsep}{0cm}
+\setlength{\parskip}{0pt}
+
+\titlespacing*{\section}{0pt}{*1.5}{*1.5} 
+\titlespacing*{\subsection}{3pt}{*0.8}{*0.5}
+\titlespacing*{\subsubsection}{0pt}{*0.8}{*0.5}
+\titlespacing*{\paragraph}{0pt}{*0.5}{*1.2}
+
+% SSReflect listings 
+\input{lstcoq}
+\lstset{style=Coq}
+
+% Hyphenation
+\hyphenation{Veri-Fast}
+
+% Bibtgex tweaks
+\setcitestyle{square}
+\defcitealias{Coq-manual}{Coq proof assistant}
+
+\begin{document}
+
+\input{authors}
+
+\def\@@ptsize{10pt}
+
+\special{papersize=8.5in,11in}
+
+\ifdefined\crflag 
+
+\CopyrightYear{2016} 
+\conferenceinfo{OOPSLA'16}{October 30--November 4, 2016, Amsterdam, Netherlands}
+\copyrightdata{978-1-4503-4444-9/16/10}
+%\acmPrice{\$15.00}
+\doi{2983990.2983999}
+
+
+% \conferenceinfo{OOPSLA'16}{October 30 -- November 4,
+%   2016, Amsterdam, Netherlands} \copyrightyear{2016}
+% \doi{2983990.2983999}
+% \copyrightdata{978-1-4503-4444-9/16/10}
+
+\else
+\toappear{}
+\fi
+
+\title{
+  Hoare-Style Specifications as Correctness Conditions \\
+  for Non-linearizable Concurrent Objects }
+
+\maketitle
+
+\input{abstract}
+
+%\vspace{-2pt}
+%
+\category{D.3.1}{Programming Languages}{Formal Definitions and Theory}
+%
+\category{F.3.1}{Logics and Meanings of Programs}{Specifying and
+  Verifying and Reasoning about Programs}
+
+%\vspace{-2pt}
+%
+\terms Theory, Verification
+
+%\vspace{-2pt}
+%
+\keywords Concurrency, Hoare logic, linearizability, quiescent
+consistency, counting networks, mechanized proofs.
+
+
+
+\input{intro1}
+\input{overview1}
+\input{background1}
+\input{cal1}
+\input{counting}
+\input{qclients}
+\input{discussion}
+\input{evaluation}
+\input{related}
+\input{conclusion}
+
+%\newpage
+
+\appendix
+\input{exchanger_outline}
+
+\setlength{\bibsep}{1.8pt}  
+\bibliographystyle{abbrv}
+\softraggedright 
+\bibliography{bibmacros,references,proceedings}
+
+
+
+%\newpage
+
+
+
+\end{document}
+
+

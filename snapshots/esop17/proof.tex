@@ -1,0 +1,203 @@
+\section{Correctness}
+\label{sc:proof}
+
+We can now prove that \jywrite\ and \jyscan\ satisfy the
+specifications from Figure~\ref{fig:specs}.
+
+
+
+This section illustrates some aspects of our proofs of \jywrite\ and
+\jyscan. The full proofs can be found in our Coq files.
+% including some notewhorthy aspects of their mechanization in
+%FCSL/Coq. For lack of space, we cannot present the full theory, but
+%just focus on the structure and a few characteristic properties.
+The first stage of the proof involves defining the state space of the
+algorithm; that is, the definitions of the auxiliaries, and the
+invariants that relate them. We introduced the auxiliaries and
+selected invariants in Section~\ref{sc:auxiliaries}. 
+% There is a number of properties that need to be established under
+%the state space, e.g., that it is closed under exchanging history
+%entries between $\histS$ and $\histO$. The latter facilitates dynamic
+%thread creation, because it allows the reasoning to focus on
+%individual threads in a large parallel composition.
+The second stage involves defining the auxiliary code, as in
+Figure~\ref{fig:auxcode}, and proving a number of its properties. In
+addition to correctness, the properties involve \emph{erasure} (i.e.,
+auxiliary code only mutates auxiliary state, but not the real one),
+\emph{framing} (i.e., if auxiliary code is executable in some input
+heap and input history, then executing it in an extended heap and
+history leads to the same results, and the extensions remain
+invariant), preservation of invariants from
+Section~\ref{sc:auxiliaries}, and \emph{termination} of each auxiliary
+procedure. The correctness aspect of auxiliary code involves proving
+that the code preserves the state-space invariants, and that the
+precondition and postcondition hold.
+
+\gad{Refer to a previous lemma that should be added at the
+  end of Section~\ref{sc:implementation}, saying that the auxiliary
+  code satisfies the state space invariants.}
+
+The third stage consists of giving stable FCSL specifications to the
+atomic commands in Figure~\ref{fig:fcsl-snapshot} that combine state
+mutation with auxiliary procedures. A specification is stable if it
+holds under the interference of threads that can execute the same set
+of atomic commands.
+
+\begin{lemma}[Ghost State Monotonicity]\label{lem:ghosts-mono}%
+Any transformation of the auxiliary state variable, $\hist$,
+$\stableorder$, $\ordlist$, $\E$ into, $\histP$, $\stableorderP$,
+$\ordlistP$, $\EP$, be it by environment or local steps is monotonic:
+%
+\begin{enumerate}
+ \item\label{lem:stableorder-mono} $\stableorder \subseteq
+   \stableorderP$. It also holds that for all $t$,
+   $\ideal{\stableorder}{t} \subseteq \ideal{\stableorderP}{t}$ and
+   $\sideal{\stableorder}{t} \subseteq \sideal{\stableorderP}{t}$.
+
+ \item\label{lem:hist-mono} $\hist \subseteq \histP$. Moreover,
+   $\histS \subseteq \histSP$ and $\histO \subseteq \histOP$.
+
+ \item\label{lem:scanned-mono} $\scanned\, \stableorder \subseteq
+   \scanned\, \stableorderP$ and $\forall\, t \in \scanned\,
+   \stableorder\ldot\, \ideal{\stableorder}{t} =
+   \ideal{\stableorderP}{t}$.
+
+ \item\label{lem:events-mono} $\dom{\ordlist} \subset \dom{\ordlistP}$.
+
+ \item\label{lem:ends-mono} $\E \subseteq \EP $.
+\end{enumerate}
+\end{lemma}
+
+\gad{This would probably have to be split into two lemmas, the first
+  half going into Section~\ref{sc:clients} and the second one should
+  be kept either here, or pulled to the end of
+  Section~\ref{sc:auxiliaries}} \gad{TODO:Replace or rephrase to say
+  we prove the statments of invariant~\ref{inv:monotonicity}}
+
+% Main correctness proof of the specification
+Only then we may have the main correctness result.
+%%
+%% Final Correctness of the methods
+\begin{theorem}[Correctness of {\tt write} and {\tt scan}]\label{thm:specs}
+The implementations for {\tt scan} and {\tt write} in
+Figure~\ref{fig:fcsl-snapshot} can be ascribed the specification given
+in Figure~\ref{fig:specs}.
+\end{theorem}
+%
+The theorem is proved following a customary style of Floyd-Hoare
+symbolic evaluation using the inference rules of
+FCSL~\cite{NanevskiLSD+ESOP14}, a variant of Hoare logic. We have
+mechanized this proof in our FCSL/Coq development~\cite{CoqFiles},
+including all the properties from the previous stages described above.
+
+In the sequel, we present the specs for the atomic commands in
+Figure~\ref{fig:fcsl-snapshot}, together with the proof outlines for
+each of the methods. We do not give a full detailed explanation of
+their proofs but we will rather provide a general intuition on why
+these assertions hold after each of the atomic actions and also why
+there are stable under environment intereference.
+
+\input{atomics2}
+
+
+%% Moved to appendix-auxiliaries.tex
+%%  For example, the correctness
+%% proof of $\aux{relink}$, relies on the following two helper lemmas.
+%The first lemma asserts that $\aux{inspect}$ correctly determines the
+%``offending'' timestamp; the second lemma asserts that $\aux{push}$
+%modifies the logical ordering in a way that makes the pair $(r_x,
+%r_y)$ a valid snapshot.
+
+%% \begin{lemma}[Correctness of $\aux{inspect}$]\label{lem:inspect}
+%% If $t_x$, $t_y$ are timestamps for write events of $r_x$, $r_y$, then
+%% $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C$ correctly determines that
+%% $(r_x, r_y)$ is a valid snapshot under ordering $\tleq$ and colors
+%% $\C$, or otherwise returns the ``offending'' timestamp. More formally,
+%% if $\sss = \sOff\ \toff, \sx =\TT, \sy =\TT$, and for each $p \in
+%% \{x,y\}$, $ t_p \hpts (p, r_p) \in \hist$ and $(t_p =
+%% \aux{last\_green}\ \histp \vee \C(t_p) = \mathsf{yellow})$, the
+%% following are exhaustive possibilities.
+%% \an{Here we're not abbreviating lastYG...}
+%% % if $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = \mathsf{No}$ then
+%% %$(r_x,r_y)$ is a valid snapshot. Else, if
+%% %$\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = \mathsf{Yes}\ p\ t'$ then
+%% %$(r_x,r_y)$ is not a valid snapshot and moreover $t'$ is the
+%% %offending timestamp in $\histp$. Furthermore, by exhausting the
+%% %hypotheses about $t_x$ and $t_y$ we can infer that:
+%% \begin{enumerate}
+%%  \item If $t_x \tle t_y$ and $ \C(t_x) = {\sf yellow}$, then
+%%    $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C =
+%%    \mathsf{No}$. Symmetrically for $t_y \tle t_x$.
+
+%%  \item If $ t_x \tle t_y $, $ t_x = \aux{last\_green}\ \histx$, and
+%%        $\forall s \in \histx\ldot\ t_x \tle s\,{\implies}\,t_y \tle
+%%        s$, then \\ $\aux{inspect}\ t_x\, t_y\, \ordlist\, \C
+%%        = \mathsf{No}$. Symmetrically for $t_y \tle t_x$.
+
+%%  \item If $ t_x <_{\ordlist} t_y $, $ t_x = \aux{last\_green}\ \histx
+%%    $, $s \in \histx$, and $t_x \tle s \tle t_y$, it follows that
+%%    $\aux{inspect}\ t_x\, t_y \ordlist \C = \mathsf{Yes}\, x\, s$ and
+%%    $\C(s) = {\sf yellow}$. Symmetrically for $t_y \tle t_x$.
+%% \end{enumerate}
+%% \end{lemma}
+
+%% \begin{lemma}[Correctness of $\aux{push}$]\label{lem:push}
+%% If $\sss = \sOff\ \toff, \sx =\TT, \sy =\TT$, and for $p \in \{x,y\}$,
+%% we have $t_p \hpts (p, r_p) \in \hist$ and $(t_p =
+%% \aux{last\_green}\ \histp \vee \C(t_p) = \mathsf{yellow})$, and
+%%     {$\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = {\sf Yes}\ p\ s$},
+%%     then, given: $\ordlist' = \aux{push}\ s\ t_y\ \ordlist$:
+%% \an{Here we're not abbreviating lastGY...}
+%% \begin{enumerate}
+%%  \item If $p = x$, then $(r_x, r_y)$ is a valid snapshot under
+%%    $\leq_{\ordlist'}$. Symmetrically for $p = y$.
+%% \item If $p = x$, then $\ordlist'$ and $\C' = \C[t_x, t_y \hpts
+%%   \mathsf{green}]$ satisfy
+%%   Invariants~\ref{inv:overlap}--\ref{inv:redzone}. Symmetrically for
+%%   $p = y$.
+%% \end{enumerate}
+%% \end{lemma}
+
+% Stability.
+
+
+%% \gad{The Stability lemmas is redundant now. I will fix these later}
+
+%% \begin{lemma}[Stability I]\label{lem:menvs}
+%% Let unprimed variables $\ordlist$, $\stableorder$, $\chi$, $\kappa$,
+%% etc., denote the state before inteference, and the primed versions
+%% denote the state after interference. Then:
+%% \begin{enumerate}
+%%  \item \label{lem:menvs:hist} $ \hist \subseteq \hist'$ and
+%%    $\dom{\ordlist} \subseteq \dom{\ordlist'}$, i.e., histories and
+%%    write events are monotone.
+
+%%  \item\label{lem:menvs:jleq} $ \stableorder \subseteq \stableorder'$
+%%    \ie stable logical order is monotone. Similarly for
+%%    $\ideal{\stableorder}{t}$ and $\sideal{\stableorder}{t}$.
+
+%%  \item \label{lem:menvs:static} $\scanned{\stableorder} \subseteq
+%%    \scanned{\stableorderP}$
+ 
+%% % \item \label{lem:menvs:chain} If $\static\, \prefix{t}$ and
+%% %   $\mathsf{chain}\, \prefix{t}\, \ideal{\stableorder}{t} $ then $
+%% %   \chain\, \prefixP{t}\, \ideal{\stableorder}{t} $ \ie once a scan
+%% %   event happended, the suborder remains total.
+
+%%  \item \label{lem:menvs:eval} If $t \in \scanned\, \stableorder $ and
+%%    $ \ideal{\stableorderP}{t} = \ideal{\stableorder}{t}$ then $\eval\,
+%%    t\, \stableorderP \histP = \eval\, t\, \stableorder \hist$, \ie the
+%%    result of a previous scan is invariant under the environment.
+%% \end{enumerate}
+%% \end{lemma}
+%% \begin{proof}
+%% By induction on the number of environment steps. The base cases are
+%% the actions of the auxiliary code described before in
+%% Section~\ref{sc:implementation}, on the \emph{transposition} of the
+%% state, where the self and other components are swapped
+%% (see~\cite{NanevskiLSD+ESOP14} for further details).
+%
+%In the online appendices~\cite{CoqFiles}, Appendix~\ref{sc:coq-code}
+%gives some insight into the most interesting details of such
+%proofs. \qed
+

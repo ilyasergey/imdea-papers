@@ -1,0 +1,72 @@
+\newcommand{\mute}[1]{#1}
+
+% remarks
+%\newcommand{\ifext}[2]{\ifdefined\pdfflag{#1}\else{#2}\fi}
+
+\newcommand{\todo}[1]{\mute{\textcolor{red}{({#1})}}}
+\newcommand{\is}[1]{\mute{\textcolor{blue}{(Ilya: {#1})}}}
+\newcommand{\an}[1]{\mute{\textcolor{red}{(Aleks: {#1})}}}
+\newcommand{\ab}[1]{\mute{\textcolor{red}{(AB: {#1})}}}
+
+% useful macros
+\newcommand{\asgn}{\leftarrow}
+\newcommand{\code}[1]{\lstinline[basicstyle=\small\ttfamily]{#1}}
+\newcommand{\ccode}[1]{\lstinline[basicstyle=\footnotesize\ttfamily]{#1}}
+\newcommand{\cccode}[1]{\lstinline[basicstyle=\scriptsize\ttfamily]{#1}} 
+\newcommand{\Code}[1]{\code{#1}}
+\newcommand{\var}[1]{\({#1}\)} 
+\newcommand{\num}[1]{\({\text{{\scriptsize{#1}}}}\)}
+\newcommand{\etc}{\emph{etc}}
+\newcommand{\ie}{\emph{i.e.}\xspace}
+\newcommand{\Ie}{\emph{I.e.}\xspace}
+\newcommand{\eg}{\emph{e.g.}\xspace}
+\newcommand{\Eg}{\emph{E.g.}\xspace}
+\newcommand{\vs}{\emph{vs.}\xspace}
+\newcommand{\etal}{\emph{et~al.}\xspace}
+\newcommand{\adhoc}{\emph{ad hoc}\xspace}
+\newcommand{\viz}{\emph{viz.}\xspace}
+\newcommand{\dom}[1]{\mathsf{dom}(#1)}
+\newcommand{\aka}{\textit{a.k.a.}\xspace}
+\newcommand{\cf}{\textit{cf.}\xspace}
+\newcommand{\wrt}{\emph{wrt.}\xspace}
+\newcommand{\Iff}{\emph{iff}\xspace}
+\newcommand{\loef}{L\"{o}f}
+\newcommand{\sep}{\textasteriskcentered}
+\newcommand{\res}{\mathsf{res}} 
+\newcommand{\ret}{\mathsf{ret}} 
+\newcommand{\fix}{\mathsf{fix}} 
+\newcommand{\Unit}{\mathsf{Unit}}  
+
+%specs
+\newcommand{\specK}[1]{\ensuremath{\textcolor{blue}{#1}}}
+\newcommand{\spec}[1]{\specK{\left\{{#1}\right\}}}
+\newcommand{\specQ}[4]{[#1 , #2 , #3] \, #4}%\specQ{mL}{gL}{gE}{p}
+\newcommand{\drspec}[1]{\specK{\langle{#1}\rangle}}
+\newcommand{\sspec}[1]{\specK{\{{#1}\}}}
+\newcommand*{\backin}{\rotatebox[origin=c]{-180}{$\in$}}%
+
+%actions
+\newcommand{\act}[1]{\textsf{\small{#1}}}
+\newcommand{\Num}[1]{{\text{{\scriptsize{#1}}}}}
+\newcommand{\esc}[1]{\text{\texttt{\small{#1}}}}
+\newcommand{\kw}[1]{\text{\textbf{#1}}}
+\newcommand{\tp}[1]{\text{\textsf{#1}}}
+\newcommand{\Asgn}{\leftarrow} 
+
+%PCMs
+\newcommand{\dotcup}{\ensuremath{\mathaccent\cdot\cup}}
+\newcommand{\pcmS}{\mathbb{U}}
+\newcommand{\pcmF}{\bullet}
+\newcommand{\join}{\pcmF}
+%\newcommand{\jjoin}[1]{\ensuremath{\pcmF}_{#1}} 
+\newcommand{\jjoin}[1]{\ensuremath{\bigodot}_{#1=1}^n} 
+\newcommand{\pcmU}{\mathbbm{1}}
+
+% Pretty table
+\newcommand{\cmark}{\ding{52}}%
+\newcommand{\xmark}{\ding{55}}%
+\newcommand*\rot{\rotatebox{32}} 
+\newcommand{\yep}{\ding{51}}
+\newcommand{\yepl}{$\text{\ding{51}}_{\!\!L}$}  
+\newcommand{\yepa}{$\text{\ding{51}}_{\!\!L}$}  
+\newcommand{\intab}[1]{({\sffamily{\small{#1}}})}

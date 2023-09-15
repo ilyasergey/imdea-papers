@@ -1,0 +1,89 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+In this work we proposed using specifications over auxiliary state in
+the form of histories as means of providing general and expressive
+specifications for fine-grained concurrent data structures in a
+separation style logic.
+
+% We relied on singleton time-stamped histories $t \hpts a$, to specify
+% that a program at time $t$ performs an action $a$. The action is
+% viewed as \emph{logically} atomic, even though the program may
+% implement it in a fine-grained manner. Client programs that reason with
+% this spec can treat the program as if it were coarse-grained. Thus, in
+% the context of Hoare logic, history-based specs can achieve one of the
+% main goals behind linearizability.
+
+Histories satisfy the algebraic properties of PCMs, and thus can
+directly reuse the underlying infrastructure from an employed
+separation logic, such as its assertion logic and frame rule,
+enabling a separation logic style of local reasoning about histories
+that has usually been reserved for heaps.
+%
+Moreover, as we illustrated with the formalization of the flat
+combiner Section~\ref{sec:flatco}, the concept of ownership transfer
+from separation logic, when specialized to the PCM of histories,
+captures the design pattern of helping.
+%
+%whereby a thread can execute code on behalf of another.
+%
+
+In addition to the flat combiner, we have verified a number of
+benchmark fine-grained structures, such as the pair snapshot
+structure, and the Treiber stack. The novelty of
+the specs and the proofs is that they all rely in an essential
+way on the subjective dichotomy between self and other auxiliary
+state, in order to directly relate the result of a program execution
+with the interference of other threads.
+%
+Such explicit dichotomy provides for what we consider very concise
+proofs, as demonstrated by our implementation in Coq.
+
+\paragraph{Acknowledgements.}
+%
+We thank the anonymous ESOP~2015 reviewers for their feedback. This
+research was partially supported by Ramon y Cajal grant RYC-2010-0743.
+
+% We substantiate this observation by both mechanizing metatheory
+% and verifying all examples in Coq.
+
+%
+%
+%\is{Points to stress:}
+%
+%\begin{itemize}
+%
+%\item Common approaches for FG specifications are ...
+%
+%\item We focused on a differen thing - histories
+%
+%\item By doing so, we got the following insights and benefits (e.g.,
+%  the reasoning is similar in spirit to hindsight)
+%
+%\item The Coq proofs we got are proportional in the size to programs
+%  and are conceptually simple
+%
+%\item Exciting future work is to formalise more patterns
+%
+%\item Therefore we contributed to general understanding to the ideas
+%  behind design and use of concurrent algorithms
+%
+%\end{itemize}
+
+% The main contribution of our work is an observation that the
+% time-stamped histories provide a simple and expressive abstraction to
+% capture the behavior of concurrently used data structures. The idea to
+% treat such histories as ``strictly growing'' resources allowed us to
+% make an effective use of FCSL in order to provide intuitive specs for
+% a series of concurrent resources.
+% %
+% Moreover, the idea of a subjective split of resources to self/other,
+% originating from the work on SCSL, made it possible to argue for the
+% \emph{principality} of the specs we give as well as gave a very
+% straightforward way to reason about other-interference, allowing one,
+% in particular to derive sequential specifications out of concurrent
+% ones.
+
+% Importantly, we required \emph{no} extensions to the metatheory of
+% FCSL in order to construct the reasoning with state histories.
+

@@ -1,0 +1,201 @@
+% Action semantics
+
+\newcommand{\figStepAction}{
+\begin{mathpar}
+\inferrule
+  {h(x) = v : A}
+  {h; \mathsf{Read}^{A}_{x} \asteps h; v}
+\quad
+\inferrule
+  {x \in \dom~h}
+  {h; \mathsf{Write}_{x~v} \asteps \hpExt{h}{x}{v}; ()}
+\\
+\inferrule
+  {\ }
+  {h; \mathsf{Skip} \asteps h; ()}
+%
+\quad
+%
+\inferrule
+  {h(x) = v}
+  {h; \mathsf{RMW}^{A~B}_{x~f~g} \asteps \hpExt{h}{\ell}{f(v)}; g(v)}
+\end{mathpar}
+}
+
+% Rich tree-stepping semantics
+\newcommand{\figStepTree}{
+\begin{mathpar}
+\inferrule
+ {(w, w', v) \in \mu}
+ {w; \mathsf{Act}~(U, A, \sigma, \mu) \tsteps{\mathsf{\ChoiceAct}} w'; \mathsf{Ret}~v}
+
+\inferrule
+ {\ }
+ {w; \mathsf{Par}\ (\mathsf{Ret}\ v_1)\ (\mathsf{Ret}\ v_2)\ k \tsteps{\ParRet}
+ w; k\ (v_1, v_2)}
+\\
+\inferrule
+ {w; t_1 \tsteps{\Path} w'; t'_1}
+ {w; \mathsf{Par}\ t_1\ t_2\ k \tsteps{\ParL~\Path}
+ w'; \mathsf{Par}\ t'_1\ t_2\ k}
+
+\inferrule
+ {w; t_2 \tsteps{\Path} w'; t'_2}
+ {w; \mathsf{Par}\ t_1\ t_2\ k \tsteps{\ParR~\Path}
+ w'; \mathsf{Par}\ t_1\ t'_2\ k}
+\\
+\inferrule
+ {~}
+ {w; \mathsf{Seq}~(\mathsf{Ret}~v)~k \tsteps{\SeqRet} w; (k~v)}
+
+\inferrule
+ {w; t_1 \tsteps{\Path} w'; t_2}
+ {w; \mathsf{Seq}~t_1~k \tsteps{\SeqStep~\Path} w'; \mathsf{Seq}~t_2~k}
+\\
+\inferrule
+ {~}
+ {w; \mathsf{Inject}~(\mathsf{Ret}~v) \tsteps{\InjRet} w;
+   \mathsf{Ret}~v}
+
+\inferrule
+ { \mathsf{injects}~V~U  \quad
+   w_U = w_V \hunion w_0 \quad
+   w_V; t_1 \tsteps{\Path} w_V'; t_2 \quad
+   w_U' = w_V' \hunion w_0}
+ {w_U; \mathsf{Inject}~t_1 \tsteps{\InjStep~\Path} w_U'; \mathsf{Inject}~t_2}
+\\
+\inferrule
+ {~}
+ {w; \mathsf{Hide}~\Ghi~g~(\mathsf{Ret}~v) \tsteps{\HideRet} w;
+   \mathsf{Ret}~v}
+
+\inferrule
+ {\mathsf{hides}~U~V~\Ghi \quad 
+   \Ghi(g)(w_U, w_V) \quad
+   w_V; t_1 \tsteps{\Path} w_V'; t_2 \quad
+  \Ghi(g')(w_U', w_V')
+}
+ {w_U; \mathsf{Hide}~\Ghi~g~t_1 \tsteps{\HideStep~\Path} w_U'; \mathsf{Hide}~\Ghi~g'~t_2}
+\end{mathpar}
+}
+
+
+% Erased tree-stepping semantics
+\newcommand{\figStepETree}{
+\begin{mathpar}
+\inferrule
+ {h; a \asteps h'; v}
+ {h; \mathsf{Act}~a \etsteps{\mathsf{nil}} h'; \mathsf{Ret}~v}
+
+\inferrule
+ {\ }
+ {h; \mathsf{Par}\ (\mathsf{Ret}\ v_1)\ (\mathsf{Ret}\ v_2)\ k \etsteps{\mathsf{nil}}
+ h; k\ (v_1, v_2)}
+\\
+\inferrule
+ {h; t_1 \etsteps{\Path} h'; t'_1}
+ {h; \mathsf{Par}\ t_1\ t_2\ k \etsteps{\mathsf{L}::\Path}
+ h'; \mathsf{Par}\ t'_1\ t_2\ k}
+
+\inferrule
+ {h; t_2 \etsteps{\Path} h'; t'_2}
+ {h; \mathsf{Par}\ t_1\ t_2\ k \etsteps{\mathsf{R}::\Path}
+ h'; \mathsf{Par}\ t_1\ t'_2\ k}
+\\
+\inferrule
+ {~}
+ {h; \mathsf{Seq}~(\mathsf{Ret}~v)~k \etsteps{\mathsf{nil}} h; (k~v)}
+
+\inferrule
+ {h; t_1 \etsteps{\Path} h'; t_2}
+ {h; \mathsf{Seq}~t_1~k \etsteps{\Path} h'; \mathsf{Seq}~t_2~k}
+\\
+\inferrule
+ {~}
+ {h; \mathsf{Hide}~(\mathsf{Ret}~v) \etsteps{\mathsf{nil}} h;
+   \mathsf{Ret}~v}
+
+\inferrule
+ {h; t_1 \etsteps{\Path} h'; t_2}
+ {h; \mathsf{Hide}~t_1 \etsteps{\Path} h'; \mathsf{Hide}~t_2}
+\\
+\inferrule
+ {~}
+ {h; \mathsf{Inject}~(\mathsf{Ret}~v) \etsteps{\mathsf{nil}} h;
+   \mathsf{Ret}~v}
+
+\inferrule
+ {h; t_1 \etsteps{\Path} h'; t_2}
+ {h; \mathsf{Inject}~t_1 \etsteps{\Path} h'; \mathsf{Inject}~t_2}
+\end{mathpar}
+}
+
+% Denotational semantics
+
+\newcommand{\figDenJdg}{
+\[
+\figsize
+\begin{array}{l@{\ }c@{\ }l}
+\mean{\cdot} & \eqdef & \cdot\\
+\mean{\Gamma, x \ty A} & \eqdef & \mean{\Gamma}, x : A\\
+\mean{\Gamma, \forall x \ty B\ldot \spec{p}\,f(x) \ty A\,\spec{q}@U} & \eqdef &
+  \mean{\Gamma}, f : \forall{x  \ty  B}\ldot \ST{p}{A}{q}{U}\\
+\\
+\mean{\Gamma \vdash \spec{p}\,c\, \ty \,A\,\spec{q}@U} &\eqdef& \mean{\Gamma} \vdashCiC \mean{c} : \ST{p}{A}{q}{U}\\[1ex]
+\mean{\Gamma \vdash \forall\mathit{x} \ty B. \spec{p} F (x) : A \spec{q}@U} &\eqdef&
+  \mean{\Gamma} \vdashCiC \mean{F} : \forall x \ty B\ldot\ST{p}{A}{q}{U}\\[1ex]
+\mean{\Gamma \vdash e : A} &\eqdef& \mean{\Gamma} \vdashCiC e : A\\
+\mean{\Gamma \vdash (p_1, q_1) \sqsubseteq (p_2, q_2)} &\eqdef& \\
+\multicolumn{3}{l}{
+\quad
+\begin{array}{l}
+  \mean{\Gamma} \vdashCiC \forall w\ w'\ldot \begin{array}[t]{l}
+    (w \models \exists \bar{v}_2\ldot p_2 \implies w \models \exists \bar{v}_1\ldot p_1) \aand \hbox{}\\
+    ((\forall \bar{v}_1\ \result\ldot w \models p_1 \implies w'
+    \models q_1) \implies (\forall \bar{v}_2\ \result\ldot w \models
+    p_2 \implies w' \models q_2))
+  \end{array}
+    \\
+    \text{where }
+    \bar v_i \eqdef \mathsf{FLV}(p_i, q_i)  
+\end{array}
+}
+\end{array}\]
+}
+
+\newcommand{\figDenCmd}{
+\[
+\begin{array}{r@{\ }c@{\ }l}
+\mean{\mathsf{return}}\ (v \ty A) & \eqdef &
+   \set{\mathsf{Unfinished}, \mathsf{Ret}~v}
+\\
+\mean{x \leftarrow c_1; c_2} & \eqdef & 
+\set{\mathsf{Unfinished}} \cup 
+%
+%\set{\mathsf{Seq}~t_1~(\lambda x. t_2) ~|~ t_1 \in \mean{c_1}, t_2 \in \mean{c_2}}
+%
+\set{\mathsf{Seq}~t_1~k ~|~ t_1 \in \mean{c_1}, \forall x \ldot k~x \in \mean{c_2}}
+\\
+\mean{c_1 \parallel c_2} & \eqdef & \set{\mathsf{Unfinished}} \cup 
+\set{\mathsf{Par}~t_1~t_2~(\lambda v. \mathsf{Ret}~v) ~|~ t_1 \in \mean{c_1},
+  t_2 \in \mean{c_2}}
+\\
+\mean{\ite{e}{c_1}{c_2}} & \eqdef & \ite{e}{\mean{c_1}}{\mean{c_2}}
+\\
+\mean{\mathsf{act}~a} & \eqdef & \set{\mathsf{Unfinished}, \mathsf{Act}~a}
+\\
+\mean{\mathsf{inject}~c} & \eqdef & \set{\mathsf{Unfinished}} \cup 
+\set{\mathsf{Inject}~t ~|~ t \in \mean{c}}
+\\
+\mean{\mathsf{hide}_{\Phi,g}~c} & \eqdef & \set{\mathsf{Unfinished}} \cup 
+\set{\mathsf{Hide}~\Ghi~g~t ~|~ t \in \mean{c}},\text{ where } \\
+& & \Ghi\text{ is constructed from $\Phi$ as in Lemma~\ref{lm:hiding}} 
+\\
+\mean{F\ (e)} & \eqdef & \mean{F}\ (e)
+\\
+\mean{\mathsf{fix}\ f^{B,A,p,q}\ldot x \ty A \ldot c} & \eqdef &
+\mathsf{lfp}_{\forall{x:B}\ldot\ST{p}{A}{q}{U}}\ (\lambda f. \lambda
+x.\mean{c})
+\end{array}
+\]
+} 

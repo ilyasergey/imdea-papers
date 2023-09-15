@@ -1,0 +1,1418 @@
+%\softraggedright 
+
+\setlength{\parindent}{0.0in}
+\setlength{\parskip}{5pt}
+\titlespacing*{\section}{0pt}{*1}{*1}
+\titlespacing*{\subsection}{0pt}{*0.7}{*0.5}
+\titlespacing*{\paragraph}{0pt}{*0.5}{*0.5}
+
+
+\section*{Optional appendices}
+
+In the optional appendices we provide detailed overview of main
+concepts of Fine-grained Concurrent Separation Logic~(FCSL), necessary
+for the formal reasoning. These include semantics of the logical
+assertions as well as inference rules. We address the curious reader
+to the original paper on FCSL~\cite{Nanevski-al:ESOP14} and its
+extended version (or the Coq development accompanying this manuscript)
+for the details of FCSL's denotational semantics and the soundness
+proof.
+%
+\textbf{Appendix~\ref{sec:broccoli}} provides the formal semantics of
+the FCSL assertions.
+%
+\textbf{Appendix~\ref{app:conc}} formally presents concurroids and
+entanglement, along with several examples.
+%
+\textbf{Appendix~\ref{sec:appactions}} describes properties of
+atomic actions of FCSL concurroids.
+%
+\textbf{Appendix~\ref{sec:rules}} provides the rules of FCSL,
+explaining some of them in detail.
+%
+Finally, \textbf{Appendix~\ref{sec:verifying-fc}} describes in detail
+the veritifaction of the flat combiner specification~\eqref{eq:fc-spec}
+from Section~\ref{sec:flatco} and presents the proof outline.
+
+\section{Semantics of FCSL assertions}
+\label{sec:broccoli}
+
+State in FCSL is divided along two different axes. The first axis is
+labels (isomorphic to $\mathsf{nat}$). Labels identify concurroids,
+\ie data structures that are stored in the state, with specific
+restrictions on their evolution. The second axis is ownership. Each
+label contains self, other and joint component, describing how much of
+each concurroid is owned privately by the specified thread, privately
+by that thread's environment, and how much is shared, respectively.
+
+To formally define the concept, we introduce the notion of PCM-map and
+type-maps.  A PCM-map is a finite map from labels to a dependent
+product $\Sigma_{{\pcmS}{:}\textrm{pcm}} \pcmS$, where
+$\mathbb{U}$ is a PCM, and $v \in \pcmS$. A type map is similar,
+except we don't require the range to be a PCM; it can be an arbitrary
+type.
+
+PCM-maps are composed by means of two operations. Disjoint union $m_1
+\hunion m_2$ collects the labels from $m_1$ and $m_2$, ensuring that
+there's no overlap. This operation applies to type-maps as well.
+%
+However, PCM-maps have another operation which doesn't apply to
+type-maps: $m_1 \zip m_2$ joins the values of individual labels, \ie,
+$\hempty \zip \hempty = \hempty$, and $((\hlabel \hpts_{\pcmS}
+v_1) \hunion m'_1) \zip ((\hlabel \hpts_{\pcmS} v_2) \hunion m'_2)
+= (\hlabel \hpts_{\pcmS} v_1 \join v_2) \hunion (m'_1 \zip m'_2)$,
+and undefined otherwise.
+
+State, ranged over by $w$, is a triple $\state{s}{j}{o}$, where~$s$
+and~~$o$ are PCM-maps, and $j$ is a type map. We refer to them as
+\emph{self}, \emph{other}, and \emph{joint} components of $w$.  In
+specifications, the three components signify different state
+ownership: $s$ is the state owned by the specified thread, and is
+inaccessible to the environment; $o$ is the state owned by the
+environment, and is inaccessible to the specified thread; $j$ is the
+shared (or joint) state, accessible to every thread.
+%
+Notice that unlike $s$ and $o$ which are PCM-maps, $j$ is a
+type-map. In other words, the joint component is not subject to
+PCM-laws, as we don't shuffle its components upon forking, joining,
+and framing, as we do in the cases of $s$ and $o$.
+
+The state $w = \state{s}{j}{o}$ is valid iff:
+\begin{itemize}
+\item[$(i)$] the components $s$, $j$ and $o$ contain the same labels.
+ 
+\item[$(ii)$] $s\ {\zip}\ o$ is defined, \ie, equals labels in $s$ and $o$
+  contain equal PCMs. Notice that the labels in $j$ are independent,
+  and may contain elements of other types;
+\item[$(iii)$] the heaps that may be stored in the labels of $s$, $j$,
+  $o$ are disjoint.
+\end{itemize}
+
+Figure~\ref{fig:broccoli} collects the definitions the main assertions
+of FCSL in terms of the two operations on PCM-maps.
+%
+
+\begin{figure}[t]
+\[
+{\small
+\begin{array}[t]{l@{\,}l}
+  w \models \top & \mbox{iff always}\\
+  w \models \hlabel \spts v & \mbox{iff valid $w$, and $w = w_1 \hunion
+    w_2$, and $w_1.\mathself = \hlabel \hpts v$}\\ 
+  w \models \hlabel \jpts h & \mbox{iff valid $w$, and $w = w_1 \hunion
+    w_2$, and $w_1.\mathjoint = \hlabel \hpts v$}\\ 
+  w \models \hlabel \opts v & \mbox{iff valid $w$, and $w = w_1 \hunion
+    w_2$, and $w_1.\mathother = \hlabel \hpts v$}\\ 
+  w \models p \aand q & \mbox{iff $w \models p$ and $w \models q$}\\
+  w \models p \lsep q & \mbox{iff valid $w$, and $w = w_1 \hunion w_2$, and $w_1 \models p$ and $w_2 \models q$}\\
+  w \models p \wand q & \mbox{iff for every $w_1$, valid $w \hunion w_1$, $w_1 \models p$ implies $w \hunion w_1 \models q$}\\
+  w \models p \ssep q & \mbox{iff valid $w$, and $w.\mathself= \mathself_1 \hunion \mathself_2$, and}\\
+  & \hphantom{\mbox{iff}}\ \mbox{$\state{\mathself_1}{w.\mathjoint}{{\mathself_2} \zip {w.\mathother}}
+    \models p$ and $\state{\mathself_2}{w.\mathjoint}{{\mathself_1} \zip
+      {w.\mathother}} \models q$}\\
+  w \models \mathsf{this}\ w' & \mbox{if $w = w'$}\\
+  \hphantom{w} \models p \downarrow h & \mbox{iff for every valid $w$, $w
+    \models p$ implies $\flatten w = h$}
+  \\
+  \\
+  \mbox{valid $w$} & \mbox{iff $w=\state{\mathself}{\mathjoint}{\mathother}$, 
+                           $\mathsf{dom}\,\mathself = \mathsf{dom}\,\mathjoint = \mathsf{dom}\,\mathother$,}\\
+  & \mbox{ $\mathself\,{\zip}\,\mathother$ is defined, 
+           and the heaps in $\mathself$, $\mathjoint$, $\mathother$
+           are disjoint}
+         \\\\
+  \flatten w & \eqdef \mbox{ disjoint union of all the heaps in $w$}
+  \\\\
+  w_1 \hunion w_2 & \eqdef \mbox{pairwise disjoint union of $w_{1,2}$'s
+    PCM-components}
+  \\\\
+  \hlabel \hpts \state{{v_s}}{{v_j}}{{v_o}} & \eqdef \mbox{ $\state{{\hlabel \hpts v_s}}{{\hlabel \hpts v_j}}{{\hlabel \hpts v_o}}$}
+\end{array}}
+\]
+\caption{Notation and semantics of main FCSL assertions.}
+\label{fig:broccoli}
+\end{figure}
+%
+
+\section{Concurroids: properties and examples}
+\label{app:conc}
+
+A concurroid is a 4-tuple $\ucon = (L, W, I, {E})$ where:
+(1) $L$ is a set of labels, where a label is a nat; (2) $W$
+is the \emph{set of states}, each state $w \in W$ having the
+structure described in Section~\ref{sec:broccoli}; (3) $I$ is the
+set of \emph{internal transition}, which are relations on $W$
+and one of which is always an identity
+relation $\id$; (4) $ E$ is a 
+set of pairs $(\alpha, \rho)$, where $\alpha$ and $\rho$ are
+\emph{external transitions} of $\ucon$. An external transition is a
+function, mapping a heap $h$ into a relation on $W$. The
+components must satisfy a further set of requirements, discussed next.
+
+%\vspace{5pt}
+
+\paragraph{State properties.}
+
+Every state $w \in W$ is $\mathsf{valid}$ as defined in
+Figure~\ref{fig:broccoli}, and its label footprint is $L$, \ie
+$\mathsf{dom}\ (w.\mathself) = \mathsf{dom}\ (w.\mathjoint) =
+\mathsf{dom}\ (w.\mathother) = {L}$. Additionally, $W$
+satisfies the property:
+%
+\begin{mathpar}
+{\small
+\begin{array}{ll}
+\textit{Fork-join closure:} & \forall t{:}\textrm{PCM-map}\ldot w \zig t \in {W} \iff w \zag t \in {W}, \\
+& \mbox{where}\ w \zig t = \state{t \zip
+  w.\mathself}{w.\mathjoint}{w.\mathother}, 
+\\
+&\mbox{and}\ w \zag t = \state{w.\mathself}{w.\mathjoint}{t \zip w.\mathother}
+\end{array}
+}
+\end{mathpar}
+% 
+The property requires that $W$ is closed under the realignment of
+\self and \other components, when they exchange a PCM-map $t$ between
+them. Such realignment is part of the definition of $\ssep$, and thus
+appears in proofs whenever the rule \textsc{Par}~\eqref{eq:parcom} is
+used, \ie whenever threads fork or join. Fork-join closure ensures
+that if a parent thread forks in a state from $W$, then the child
+threads are supplied with states which also are in $W$, and
+dually for joining.
+
+%\vspace{5pt}
+
+\paragraph{Transition properties.}
+
+A concurroid transition $\gamma$ is a relation on $W$ satisfying:
+%
+\begin{mathpar}
+{\small
+\begin{array}{ll}
+\textit{Guarantee:} & (w, w') \in \gamma \implies w.\mathother =
+w'.\mathother
+\\[5pt]
+\textit{Locality:} & \forall t{:}\textrm{PCM-map}\ldot 
+  w.\mathother = w'.\mathother \implies\\
+&  (w \zag t, w' \zag t) \in \gamma \implies (w \zig t, w' \zig t) \in \gamma
+\end{array}
+}
+\end{mathpar}
+%
+Guarantee restricts $\gamma$ to only modify the \self and \joint
+components. Therefore, $\gamma$ describes the behavior of a viewing
+thread in the subjective setting, but not of the thread's
+environment. In the terminology of Rely-Guarantee
+logics~\cite{Feng-al:ESOP07,Feng:POPL09,Vafeiadis-Parkinson:CONCUR07},
+$\gamma$ is a \emph{guarantee} relation. To describe the behavior of
+the thread's environment, \ie, obtain a \emph{rely} relation, we
+merely \emph{transpose} the self and other components of~$\gamma$.
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:transp}
+{\small
+\gamma^\top = \{(w_1^\top, w_2^\top) \mid (w_1, w_2) \in \gamma\},\ 
+\mbox{where $w^\top = \state{w.\mathother}{w.\mathjoint}{w.\mathself}$}
+}
+\]
+% 
+In this sense, FCSL transitions always encode \emph{both} guarantee
+and rely relations.
+
+Locality ensures that if $\gamma$ relates states with a certain \self
+components, then $\gamma$ also relates states in which the \self
+components have been simultaneously \emph{framed} by a PCM-map $t$,
+\ie, enlarged according to $t$. It thus generalizes the notion of
+locality from separation logic, with a notable difference. In
+separation logic, the frame $t$ materializes out of nowhere, whereas
+in FCSL, $t$ has to be appropriated from \other; that is, taken out
+from the ownership of the environment.
+
+An \emph{internal} transition $\iota$ is a transition which preserves
+heap footprints. An \emph{acquire} transition $\alpha$, and a
+\emph{release} transition $\rho$ are functions mapping heaps to
+transitions which extend and reduce heap footprints, respectively, as
+show below.  An external transition is either an acquire or a release
+transition. If $(\alpha, \rho) \in  E$, then $\alpha$ is an
+acquire transition, and $\rho$ is a release transition.
+%
+\begin{mathpar}
+{\small
+\begin{array}{lcl}
+\textit{Footprint preservation} & : & 
+ (w, w') \in \iota \implies \mathsf{dom}\ \flatten{w} = \mathsf{dom}\
+ \flatten{w'}
+\\[5pt]
+\textit{Footprint extension} & : &
+ \forall h{:}\mathrm{heap}\ldot (w, w') \in \alpha(h) \implies
+\\ 
+&& \mathsf{dom}\ (\flatten{w} \hunion h) = \mathsf{dom}\ \flatten{w'}
+\\[5pt]
+\textit{Footprint reduction} & : &
+ \forall h{:}\mathrm{heap}\ldot (w, w') \in \rho(h) \implies
+ \\
+ &&\mathsf{dom}\ (\flatten{w'} \hunion h) = \mathsf{dom}\ \flatten{w}
+\end{array}
+}
+\end{mathpar}
+%
+The set of Internal transitions always includes at least the identity
+transition $\id$ (\ie, transition from a state to itself). Footprint
+preservation requires internal transitions to preserve the domains of
+heaps obtained by state flattening. Internal transitions may exchange
+the ownership of subheaps between the \self and \joint components, or
+change the contents of individual heap pointers, or change the values
+of non-heap (\ie, auxiliary) state, which flattening erases. However,
+they cannot add new pointers to a state or remove old ones, which is
+the task of external transitions, as formalized by Footprint extension
+and reduction.
+
+\subsection{The concurroid of private heaps}
+\label{sec:conc-priv-heaps}
+
+The private heap concurroid is defined as follows.
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:privcon}
+\privcon = (\{\hpriv\}, {W}_{\privcon}, \set{\iota_{\privcon},
+  \id}, \{(\alpha_{\privcon}, \rho_{\privcon})\})
+\]
+%
+It is identified by a \emph{fixed} dedicated label $\hpriv$
+%
+and directly captures the notion of heap \emph{ownership}, as presented in
+CSL~\cite{OHearn:TCS07}.
+%
+Its state-space ${W}_{\privcon}$ is defined as a set of states of the
+shape
+%
+\[
+\hpriv \hpts \state{\hL}{\hempty}{\hE},
+\]
+%
+where $\hS$ and $\hO$ are disjoint heaps (which are known to form a
+PCM). The concurroid's \emph{internal} transitions $\iota_{\privcon}$
+allow the values in the codomain of the heap $\hL$, privately-owned by
+\emph{self}, to be changed arbitrarily. There is only one channel of
+acquire/release transitions $\alpha_{\privcon}$ and $\rho_{\privcon}$
+that account for the addition/removal of a heap chunk to/from~$\hL$
+correspondingly, given that the state validity is
+preserved. Transitions of~$\privcon$ can be formally defined using the
+notation from Figure~\ref{fig:broccoli} as follows:
+%
+\[ 
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:priv-trans}
+{\small
+  \begin{array}{lcr@{\ \ }c@{\ \ }l}
+    \iota_\privcon & \eqdef & \hpriv \spts (x \hpts v \hunion \hL) & {\rightsquigarrow} &
+    \hpriv \spts {(x \hpts w \hunion \hL)}
+    \\
+    \alpha_\privcon(h) & \eqdef & \hpriv \spts \hL & {\rightsquigarrow} &
+    \hpriv \spts {(\hL \hunion h)}
+    \\
+    \rho_\privcon(h) & \eqdef & \hpriv \spts (\hL \hunion h) & {\rightsquigarrow} & \hpriv \spts {\hL}
+  \end{array}
+}\]
+%
+Importantly, as demonstrated by the rule fo
+hiding~\eqref{eq:hide-rule}, the concurroid $\privcon$ serves as the
+primary one in FCSL: all other concurroids are it in a scoped manner
+via the \emph{hiding} mechanism (see Appendix~\ref{sec:rules}).
+%
+In order to describe allocation/deallocation, the private heap
+concurroid is typically being entangled with an allocator concurroid
+$\acon$, which we have implemented in Coq as an instance of a
+spin-lock with a specific resource invariant (see
+Section~\ref{sec:concurroid-spin-lock}), but omitted from the
+presentation. The entangled concurroid $\privcon \entangle \acon$ is
+referred to as simply $\privcon$ in the main body of the paper.
+
+
+\subsection{The concurroid for a spin-lock}
+\label{sec:concurroid-spin-lock}
+
+A simple CAS-based spin-lock is defined by the concurroid
+%
+\[
+\lcon_{\hlock,lk,\Inv} = (\{\hlock\}, {W}_L, \set{\id}, \{(\alpha_{\lcon},
+\rho_{\lcon})\})
+\] 
+%
+with ${W}_{\lcon} = \{~w \mid w
+\models~\mbox{assertion}~\eqref{lock}~\}$, where
+%
+\[
+%\hspace{-5pt}
+{\small
+\begin{array}{l}
+\hlock \spts (\mL, \gL) \aand \hlock \opts (\mE, \gE) \aand \hlock \jpts ((lk \hpts b) \hunion h) \aand \hbox{}\tag{\arabic{tags}}\refstepcounter{tags}\label{lock}\\
+~~~~~~~~\mathsf{if}\ b\ \mathsf{then}\ h = \hempty \aand \mL \join \mE =
+\lockOwn\ \\
+~~~~~~~~\mathsf{else}\ \Inv\ (\gL \join \gE)\ h \aand \mL \join \mE = \lockNown
+\end{array}
+}\]
+%
+The assertion states that if the lock is taken ($b = \mathsf{true}$)
+then the heap $h$ is given away, otherwise it satisfies the
+resource~invariant $\Inv$. In either case, the thread-relative views
+$\mL$, $\mE$, $\gL$ and $\gE$ are consistent with the resource's views
+of $lk$ and $h$. Indeed, notice how $\mL$, $\mE$ and $\gL, \gE$ are
+first $\join$-joined (by the $\join$-operations of $O = \{\lockNown,
+\lockOwn\}$, defined in Section~\ref{sec:flatco}, and a
+client-provided PCM $\pcmS$, respectively) and then related to $b$ and
+$h$; the former implicitly by the conditional, the latter explicitly,
+by the resource invariant $\Inv$, which is now parametrized by $\gL
+\join \gE$.
+
+
+The external transitions of the lock are defined as follows (assuming
+$w.\mathother = w'.\mathother$ everywhere):
+%
+\begin{mathpar}
+{\small
+\begin{array}{l@{\ }c@{\ }l}
+(w, w') \in \alpha_{\lcon}(h) & \iff & 
+\begin{array}[t]{ll}
+w.\mathself & = \hlock \hpts (\lockOwn, \gL), 
+\\
+w.\mathjoint & = \hlock \hpts (lk \hpts \mathsf{true}), 
+\\
+w'.\mathself & = \hlock \hpts (\lockNown, \gL'), 
+\\
+w'.\mathjoint & = \hlock \hpts ((lk \hpts \mathsf{false}) \hunion h)
+\\
+\end{array}
+\\\\
+(w, w') \in \rho_{\lcon}(h) & \iff & 
+\begin{array}[t]{ll}
+w.\mathself & = \hlock \hpts (\lockNown, \gL), \\
+ w.\mathjoint & = \hlock \hpts ((lk \hpts \mathsf{false}) \hunion h), \\
+w'.\mathself & = \hlock \hpts (\lockOwn, \gL), \\
+ w'.\mathjoint & = \hlock \hpts (lk \hpts \mathsf{true})
+\end{array}
+\end{array}
+}
+\end{mathpar}
+%
+The internal transition admits no changes to the state $w$. The
+$\alpha_{\lcon}$ transition corresponds to unlocking, and hence to the
+acquisition of the heap $h$. It flips the ownership bit from
+$\lockOwn$ to $\lockNown$, the contents of the $lk$ pointer from
+$\mathsf{true}$ to $\mathsf{false}$, and adds the heap $h$ to the
+resource state. The $\rho_{\lcon}$ transition corresponds to locking, and is
+dual to $\alpha_{\lcon}$. When locking, the $\rho_{\lcon}$ transition keeps the
+auxiliary view $\gL$ unchanged. Thus, the resource ``remembers'' the
+auxiliary view at the point of the last lock. Upon unlocking, the
+$\alpha_{\lcon}$ transition changes this view into $\gL'$, where $\gL'$ is
+some value that is coherent with the acquired heap $h$, \ie, which
+makes the resource invariant $\Inv~(\gL \join \gE)~h$ hold, and thus,
+the whole state belongs to ${W}_{\lcon}$.
+ 
+\subsection{Entanglement}
+
+Let ${\ucon} = ({L}_{\ucon}, {W}_{\ucon}, I_{\ucon}, {
+  E}_{\ucon})$ and ${\vcon} = ({L}_{\vcon}, {W}_{\vcon}, I_{\vcon}, {
+  E}_{\vcon})$, be concurroids. The entanglement ${\ucon} \entangle {\vcon}$ is a
+concurroid with the label component ${L}_{{\ucon} \entangle {\vcon}} =
+{L}_{\ucon} \cup {L}_{\vcon}$.
+%
+The state set component combines the individual states of ${\ucon}$
+and ${\vcon}$ by taking a union of their labels, while ensuring that
+the labels contain only non-overlapping heaps.
+\begin{mathpar}
+{\small
+{W}_{{\ucon} \entangle {\vcon}} = \{w \hunion w' \mid w \in {W}_{\ucon},
+w' \in {W}_{\vcon}, \mbox{and $\flatten {w}$ disjoint from $\flatten{w'}$}\}
+}
+\end{mathpar}
+To define the transition components of ${\ucon} \entangle {\vcon}$, we first need
+the auxiliary concept of transition interconnection. Given transitions
+$\gamma_{\ucon}$ and $\gamma_{\vcon}$ over ${W}_{\ucon}$ and ${W}_{\vcon}$,
+respectively, the interconnection $\gamma_1 \relentangle \gamma_2$ is
+a transition on ${W}_{{\ucon} \entangle {\vcon}}$ which behaves as $\gamma_{\ucon}$
+(resp. $\gamma_{\vcon}$) on the part of the states labeled by ${\ucon}$
+(resp. ${\vcon}$).  
+%
+\[
+{\small
+\begin{array}{r@{\ }c@{\ }l}
+\gamma_1 \relentangle \gamma_2 &= &
+\left\{
+({w_1} \hunion {w_2}, {w'_1} \hunion {w'_2})
+\left| 
+  \begin{array}{l}
+    (w_i, w'_i) \in \gamma_i, w_1 \hunion w_2, w'_1 \hunion \\
+    w'_2 \in {W}_{{\ucon} \entangle {\vcon}}
+  \end{array}
+\right.\right\}.
+\end{array}
+} 
+\]
+%
+The internal transition of ${\ucon} \entangle {\vcon}$ is defined as follows,
+where $\mathsf{id}_{\ucon}$ is the diagonal of ${W}_{\ucon}$.
+%
+\[
+{\small
+\hspace{-5pt}
+\begin{array}{r@{\ }c@{\ }l}
+I_{{\ucon} \entangle {\vcon}} & = & \set{\iota_{\ucon} \relentangle \mathsf{id}_{\vcon}} \cup
+\set{\mathsf{id}_{\ucon} \relentangle \iota_{\vcon}} ~\cup
+\\[3pt]
+&& \bigcup_{\scriptsize{\begin{array}{c}h, (\alpha_{\ucon}, \rho_{\ucon})\in{
+        E}_{\ucon}, (\alpha_{\vcon}, \rho_{\vcon})\in{E}_{\vcon}\end{array}}}\!\!\!(\alpha_{\ucon}\ h
+\relentangle \rho_{\vcon}\ h) \cup (\alpha_{\vcon}\ h \relentangle \rho_{\ucon}\ h)
+    
+\end{array}
+}
+\]
+%
+Thus, ${\ucon}
+\entangle {\vcon}$ steps internally whenever ${\ucon}$ steps and ${\vcon}$ stays idle,
+or when ${\vcon}$ steps and ${\ucon}$ stays idle, or when there exists a heap $h$
+which ${\ucon}$ and ${\vcon}$ exchange ownership over by synchronizing their
+external transitions.
+
+\vspace{5pt}
+
+\begin{example}
+  We have already presented the transitions $\alpha_\privcon$ of
+  $\privcon$ and $\rho_\lcon$ of $\lcon_{\hlock,lk,\Inv}$ in
+  Sections~\ref{sec:conc-priv-heaps}
+  and~\ref{sec:concurroid-spin-lock}.
+
+%
+  The following display~(\ref{trans}) presents the interconnection
+  $\alpha_\privcon\ h \relentangle \rho_\lcon\ h$, which moves $h$ from
+  $\lcon_{\hlock,lk,\Inv}$ to $\privcon$, and is part of the definition of $I_{\privcon
+    \entangle \lcon_{\hlock,lk,\Inv}}$. The latter further allows moving $h$
+  in the opposite direction ($\alpha_\lcon\ h \relentangle \rho_\privcon\ h)$,
+  independent stepping of $\privcon$ ($\iota_\privcon \relentangle \mathsf{id}_\lcon$)
+  and of $\lcon_{\hlock,lk,\Inv}$ ($\mathsf{id}_\privcon \relentangle \id$).
+%
+\[
+{\small
+\hspace{-7pt}
+\begin{array}{l@{\ \lsep\ }l@{\ \aand\ }l}
+\hpriv \spts \hL & (\hlock \spts (\lockNown, \gL) & \hlock \jpts ((lk \hpts \mathsf{false}) \hunion h)) \rightsquigarrow \hbox{}
+\tag{\arabic{tags}}\refstepcounter{tags}\label{trans} \\ 
+\hpriv \spts {(\hL \hunion h)} & (\hlock \spts (\lockOwn, \gL) & \hlock \jpts (lk \hpts \mathsf{true}))
+\end{array}
+}\]
+%
+\end{example}
+
+
+The external transitions of ${\ucon} \entangle {\vcon}$ are those of ${\ucon}$, framed
+\wrt~the labels of ${\vcon}$.
+%
+\begin{mathpar}
+{\small
+{E}_{{\ucon} \entangle {\vcon}} = \{(\lambda h\ldot (\alpha_{\ucon}\ h) \relentangle \mathsf{id}_{\vcon},
+\lambda h\ldot (\rho_{\ucon}\ h) \relentangle \mathsf{id}_{\vcon}) \mid (\alpha_{\ucon}, \rho_{\ucon}) \in {E}_{\ucon}\}
+}
+\end{mathpar}
+%
+We note that ${E}_{{\ucon} \entangle {\vcon}}$ somewhat arbitrarily chooses
+to frame on the transitions of ${\ucon}$ rather than those of ${\vcon}$. In this
+sense, the definition interconnects the external transitions of ${\ucon}$
+and ${\vcon}$, but it keeps those of ${\ucon}$ ``open'' in the entanglement, while
+it ``shuts down'' those of ${\vcon}$. The notation ${\ucon} \entangle {\vcon}$ is meant
+to symbolize this asymmetry. The asymmetry is important for our
+example of encoding CSL resources, as it enables us to iterate the
+(non-associative) addition of new resources as $((\privcon \entangle
+\lcon_{\hlock_1, lk_1, \Inv_1}) \entangle \lcon_{\hlock_2, lk_2, \Inv_2}) \entangle
+\cdots $ while keeping the external transitions of $\privcon$ open to
+exchange heaps with new resources.
+
+Clearly, many ways exist to interconnect transitions of two
+concurroids and select which transitions to keep open. In our
+implementation, we have identified several operators implementing
+common interconnection choices, and proved a number of equations and
+properties about them (\eg, all of them validate an instance of the
+\textsc{Inject} rule).
+
+\vspace{5pt}
+\begin{lemma} 
+%
+${\ucon} \entangle {\vcon}$ is a concurroid. 
+
+\end{lemma}
+
+We can also reorder the iterated addition of lock concurroids.
+
+\vspace{5pt}
+\begin{lemma}[Exchange law] $({\ucon} \entangle {\vcon}) \entangle W = ({\ucon}
+  \entangle W) \entangle {\vcon}$.\end{lemma}
+
+\subsection{The empty concurroid}
+\label{sec:empty-concurroid}
+
+We close the section with the definition of the \emph{empty}
+concurroid $\econ$ which is the right unit of the entanglement
+operator $\entangle$. $\econ$ is defined as $\econ = (\emptyset,
+{W}_E, \set{id}, \emptyset)$, where ${W}_\econ$ contains only the
+empty state (\ie,~the state with no labels).
+
+
+\section{Atomic actions}
+\label{sec:appactions}
+
+A concurroid $\ucon$'s transitions, described in
+Section~\ref{app:conc}, specify all possibles ``degrees of freedom''
+along which a state (auxiliary or real) governed by $\ucon$ can
+evolve. To tie these specifications to actual programming primitives
+(\ie, machine commands like \textsf{read}, \textsf{write},
+\textsf{skip} or various read-modify-write operations), FCSL
+introduces a notion of an \emph{atomic action}.
+
+An atomic action is a 4-tuple $a = (\ucon, A, \sigma, \mu)$, where (1)
+$\ucon$ is a concurroid, whose \emph{internal} transitions an action
+respects; (2) $A$ is a return type of the action; (3) $\sigma$
+describes states of $\ucon$, which $a$ can be run from; and (4) the
+$\mu$ relates the initial and final states, and the result $\res$ of
+the action. FCSL imposes a soft requirement that, if all ghost
+information is erased from an action's definition (\eg, manipulating
+with histories), it becomes operationally equivalent to a mere
+heap-manipulating machine command.
+
+\vspace{5pt}
+
+\begin{definition}[Action erasure] Given an atomic action $a$,
+  the erasures $\flatten \sigma$ and $\flatten \mu$ of $a$'s safety
+  predicate and stepping relation are relations on heaps defined as
+  follows.
+%
+{\small
+\[
+\begin{array}{lcl}
+\flatten {w} \in \flatten{\sigma} & \iff & w \in \sigma\\
+(\flatten{w}, \flatten{w'}, r) \in \flatten{\mu} & \iff & (w, w', r) \in \mu
+\end{array}
+\]}
+\end{definition}
+
+An \emph{atomic} is a triple $\alpha = (A, \sigma, \mu)$. It's a
+special kind of actions, but over concrete heaps, rather than over
+states. States differ from heaps in that they are decorated with
+additional information such as auxiliary state and partitioning
+between \self, \joint and \other.  As with actions, $A$ is the
+return type, $\sigma$ is the safety predicate and $\mu$ is the
+stepping relation, but they all range over heaps.
+
+We consider four different (parametrized classes of) atomics,
+corresponding to the four (parametrized) primitive memory operations
+that we consider.
+
+\vspace{5pt}
+
+\begin{definition}[Primitive atomic actions]
+\label{def:actions}
+{\small
+\[
+\begin{array}{lcl}
+  \mathsf{Read}^A_x & = & (A, (x \hpts_A -) \hunion h, (x \hpts v) \hunion h \rightsquigarrow (x \hpts v) \hunion h \aand \result = v)\\
+  \mathsf{Write}\ x\ v & = & (\mathsf{unit}, (x \hpts -) \hunion h, (x
+  \hpts -) \hunion h \rightsquigarrow (x \hpts v) \hunion h)\\
+  \mathsf{Skip} & = & (\mathsf{unit}, h, h \rightsquigarrow h) 
+  \\
+  \mathsf{RMW}^{A~B}_{x~f~g} & = & (B, (x \hpts_A -) \hunion h, (x
+  \hpts v) \hunion h \rightsquigarrow \\
+  && (x \hpts f(v)) \hunion h \aand \result = g(v))
+\end{array}
+\label{eq:actions}
+\]}
+  
+\end{definition}
+
+The last class $\mathsf{RMW}^{A~B}_{x~f~g}$ corresponds to the family
+of \emph{Read-Modify-Write} operations: they all atomically replace
+the current register value $v$ with $f(v)$ for some pure function $f$,
+and return the result according to the function
+$g$~\cite[\S5.6]{Herlihy-Shavit:08}. One particular representative of
+this family is the CAS operation, which instantiates the parameters of
+$\mathsf{RMW}$ as follows:
+%
+{\small
+\[
+\begin{array}{rcl}
+\text{CAS}_{A~x~v_1~v_2} & \eqdef &
+\mathsf{RMW}^{A~\mathsf{bool}}_{x~f({v_1},{v_2})~g({v_1},{v_2})}, \text{where}   
+\\ \\
+f({v_1},{v_2})(v) & = & \mathsf{if}~ (v = v_1) ~\mathsf{then}~ v_2
+~\mathsf{else}~ v_1 \\
+g({v_1},{v_2})(v) & = & (v = v_1)
+\end{array}
+\]}
+
+\vspace{5pt}
+
+\begin{definition}[Operational actions] 
+\label{def:opact}
+%
+An action $a$ is \emph{operational} if its erasure corresponds to one
+of the atomics, \ie, if there exists $b \in \set{\mathsf{Read}^A_x, \mathsf{Write}\ x\ v, \mathsf{Skip},
+\mathsf{RMW}^{A~B}_{x~f~g}}$ such that
+{\small
+\[
+\flatten{\sigma_a} \subseteq \sigma_b \aand 
+\forall h \in \flatten{\sigma_a}\ h'\ r\ldot (h, h', r) \in \flatten{\mu_a} \implies (h, h', r) \in \mu_b
+\]}
+\end{definition}
+In our examples we only considered operational actions, though the
+inference rules and the implementation in Coq don't currently enforce
+this requirement (the operationality of actions in the examples has
+been proved by hand).
+
+\subsection{Properties of atomic actions}
+\label{sec:prop-atom-acti}
+
+Let $\ucon = (L, W, I, {E})$. The action $a = (\ucon, A,
+\sigma, \mu)$ is required to satisfy the following properties.
+
+\[
+{\small
+\begin{array}{rcl}
+\textit{Coherence} & : & w \in \sigma \implies w \in {W}\\[3pt]
+\textit{Safety monotonicity} & : & w \zag t \in \sigma \implies w \zig t \in \sigma\\[3pt]
+\textit{Step safety} & : & (w, w', r) \in \mu \implies w \in \sigma\\[3pt]
+\textit{Internal stepping} & : & (w, w', r) \in \mu \implies (w, w') \in I\\[3pt]
+%
+\textit{Framing} & : & w \zag t \in \sigma \implies (w \zig t, w', r) \in \mu \implies \hbox{}\\
+& & \quad \exists w''\ldot w' = w'' \zig t \aand  (w \zag t, w'' \zag
+t, v) \in \mu
+\\[3pt]
+\textit{Erasure} & : &  \mathsf{defined} (\flatten w \hunion h) \implies \flatten w \hunion h = \flatten{w'} \hunion h' \implies \hbox{}\\
+& &  (w, w_1, r) \in \mu \implies (w', w'_1, r') \in \mu \implies \hbox{}\\
+& &  r = r' \aand \flatten w_1 \hunion h = \flatten{w'_1} \hunion h'
+\\[3pt]
+\textit{Totality} & : & \forall w\ldot w \in \sigma \implies \exists w'\ v\ldot (w, w', v) \in \mu
+\end{array}
+}
+\]
+
+The properties of Coherence, Step safety and Internal stepping are
+straightforward.  
+%
+Safety monotonicity states that if the action is safe in a state with
+a smaller \self component (because the other component is enlarged by
+$t$), the action is also safe if we increase the \self component by
+$t$.
+%The property is analogous to the equally named property in
+%abstract separation logic.
+%
+
+Framing property says that if $a$ steps in a state with a large \self
+component $w \zig t$, but is already safe to step in a state with a
+smaller \self component $w \zag t$, then the result state and value
+obtained by stepping in $w \zig t$ can be obtained by stepping in $w
+\zag t$, and moving $t$ afterwards.
+
+The Erasure property shows that the behavior of the action on the
+concrete input state obtained after erasing the auxiliary fields and
+the logical partition, doesn't depend on the erased auxiliary fields
+and the logical partition. In other words, if the input state have
+\emph{compatible} erasures (that is, erasures which are sub-heaps of a
+common heap), then executing the action in the two states results in
+equal values, and final states that also have compatible
+erasures. This is a standard property proved in concurrency logics
+that deal with auxiliary state and
+code~\cite{Owicki-Gries:CACM76,Brookes:TCS07}.
+
+The Totality property shows that an action whose safety predicate is
+satisfied always produces a result state and value. It doesn't loop
+forever, and more importantly, it doesn't crash. We will use this
+property of actions in the semantics of programs to establish that if
+the program's precondition is satisfied, then all of the
+approximations in the program's denotation are either done stepping,
+or can actually make a step (\ie, they make progress).
+
+Usually, the actions are defined in a so-called \emph{large footprint}
+style.
+%
+To enable writing various actions in a \emph{small footprint} style,
+we also enforce the property 
+%
+\[
+{\small
+\begin{array}[t]{c}
+\textit{Locality} ~:~ w.\mathother = w'.\mathother \implies (w \zag t, w' \zag t, v) \in \mu \implies (w \zig t, w' \zig t, v) \in \mu
+\end{array}
+}\]
+%
+%This property corresponds to what we have taken up calling
+%\emph{locality}, though it's not at all equivalent to locality in the
+%The property is \emph{not} provable from the rest, unless we require
+%that each action is deterministic (which right now seems
+%unnecessary). Thus, if we want it, it has to be required as primitive,
+%which is what we have done.
+Curiously, if the default use of the logic is in a large footprint
+notation, then this property is not necessary as it is not used in any
+proofs.
+%
+
+\subsection{Example: pair snapshot reading and writing actions}
+\label{sec:ops}
+
+In the pair snapshot concurroid (Section~\ref{sec:concurroids}), the
+reading from~$x$ can be implemented by means of an atomic action
+%
+\[
+\mathit{readX} = (\pscon, (A \times \nat), \sigma_{\mathit{rx}},
+\mu_{\mathit{rx}}),\] 
+%
+where
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:readx-act}
+ {\small
+\hspace{-5pt}
+\begin{array}{lcl}
+  \sigma_{\mathit{rx}}(w) & \eqdef & w \in W_{\pscon} \\
+  \mu_{\mathit{rx}}(w, w', \res) & \eqdef &  w = w' \aand w.\mathjoint = (x
+  \hpts (c_x, v_x) \hunion y \hpts -)~\aand \\
+ && \res = (c_x, v_x).
+\end{array}
+}
+\]
+%
+Similarly, writing into $x$ and updating its version simultaneously is
+implemented via the action
+%
+\[
+\mathit{writeAndIncX}(v) = (\pscon, \mathsf{Unit},
+\sigma_{\mathit{wx}}, \mu_{\mathit{wx}}(v)),
+\]
+%
+such that
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:writex-act}
+ {\small
+\begin{array}{lcl}
+  \sigma_{\mathit{wx}}(w) & \eqdef & w \in W_{\pscon} \\
+  \mu_{\mathit{wx}}(v)(w, w', \res) & \eqdef & \res = \mathsf{unit} \aand
+  \iota_{\pscon}^x(w, w')|_{c'_x~=~v}
+\end{array}
+}
+\]
+%
+where by $wr_x (w, w')|_{c'_x~=~\res}$ we mean a restricted version of
+the relation induced by the transition $wr_x$ defined
+in Section~\ref{sec:concurroids}, such that $c'_x$ is taken to be the action
+argument $v$, which is being written as a new value $c'_x$ to the
+snapshot cell $x$.
+%
+It is not difficult to check that \emph{readX} corresponds to the
+$\id$ transition of $\pscon$, whereas \emph{writeAndIncX} naturally
+corresponds to the internal transition~$wr_x$ from
+Section~\ref{sec:concurroids}.
+
+\section{Language and logic inference rules}
+\label{sec:rules}
+
+Program specifications in FCSL take the form of Hoare 4-tuple
+$\stconc{p}{c}{q}{\ucon}$ expressing that the thread $c$ has a
+precondition $p$, postcondition $q$, in a state space and under
+transitions defined by the concurroid $\ucon$, which in FCSL plays
+both the role of a resource context from CSL and the role of
+Rely/Guarantee. The Hoare 4-tuple $\stconcTy{p}{c}{A}{q}{\ucon}$ is
+satisfied by a command $c$ if $c$'s effect is approximated by the
+\emph{internal} transition of the concurroid $\ucon$, $c$ is
+\emph{memory-safe} when executed from a state satisfying $p$, and
+concurrently with any environment that respects the transitions
+(internal and external) of $\ucon$; if $c$ terminates, it returns a
+value of type $A$ in a state satisfying $q$. A dedicated variable
+$\res$ of type $A$ is used to name the return result in $q$.
+%
+In FCSL, the first-order looping commands are represented by recursive
+procedures implemented using the fixpoint operator. In the case of
+recursive procedures, $p$ and $q$ in the procedure tuple correspond to
+a loop invariant, which is supposed provided by the programmer.
+%
+Judgments in FCSL are formed under hypotheses from a context $\Gamma$
+that maps \emph{program variables} $x$ to their types and
+\emph{procedure variables} $f$ to their specifications. $\Gamma$ is
+omitted in most of the examples, as it is clear from the context. The
+scope of logical variables is limited to the Hoare tuples in which
+they appear.
+%
+Figure~\ref{fig:rules} lists FCSL rules.
+
+The rule \textsc{Fix} requires proving a Hoare tuple for the procedure
+body, under a hypothesis that the recursive calls satisfy the same
+tuple. The procedure \textsc{App}lication rule uses the typing
+judgment for expressions $\Gamma \vdash e : A$, which is the customary
+one from a typed $\lambda$-calculus, so we omit its rules; in our
+formalization in Coq, this judgment will correspond to the CiC's
+typing judgment.
+
+\begin{figure*}[t!]
+\centering
+{\small
+\begin{mathpar}
+\inferrule*[Right={\scriptsize{Seq}}]
+ {\Gamma \vdash \stconcTy{p}{c_1}{B}{q}{\ucon} \\ 
+  \Gamma, x:B \vdash \stconcTy{[x/\result]q}{c_2}{A}{r}{\ucon} \\
+  x \not\in \mathsf{FV}(r)}
+ {\Gamma \vdash \stconcTy{p}{x \leftarrow c_1; c_2}{A}{r}{\ucon}}
+\and
+\inferrule*[Right={\scriptsize{Par}}]
+  {\Gamma \vdash \stconcTy{p_1}{c_1}{A_1}{q_1}{\ucon} \\
+   \Gamma \vdash \stconcTy{p_2}{c_2}{A_2}{q_2}{\ucon}}
+  {\Gamma \vdash \stconcTy{p_1 \ssep p_2}{c_1 \parallel c_2}{A_1 \times A_2}{[\pi_1\,{\result}/\result]q_1 \ssep [\pi_2\,{\result}/\result]q_2}{\ucon}}
+\and
+\inferrule*[Right={\scriptsize{Hyp}}]
+  {\forall x{:}B\ldot \stconcTy{p}{f(x)}{A}{q}{\ucon} \in \Gamma}
+  {\Gamma \vdash \forall x{:}B\ldot \stconcTy{p}{f(x)}{A}{q}{\ucon}}
+\and
+\inferrule*[Right={\scriptsize{Exist}}]
+  {\Gamma \vdash \stconcTy{p}{c}{A}{q}{\ucon} \\ 
+   \alpha \not\in\mathsf{dom}\ \Gamma}
+  {\Gamma \vdash \stconcTy{\exists \alpha{:}B\ldot p}{c}{A}{\exists \alpha{:}B\ldot q}{\ucon}}
+\and
+\inferrule*[Right={\scriptsize{Conseq}}]
+  {\Gamma \vdash \stconcTy{p_1}{c}{A}{q_1}{\ucon} \\
+   \Gamma \vdash (p_1, q_1) \sqsubseteq (p_2, q_2)}
+  {\Gamma \vdash \stconcTy{p_2}{c}{A}{q_2}{\ucon}}
+\and
+\inferrule*[Right={\scriptsize{Frame}}]
+  {\Gamma \vdash \stconcTy{p}{c}{A}{q}{\ucon} \\
+  \mbox{$r$ stable under $\ucon$}}
+  {\Gamma \vdash \stconcTy{p\ssep r}{c}{A}{q \ssep r}{\ucon}}
+\and
+\inferrule*[Right={\scriptsize{If}}]
+  {\Gamma \vdash \stconcTy{e = \mathsf{true}\aand p}{c_1}{A}{q}{\ucon}\\
+   \Gamma \vdash \stconcTy{e = \mathsf{false}\aand p}{c_2}{A}{q}{\ucon}}
+  {\Gamma \vdash \stconcTy{p}{\mathsf{if}\ e\ \mathsf{then}\ c_1\ \mathsf{else}\ c_2}{A}{q}{\ucon}}
+\and
+\inferrule*[Right={\scriptsize{Conj}}]
+  {\Gamma \vdash \stconcTy{p_1}{c}{A}{q_1}{\ucon}\\
+   \Gamma \vdash \stconcTy{p_2}{c}{A}{q_2}{\ucon}}
+  {\Gamma \vdash \stconcTy{p_1 \aand p_2}{c}{A}{q_1 \aand q_2}{\ucon}}
+\and
+\inferrule*[Right={\scriptsize{Fix}}]
+  {\Gamma, \forall x{:}B\ldot\stconcTy{p}{f(x)}{A}{q}{\ucon}, x{:}B \vdash \stconcTy{p}{c}{A}{q}{\ucon}}
+  {\Gamma \vdash \forall x{:}B\ldot\stconcTy{p}{(\mathsf{fix}\ f\ldot x\ldot c)(x)}{A}{q}{\ucon}}
+\and
+\inferrule*[Right={\scriptsize{App}}]
+  {\Gamma \vdash \forall x{:}B\ldot \stconcTy{p}{F(x)}{A}{q}{\ucon}\\
+   \Gamma \vdash e : B}
+  {\Gamma \vdash \stconcTy{[e/x]p}{F(e)}{A}{[e/x]q}{\ucon}}
+\and
+\inferrule*[Right={\scriptsize{Ret}}]
+  {\Gamma \vdash e: A ~~~ \mbox{$p$ stable under $\ucon$}}
+  {\Gamma \vdash \stconcTy{p}{\mathsf{return}~e}{A}{p \aand \result = e}{\ucon}}
+\and
+\inferrule*[Right={\scriptsize{Inject}}]
+  {\Gamma \vdash \stconcTy{p}{c}{A}{q}{\ucon}\\
+    \mbox{$r \subseteq W_\vcon$ stable under $\vcon$}}
+  {\Gamma \vdash \stconcTy{p \lsep r}{[c]}{A}{q \lsep
+      r}{\ucon \entangle \vcon}}
+\and
+\inferrule*[Right={\scriptsize{Action}}]
+  {a = (\ucon, A, \sigma, \mu)\ \mbox{is an atomic action}\\
+   \Gamma \vdash (\sigma \aand \mathsf{this}\ w, \lambda w'\ldot (w, w', \result) \in \mu) \sqsubseteq (p, q)\\
+   \mbox{$p, q$ stable under $\ucon$}}
+  {\Gamma \vdash \stconcTy{p}{\mathsf{act}\ a}{A}{q}{\ucon}}
+\and
+\inferrule*[Right={\scriptsize{Hide}}]
+{\Gamma \vdash \stconc{\hpriv\spts h \lsep p}{c}{\hpriv\spts h' \lsep q}{(\privcon \entangle \ucon) \entangle \vcon}
+ ~~~ \text{$\privcon$, $\ucon$ and $\vcon$ have disjoint sets of labels}}
+{\Gamma \vdash \stconc{\Psi\ g\ h \lsep (\Phi\,(g) \wand p)}{\mathsf{hide}_{\Phi, g}\ c}{\exists g'. \Psi\ g'\ h' \lsep (\Phi\,(g') \wand q)}{\privcon \entangle \ucon}}
+\and
+\mbox{where}\ \Psi\ g\ h = \exists k{:}\mathsf{heap}.\, \hpriv \spts {h \hunion k} \aand \Phi\,(g) \downarrow k
+\end{mathpar}}
+\caption{FCSL inference rules.}\label{fig:rules}
+\end{figure*}
+
+\subsection{Definition of Hoare ordering %
+  $(p_1, q_1) \sqsubseteq (p_2, q_2)$}
+\label{sec:ordering}
+
+The \textsc{Action} and \textsc{Conseq} rules use the judgment $\Gamma
+\vdash (p_1, q_1) \sqsubseteq (p_2, q_2)$, which generalizes the
+customary side conditions $p_2\,{\implies}\,p_1$ for strengthening the
+precondition and $q_1\,{\implies}\,q_2$ for weakening the
+postcondition, to deal with the local scope of logical variables
+
+The generalization is required in FCSL because of the local scope of
+logical variable. In first order Hoare logics, the logical variables
+have global scope, so the above implications over $p_1, p_2$ and $q_1,
+q_2$ suffice. In FCSL, the logical variables have scope locally over
+Hoare triples, and this scope has to be reflected in the semantic
+definition of $\sqsubseteq$ by introducing quantifiers.
+%
+\[
+{\small
+\begin{array}{l}
+(p_1, q_1) \sqsubseteq (p_2, q_2) \iff \hbox{}\\
+\qquad \forall w\ w'\ldot \begin{array}[t]{l}
+(w \models \exists \bar{v}_2\ldot p_2 \implies w \models \exists \bar{v}_1\ldot p_1) \aand \hbox{}\\
+((\forall \bar{v}_1\ \result\ldot w \models p_1 \implies w' \models
+q_1) \implies \\
+~~~~(\forall \bar{v}_2\ \result\ldot w \models p_2 \implies w' \models q_2))
+\end{array}
+\end{array}
+}\]
+%
+where $\bar{v}_i = \mathsf{FLV}(p_i, q_i)$ are the free logical
+variables.
+%
+The definition makes it apparent that the Hoare triple
+$\stconc{p}{c}{q}{\ucon}$ is essentially a syntactic sugar for a different
+kind of Hoare triple, which may be written as:
+%
+\[
+{\small
+\stconc{w\ldot\exists \bar{v}\ldot w \models p}{c}{\result\ w\ w'\ldot \forall \bar{v}\ldot w \models p \implies w' \models q}{\ucon}
+}\]
+%
+where $\bar{v} = \mathsf{FLV}(p,q)$. In this alternative Hoare triple,
+the postconditions are predicates ranging over input and output states
+$w$ and $w'$ (they are thus called binary postconditions). The
+advantage of the alternative Hoare triple is that the logical
+variables are explicitly bound, making their scoping explicit. In our
+Coq implementation we use this alternative formulation of Hoare
+triples.
+
+
+\subsection{Turning atomic actions into commands}
+\label{sec:stable-spec-atom}
+%
+Since all pre- and postconditions in FCSL are stable under the
+interference of the corresponding concurroid, the use of an atomic
+action requires explicit stabilization of its specification $\mu$, as
+captured by the rule \textsc{Action}. This rule has been implicitly
+used in most of the examples in the paper body in order to obtain
+stable specifications for methods like $\aact{tryPush}$,
+$\aact{tryCollect}$~\eqref{eq:ack} \etc.
+%
+
+To demonstrate the use of the \textsc{Action} rule, let us consider
+one of the most commonly used commands: writing into a privately owned
+heap, to which we gave the spec~\eqref{eq:alloc-spec}. As one may
+expect, such command ``lives'' in a concurroid of private heaps
+$\privcon$, supported by its internalt transition $\iota_{\privcon}$,
+and has the following obviously stable specification (given in a
+\emph{large footprint} with explicit universally-quantified
+\emph{self}-owned heap $\hL$):
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:write-spec}
+{\small
+\begin{array}{r@{\ }c@{\ }l}
+\spec{\hpriv \spts (x \hpts -) \hunion \hL}
+&
+\aact{write}(x, e)
+&
+\spec{\hpriv \spts (x \hpts e) \hunion \hL}@\privcon    
+\end{array}
+}
+\]
+%
+The specification~\eqref{eq:alloc-spec}, used in the paper body, can
+be obtained from~\eqref{eq:write-spec} by taking $\hL = \hempty$.
+
+
+Another example of a command obtained from an atomic action a method
+for reading from $\pscon$'s pointer $x$ from
+Section~\ref{sec:overview}.  It is easy to make sure that the spec of
+$\aact{readX}$, which was used for verification of the \code{readPair}
+procedure, can be obtained by stabilization of the assertions defining
+$\mu_{\mathit{rx}}$~\eqref{eq:readx-act} of the corresponding atomic
+action $\mathit{readX}$ in Section~\ref{sec:ops}.
+
+\subsection{Properties of $\Phi$ functions from the hiding rule}
+\label{sec:phi-properties}
+
+The abstraction function $\Phi$ is a user-specified annotation on the
+hide command (see rule \textsc{Hide} in Figure~\ref{fig:rules} or
+display~\eqref{eq:hide-rule}). It maps values $g : \pcmS$ (where
+$\pcmS$ is a user-specified PCM) to assertions, that is, predicates
+over states (equivalently, sets of states) of a
+concurroid~$\vcon$. For the soundness of the hiding rule, $\Phi$ is
+required to satisfy the following properties.
+%
+\[
+{\small
+\begin{array}[t]{l@{\ }c@{\ }l}
+\textit{Coherence} & : & w \in \Phi(g) \implies w \in W_\vcon
+\\[3pt]
+\textit{Injectivity} & : & w \in \Phi(g_1) \implies w \in \Phi(g_2)
+\implies g_1 = g_2
+\\[3pt]
+%& : & i \in \mathsf{coh}\ W \arrow \exists g, i \in \Phi(g)\\
+\textit{Surjectivity} & : & w_1 \in \Phi(g_1) \implies w_2 \in W_\wcon
+\implies w_1.\mathother = w_2.\mathother \implies \\
+&&\exists g_2\ldot w_2 \in \Phi(g_2)
+\\[3pt]
+\textit{Guarantee} & : & w_1 \in \Phi(g_1) \implies w_2 \in \Phi(g_2)
+\implies w_1.\mathother = w_2.\mathother
+\\[3pt]
+\textit{Precision} & : & w_1 \in \Phi(g) \implies w_2 \in \Phi(g)
+\implies \\
+&& \flatten {w_1} \hunion h_1 = \flatten {w_2} \hunion h_2 \implies w_1 = w_2
+\end{array}
+}
+\]
+%
+Coherence and Injectivity are obvious. Surjectivity states that for
+every state $w_2$ of the concurroid $\wcon$ one can find an image $g$,
+under the condition that the \other component of $w_2$ is well-formed
+according to $\Phi$ (typically, that the \other component is equal to
+the unit of the PCM-map monoid for $\wcon$). Guarantee formalizes that
+environment of $\mathsf{hide}$ can't interference on $\vcon$, as
+$\vcon$ is installed locally. Thus, whatever the environment does, it
+can't influence the \other component of the states $w$ described by
+$\Phi$.
+
+Precision is a technical property common to separation-style logics,
+though here it has a somewhat different flavor. Precision ensures that
+for every value $g$, $\Phi(g)$ precisely describes the underlying
+heaps of its circumscribed states; that is, each state $\Phi(g)$ is
+uniquely determined by its heap erasure.
+
+\section{Verifying the flat combiner specification~\eqref{eq:fc-spec}}
+\label{sec:verifying-fc}
+
+Figure~\ref{fig:flatco-proof} presents the proof outline for
+\code{flatCombine}. We go over it in detail, providing specs for the
+employed atomic operations and auxiliary predicates as we go.
+%
+The procedure starts by a call to $\aact{reqHelp}(\tid, f, x)$ in
+line~2, which requests help for running $f$ with argument $x$.  The
+action $\aact{reqHelp}$ has the following spec:
+%is supported by an internal transition
+%$\reqtrans$ and has the following stable specification:
+%
+\[
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:reqhelp}
+{\small
+\hspace{-10pt}
+\begin{array}{r@{\ }c@{\ }l}
+\spec{
+\histso{\hfc}{\pcmU, -, \g} \aand~ \noreqs{\tid}
+}
+&
+\aact{reqHelp}(\tid, f, x)
+&
+\spec{
+\begin{array}{c}
+\hfc \spts (\set{\tid}, \lockNown, \pcmU) \\
+\aand ~ \requested{\tid, f, x, \g}    
+\end{array}
+}@\fccon
+\end{array}
+}
+\]
+%
+where the auxiliary predicate $\Requested$ is defined as follows:
+%
+\[
+%\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:hasreq}
+{\small
+\hspace{-1mm}
+\begin{array}{l}
+  \requested{\tid, f, x, \g} ~ \eqdef \\
+  ~~~~~~\exists \gO\ldot \ap[\tid] = \Req{f}{x} \aand \hfc \opts (-,-,\gO) \aand \g \pre
+  \jjoin{i}\gp[i] \join \gO ~\oor \\
+  ~~~~~~ \exists w~\g'~\gO\ldot \ap[\tid] = \Resp{w} \aand \g' \pre
+  \jjoin{i}\gp[i] \join \gO \aand \gp[\tid] = \gd \aand \g \pre \g' \aand \fspec{f}~x~w~\g'~\gd 
+\end{array}
+}\]
+%
+%
+$\Requested$ indicates that once help is requested by a thread $\tid$,
+it can remain unanswered. But if it's answered, than it's answered
+appropriately. That is, the result \code{w} and the auxiliary
+$\gp[\tid]$ are obtained by a call to $f$, and are related by
+$\fspec{f}$. 
+
+\begin{figure}[t!]
+\centering 
+%
+\[
+\hspace{-2mm}
+{\small
+\begin{array}{r@{\ \ \ }l@{\ }l}
+  \Num{1} & \sspec{~\hpriv \spts \hempty ~\sep~
+    \histso{\hfc}{\pcmU, -, \g} \aand \noreqs{\tid} ~} & 
+  \\[1pt]
+  \Num{2} &  \eesc{[}\aact{reqHelp}\eesc{(}tid, f, x\eesc{)]}; & 
+  \\[1pt]
+  \Num{3} & \sspec{~\hpriv \spts \hempty ~\sep~ 
+    \hfc \spts (\set{\tid}, \lockNown, \pcmU) \aand \requested{\tid, f, x, \g} ~} & 
+  \\[1.5pt]
+  \Num{4} &  \eesc{\textbf{fix}~loop() \{}        & 
+  \\
+  \Num{5} & \sspec{~\hpriv \spts \hempty ~\sep~
+    \hfc \spts (\set{\tid}, \lockNown, \pcmU) \aand \requested{\tid, f, x, \g} ~} & 
+  \\[1.5pt]
+  \Num{6} &  \eesc{\textbf{if} } \aact{tryLock}\eesc{()} \eesc{ \textbf{then} \{}        & 
+  \\
+  \Num{7} & 
+  \sspec{~\exists h_r~\gall\ldot \hpriv \spts h_r  \aand I~\gall~h_r 
+    ~\sep~ \lhr{\tid, f, x, \g, \gall}~} & 
+  \\[1.5pt]
+  \Num{8} &  \eesc{\textbf{for} }i \in \set{0, \ldots, n-1}~\eesc{\{}        & 
+  \\
+  \Num{9} &   \sspec{~\exists h_r~\gall\ldot \hpriv \spts h_r  \aand I~\gall~h_r 
+    ~\sep~  \lhr{\tid, f, x, \g, \gall} ~} & 
+  \\[1.5pt]
+  \Num{10} &  \eesc{\textbf{if} [}\aact{readReq}\eesc{(}i\eesc{)] == \textsf{Req}
+  }f_i~x_i\eesc{ \textbf{then} \{}        & 
+  \\
+  \Num{11} & \sspec{~\exists h_r~\gall\ldot \hpriv \spts h_r  \aand I~\gall~h_r ~\sep~
+    \ap[i] = \Req{f_i}{x_i} \aand 
+    \lhr{\tid, f, x, \g, \gall}~} & 
+  \\
+  \Num{12} &  w\eesc{ <- [}f_i(x_i)\eesc{];}        & 
+  \\
+  \Num{13} & \spec{
+    \begin{array}{r@{\ }l}
+     \exists h_r~\gd~\gall\ldot& \hpriv \spts h_r  \aand
+    I~(\gall \join \gd)~h_r \aand
+    \fspec{f_i}~x_i~w~\gall~\gd ~\sep~ \\[1.5pt]
+    &     \ap[i] = \Req{f_i}{x_i} \aand 
+    \lhr{\tid, f, x, \g, \gall} 
+    \end{array}
+  } & 
+  \\[1pt]
+  \Num{14} &  \eesc{[}\aact{doHelp}\eesc{(}i, w\eesc{)];}        & 
+  \\
+  \Num{15} & \sspec{~
+     \exists h_r~\gd~\gall\ldot \hpriv \spts h_r  \aand
+    I~(\gall \join \gd)~h_r ~\sep~
+    \lhr{\tid, f, x, \g, \gall \join \gd}~} & 
+  \\[1pt] 
+  \Num{16} &  \eesc{\}\}}        & 
+  \\
+  \Num{17} &   \sspec{~\exists h_r~\gall\ldot \hpriv \spts h_r  \aand I~\gall~h_r 
+    ~\sep~ \lhr{\tid, f, x, \g, \gall}~} & 
+  \\[1.5pt]
+  \Num{18} &  \aact{unlock}\eesc{();\}}        & 
+  \\
+  \Num{19} & \sspec{~\hpriv \spts \hempty ~\sep~
+    \hfc \spts (\set{\tid}, \lockNown, \pcmU) \aand \requested{\tid, f, x, \g} ~} & 
+  \\[1.5pt]
+  \Num{20} &  rc\eesc{ <- [}\aact{tryCollect} \eesc{(}tid\eesc{)];}        & 
+  \\
+  \Num{21} & \sspec{~\hpriv \spts \hempty ~\sep~ 
+    \ack{\tid, f, x, \g, {rc}} ~} & 
+  \\[1.5pt]
+  \Num{22} &  \eesc{\textbf{if} }rc\eesc{ == \textsc{Some} }w\eesc{
+    \textbf{then} \textbf{return} } w\eesc{;}        & 
+  \\
+  \Num{23} & \sspec{~
+     \exists \g'~\gd\ldot \hpriv \spts \hempty ~\sep~
+     \histso{\hfc}{\gd, -, \g'} \aand \noreqs{\tid} \aand 
+     \g \pre \g' \aand
+     \fspec{f}~x~\res~\g'~\gd 
+   ~} &
+  \\[1.5pt]
+  \Num{24} &  \eesc{\textbf{else}}        & 
+  \\
+  \Num{25} & \sspec{~\hpriv \spts \hempty ~\sep~
+    \hfc \spts (\set{\tid}, \lockNown, \pcmU) \aand \requested{\tid, f, x, \g} ~} & 
+  \\[1.5pt]
+  \Num{26} &  \eesc{\textbf{return} loop();\}();}        & 
+  \\
+  \Num{27} & \sspec{~
+     \exists \g'~\gd\ldot \hpriv \spts \hempty ~\sep~
+     \histso{\hfc}{\gd, -, \g'} \aand \noreqs{\tid} \aand 
+     \g \pre \g' \aand
+     \fspec{f}~x~\res~\g'~\gd 
+   ~} & 
+\end{array}
+}
+\]
+%
+\caption{Proof outline for \code{flatCombine} specification~\eqref{eq:fc-spec}.}
+\label{fig:flatco-proof}
+\end{figure}
+
+The assertion in line~3 serves as a loop invariant for lines
+4--26. Right after entering the loop, the thread tries to acquire the
+shared resource by calling $\aact{tryLock}\eesc{()}$ in
+line~6. $\aact{tryLock}$ transfers the ownership of the heap $h_r$ from
+$\fccon$ to $\privcon$'s self-part (hence, its concurroid is
+$\privcon\entangle\fccon$) along with establishing the assertion
+$\Locked$ and invariant $I~\gall~h_r$.
+%
+In the spec of $\aact{tryLock}$ below, $\gall$ is a cumulative
+auxiliary value of $\fccon$. Notice that this value is stable under
+interference.
+%
+% Notice that this value is stable throughout the execution of the
+% combiner.
+%
+The environment threads may collect their entries from $\gp$, and move
+them to their self components, but they can't change the sum total
+$\gall$.
+%
+\[
+%\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:trylock}
+{\small
+\hspace{-8pt}
+\begin{array}{c}
+\spec{
+\begin{array}{c}
+\hpriv \spts \hempty ~\sep~ 
+\hfc \spts (\set{\tid}, \lockNown, \pcmU) \aand \requested{\tid, f, x, \g}
+\end{array}
+}
+\\[4pt]
+\aact{tryLock}()
+\\[2pt]
+\spec{
+\begin{array}{c}
+  \res = \True \aand  \exists h_r~\gall\ldot \hpriv \spts h_r  \aand I~\gall~h_r
+  ~\sep~ \lhr{\tid, f, x, \g, \gall} \\
+  \oor~ \res = \False \aand \hpriv\spts\hempty ~\sep~ \hfc \spts
+  (\set{\tid}, \lockNown, \pcmU) \aand \requested{\tid, f, x, \g}    
+\end{array}
+}
+\end{array}
+}
+\]
+%
+%\vspace{-5pt}
+%
+\[
+%\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:lhr}
+{\small
+\begin{array}{r@{\ }c@{\ }l}
+  \lhr{\tid, f, x, \g, \gall} & \eqdef & \locked{\tid, \gall} \aand \requested{\tid, f, x, \g}
+\\[5pt]
+  \locked{\tid, \gall} & \eqdef & \exists \gO\ldot \hfc \spts (\set{\tid}, \lockOwn, \pcmU) \aand \hfc \opts (-,-,\gO) \aand \gall
+  = \jjoin{i}\gp[i] \join \gO
+\end{array}
+}\]
+% 
+%
+The assertion on line~7 serves as a loop invariant for the ``combiner
+loop'' of lines~8--18.
+%
+%
+The action $\aact{readReq}(i)$ in line~10 returns the contents of
+$\ap[i]$. The assertion in line~11 is stable since only the combiner
+can change the requests in $\ap$, by replacing them with responses.
+%
+The call $f_i(x_i)$ in line~12 changes the assertion according to the
+spec~\eqref{eq:fspec}, producing the result value $w$ and an auxiliary
+delta $\gd$.
+%
+Calling $\aact{doHelp}(i, w)$ changes the contents of $\ap[i]$ from
+$\Req{f_i}{x_i}$ to $\Resp{w}$ and sets $\gp[i]$ to be $\gd$,
+following the transition $\helptrans$. This changes the cumulative
+value of $\fccon$'s auxiliaries from $\gall$ to $\gall \join \gd$,
+however, the invariant is preserved. Any assertion about $i$'s status
+isn't stable at this point (as nothing prevents $\ap[i]$ and $\gp[i]$
+to be modified according to the transitions of $\fccon$), so we don't
+mention it on line~15.
+%
+The combiner loop invariant on line~17 implies the precondition of the
+$\aact{unlock}$ action invoked on line~18, which releases the lock and
+transfers the ownership of $h_r$ from $\privcon$'s self back
+to~$\fccon$:
+%
+\[
+%\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:unlock}
+{\small
+\hspace{-6pt}
+\begin{array}{c}
+\spec{
+\begin{array}{c}
+  \exists h_r~\gall\ldot \hpriv \spts h_r \aand I~\gall~h_r   
+  ~\sep~ \lhr{\tid, f, x, \g, \gall}
+\end{array}
+}
+\\[4pt]
+\aact{unlock}()
+\\[1pt]
+\spec{
+\begin{array}{c}
+\hpriv \spts \hempty ~\sep~ \hfc \spts (\set{\tid}, \lockNown, \pcmU)
+\aand \requested{\tid, f, x, \g}
+\end{array}
+}@\privcon\entangle\fccon
+\end{array}
+}
+\]
+%
+Regardless of whether the thread managed to be a combiner
+(lines~6--18) or not, it tries to collect its result and the
+contribution on line~20 by calling $\aact{tryCollect}$ action:
+%
+\[
+%\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:unlock}
+{\small
+\begin{array}{r@{\ }c@{\ }l}
+\spec{
+  \begin{array}{c}
+    \hfc \spts (\set{\tid}, \lockNown, \pcmU) \aand \requested{\tid, f, x,\g}
+  \end{array}
+}
+&
+\aact{tryCollect}(\tid)
+&
+\spec{~
+\ack{\tid, f, x, \g, \res}
+~}@\fccon
+\end{array}
+}
+\]
+%
+%\vspace{-2mm}
+%
+\[
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:ack}
+{\small
+\begin{array}{l}
+  \ack{\tid, f, x, \g, r} ~ \eqdef \\
+  ~~~~~r = \None \aand  \hfc \spts (\set{\tid}, \lockNown, \pcmU)
+  \aand \requested{\tid, f, x, \g}~\oor 
+  \\
+  ~~~~~ \exists w~\g'~\gd\ldot 
+  r = \Some{w} \aand \noreqs{\tid} \aand   \g \pre \g' \aand \histso{\hfc}{\gd, -, \g'} \aand \fspec{f}~x~w~\g'~\gd
+\end{array}
+}\]
+%
+Operationally, if the content of $\ap[\tid]$ was $\Resp{w}$,
+$\aact{tryCollect}$ replaces it by $\Done$ and simultaneously flushes
+the content $\gd$ of $\gp[i]$ into the self-component, returning
+$\Some{w}$ as its result; otherwise it returns $\None$ without
+changing anything. The predicate $\Ack$ describes these two possible
+outcomes.
+%
+The rest of the proof goes by branching on the result of
+$\aact{tryCollect}$ (line~22), selecting the appropriate disjunct from
+$\Ack$~\eqref{eq:ack}, and restarting the \code{loop} if $\None$ was
+returned (line~26).
+
+\subsection{A note on the derivation of spec~\eqref{eq:fc-push-spec}}
+
+Strictly speaking, instantiating the specification~\eqref{eq:fc-spec}
+for push yields the postcondition:
+%
+\[{\small
+\spec{
+\begin{array}{c}
+  \exists \hist'~\histd\ldot \hpriv \spts \hempty ~\sep~
+  \histso{\hfc}{\histd, -, \hist'} \aand
+  \hist \pre \hist' \aand
+  \fspec{\push}~e~()~\hist'~\histd
+  \aand \noreqs{\tid}
+\end{array}
+}
+}\]
+%
+but this can be easily weakened into~\eqref{eq:fc-push-spec}. The main
+difficulty is in deriving the assertion $\hist < t$
+in~\eqref{eq:fc-push-spec}'s postcondition. Intuitively, the assertion
+holds because $t$, such that $\histd = t \hpts (l, e::l)$, has been
+taken to be \emph{fresh} \wrt $\hist'$ by definition of
+$\fspec{\push}$~\eqref{eq:push-spec}. Thus, $\hist' < t$, so the
+result follows from $\hist \pre \hist'$.
+

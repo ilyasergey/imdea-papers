@@ -1,0 +1,529 @@
+\section{Background: a review of FCSL}
+\label{sec:background}
+In this section we review the relevant aspects of the previous work on
+Fine-grained Concurrent Separation Logic
+(FCSL)~\cite{Nanevski-al:ESOP14}. We explain FCSL by showing how it
+can be specialized to our novel contribution of specifying concurrent
+objects by means of histories. FCSL has been previously implemented as
+a shallow embedding in Coq; thus our assertions will freely use Coq's
+higher-order logic and datatype definition mechanism.
+%
+%whenever required.
+
+%
+%We will focus on several main aspects of FCSL. First, we illustrate
+%how FCSL allows encoding and enforcing invariant properties of a
+%stateful structure (such as the properties $(i)-(iii)$ in
+%Section~\ref{sec:overview}). Second, we illustrate how specifications
+%in terms of histories are generalized in FCSL to working with
+%arbitrary PCMs. The generality will allow us to compose histories with
+%other specification-level structures in the future examples. Third, we
+%illustrate how structures in FCSL can be composed into larger ones,
+%and the inference rules that support reasoning about composed
+%structures.
+
+%\subsection{Basic connectives}
+%\label{sec:basic-definitions}
+FCSL is a Hoare logic, generalizing CSL, hence its assertions are
+predicates on state. But unlike in CSL where state is a heap, in FCSL
+state may consist of a number of labeled components (sometimes dubbed
+as ``regions'' or ``islands'' in the
+literature~\cite{DinsdaleYoung-al:ECOOP10,Svendsen-Birkedal:ESOP14,Turon-al:ICFP13}),
+each of which may represent state by a different type. If the type
+used by some label is non-heap, then that label encodes auxiliary
+state, used for logical specification, but erased at run time. For
+example, histories are an auxiliary state identified by the label
+$\hps$ in the atomic snapshot example. If we had a program which used
+two different atomic snapshot structures, we may label these by
+$\hps_1$ and $\hps_2$, \etc.
+
+\subsection{Subjectivity}
+The state recorded in labels is further divided across another
+orthogonal axis -- ownership. Each label identifies three different
+chunks of state: self, joint and other portion. The self portion is
+private to the specified thread, and can't be accessed by the other
+threads. Dually, other is private to the environment threads, and
+can't be accessed by the one being specified. Finally, the joint
+section is shared and can be accessed by everyone. The self and other
+portions of any given label have to belong to a common PCM (the joint
+portion, though, is not required to be a PCM element, as it's not a
+subject of a split between threads, as we will see below), and are
+often combined together by means of the $\join$ operation of that
+PCM. Of course, different labels can use different PCMs, and,
+therefore, the points-to assertions are implicitly parametrized with a
+PCM type.
+
+The FCSL assertions reflect the division across these axes. We have
+already illustrated the assertions $\hlabel\,{\spts}\,v$,
+$\hlabel\,{\jpts}\,v$ and $\hlabel\,{\opts}\,v$, which identify the
+self/joint/other component stored in the label $\hps$ of the
+state. These three basic assertions, constraining only one state
+component correspondingly (and leaving the two other unconstrained),
+can be, therefore, combined by the usual propositional connectives,
+such as $\aand$ and $\oor$, as we have already shown in
+Section~\ref{sec:overview}. FCSL further provides two connectives that
+generalize the \emph{separating conjunction} $\lsep$ from separation
+logic, along the two axes of state splitting. We next illustrate the
+\emph{subjective separating conjunction} $\ssep$, and defer the
+discussion of the \emph{resource separating conjunction} $\lsep$ until
+additional technical material has been introduced. The formal
+definitions of all the connectives can be found in
+Appendix~\ref{sec:broccoli}.
+%
+The subjective conjunction $\sstar$ models the division of
+state between concurrent threads upon forking and joining. In
+particular, the parallel composition rule of FCSL is:
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:parcom}
+{\small
+\begin{array}{c}
+\stconc{p_1}{c_1}{q_1}{\ucon} \qquad \stconc{p_2}{c_2}{q_2}{\ucon}\\\hline
+\stconc{p_1 \ssep p_2}{c_1 \parallel c_2}{q_1 \ssep q_2}{\ucon}
+\end{array}
+}
+\]
+Ignoring $\ucon$ and the result types of $c_1$ and $c_2$ for now, we
+describe how $\ssep$ works. In this rule, it splits the pre-state of
+$c_1 \parallel c_2$ into two parts, satisfying $p_1$ and $p_2$
+respectively. The parts contain the same labels, and equal joint
+portions, but the self and other portions are recombined to match the
+thread-relative views of $c_1$ and $c_2$. 
+%
+%
+Concretely, in the case of
+%assertions with 
+one label $\hlabel$, with a PCM $\mathbb U$ and values $a, b, c \in
+\mathbb U$, we have the following implication.
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{sep-star-impl}
+\hspace{-2mm}
+{\small
+\begin{array}{l}
+\hlabel \spts a \join b \aand %\hlabel \jpts h \aand 
+  \hlabel \opts c \implies 
+  (\hlabel \spts a \aand %\hlabel \jpts h \aand 
+   \hlabel \opts b \join c) \ssep 
+  (\hlabel \spts b \aand %\hlabel \jpts h \aand 
+   \hlabel \opts a \join c)
+\end{array}}
+\]
+%
+Thus, if before the fork, the self-state of the parent thread
+contained $a \join b$, and the other-state contained $c$, then after
+the fork, the children will have self-states $a$ and $b$, and the
+other-states $b \join c$ and $a \join c$, respectively.
+%
+In the opposite direction:
+\[\tag{\arabic{tags}}\refstepcounter{tags}\label{sep-star-inverse}
+{\small
+\begin{array}{l}
+(\hlabel \spts a \aand \hlabel \opts c_1) \ssep
+(\hlabel \spts b \aand \hlabel \opts c_2) \implies \hbox{}\\
+\quad \exists c\ldot c_1 = b \join c \aand c_2 = a \join c \aand
+\hlabel \spts a \join b \aand \hlabel \opts c
+\end{array}
+}\] 
+%
+That is, if the state can be subjectively split between two child
+threads so that their other-views are $c_1$, $c_2$ (with self-views
+$a$, $b$), then there exists a common $c$---the other-view of the
+parent thread---such that $c_1 = b \join c$ and $c_2 = a \join c$.  In
+this sense, the rule for parallel composition models the important
+effect that upon a split, $c_1$ becomes an environment thread for
+$c_2$, and vice-versa.
+
+There are a few further equations that illustrate the interaction
+between the different assertions. First, every label contains all
+three of the self/joint/other components. Thus:
+%
+\[\tag{\arabic{tags}}\refstepcounter{tags}\label{spts-opts}
+{\small
+ \hlabel \spts a \iff \hlabel \spts a \aand \hlabel \jpts - \aand \hlabel \opts -
+}\]
+%
+and similarly for $\hlabel \jpts a$ and $\hlabel \opts a$. Also:
+%
+%We commonly encounter assertions of the form $\hlabel \spts a \aand
+%\hlabel \opts -$, where the other-value is existentially
+%abstracted. These can be simplified into $\hlabel \spts a$, and in
+%those cases, (\ref{sep-star-impl} and \ref{sep-star-inverse}) reduce
+%into a bi-implication:
+%We commonly encounter cases when $c$ is existentially abstracted (and
+%hence the conjunct $\hlabel \opts c$ is omitted), in which case, we
+%use the form:
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{biimpl}
+{\small
+%\begin{array}{r@{\ }c@{\ }l}
+%\hlabel \spts a \join b \aand \hlabel \opts c & \implies & (\hlabel \spts a
+%\aand \hlabel \opts c \join b) \ssep (\hlabel \spts b \aand \hlabel \opts c \join a)\\
+\hlabel \spts a \join b \iff \hlabel \spts a \ssep \hlabel \spts b
+%\end{array}
+}\]
+which is provable from (\ref{sep-star-impl}), (\ref{sep-star-inverse})
+and (\ref{spts-opts}).
+
+
+%Both (\ref{sep-star-impl}) and (\ref{biimpl}) generalize in the
+%obvious way to $\sstar$-separated assertions with more than one label.
+
+FCSL also provides a \emph{frame rule}, obtained as a special case of
+parallel composition when $c_2$ is the idle thread, and $p_2 = q_2 =
+r$ is a stable predicate, as usual in fine-grained
+logics~\cite{Feng:POPL09,Vafeiadis:PhD,DinsdaleYoung-al:ECOOP10}.
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:frame}
+\begin{array}[m]{c}
+  \stconc{p}{c}{q}{\ucon}\\\hline
+  \stconc{p \ssep r}{c}{q \ssep r}{\ucon}
+\end{array} \quad \mbox{$r$ stable under $\ucon$}
+\]
+
+We illustrate the frame rule by deriving from the \code{readPair}
+spec~(\ref{eq:pair-spec-read}) a relaxed spec which allows
+\code{readPair} to apply when the calling thread has non-trivial self
+history $\histS$:
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:pair-spec-read-framed}
+{\small
+\hspace{-3mm}
+\begin{array}{r@{\ }c@{\ }l}
+\spec{~ \histso{\hps}{\histS, -, \hist} ~} 
+&\Cmd{readPair}{} & 
+\spec{\begin{array}{l}
+  \exists \histO\ t\ldot
+    \histso{\hps}{\histS, \histO, \hist} \aand \tau \le t \aand \hbox{}\\
+    \quad \inat{\angled{\res.1, \res.2, -}}{(\histS \hunion \histO)}{t}
+  \end{array}
+}
+\end{array}
+}
+\]
+Note that (\ref{eq:pair-spec-read-framed}), when compared to
+(\ref{eq:pair-spec-read}), changes the self component from $\hempty$
+to $\histS$, but also ${\histO}[t]$ changes into ${(\histS \hunion
+  \histO)}[t]$. The latter accounts for the possibility that the
+returned snapshot may have been recorded in $\histS$ as a consequence
+of the thread itself changing $x$ or $y$, immediately before invoking
+\code{readPair}.
+
+The spec (\ref{eq:pair-spec-read-framed}) derives from
+(\ref{eq:pair-spec-read}) by framing with the predicate $r = \hps
+\spts \histS$. $r$ is trivially stable, as it describes self-state,
+which is inaccessible to the interfering threads. We only show how to
+weaken the framed postcondition of (\ref{eq:pair-spec-read}) to the
+postcondition in (\ref{eq:pair-spec-read-framed}); the preconditions
+can be strengthened similarly. Abbreviating $\hist \pre \histO \aand
+\hist \le t \aand \inat{\angled{\res.1, \res.2, -}}{\histO}{t}$ by
+$P(\histO)$, which is a label-free (\ie, pure) assertion, and thus
+commutes with $\ssep$, we get:
+%\[
+%{\small
+%\begin{array}{l}
+%(\hps \spts \hempty \aand \hps \opts \histO \aand \hist \pre \histO \aand \hist \le t \aand 
+% \inat{X}{\histO}{t}) \ssep (\hps \spts \histS) \implies \hbox{}\\
+%\quad\mbox{by (\ref{spts-opts}) and commuting out label-free assertions}\\
+%(\hps \spts \hempty \aand \hps \opts \histO) \ssep (\hps \spts \histS \aand \hps \opts -) \aand \hbox{}\\
+%\hspace{3cm}\hist \pre \histO \aand \hist \le t \aand  \inat{X}{\histO}{t} \implies \mbox{by (\ref{sep-star-inverse})}\\
+%\exists \histO'\ldot \histO = \histS \hunion \histO' \aand 
+%\hps \spts \histS \aand \hps \opts \histO' \aand \hist \pre \histO \aand \hist \le t \aand \inat{X}{\histO}{t} \implies \hbox{}\\
+%\quad\mbox{by substituting $\histO$}\\
+%\exists \histO'\ldot \histso{\hps}{\histS, \histO', \hist} \aand \hist \le t \aand \inat{X}{(\histS \hunion \histO')}{t}.
+%\end{array}
+%}
+%\]
+\[
+{\small
+\begin{array}{l}
+(\hps \spts \hempty \aand \hps \opts \histO \aand P(\histO)) \ssep (\hps \spts \histS) \implies \mbox{by (\ref{spts-opts}) and $P$-pure}\\
+(\hps \spts \hempty \aand \hps \opts \histO) \ssep (\hps \spts \histS \aand \hps \opts -) \aand P(\histO) \implies \mbox{by (\ref{sep-star-inverse})}\\
+\exists \histO'\ldot \histO = \histS \hunion \histO' \aand 
+\hps \spts \histS \aand \hps \opts \histO' \aand P(\histO) \implies \mbox{by substituting $\histO$}\\
+\exists \histO'\ldot \histso{\hps}{\histS, \histO', \hist} \aand \hist \le t \aand \inat{\angled{\res.1, \res.2, -}}{(\histS \hunion \histO')}{t}.
+\end{array}}
+\]
+Intuitively, in~\eqref{eq:pair-spec-read-framed} the frame history
+$\histS$ is ``subtracted'' from the other-history $\histO$ of
+(\ref{eq:pair-spec-read}), and moved to the self-history, illustrating
+one important difference between the frame rule of FCSL and that of
+CSL. In FCSL, the frame is always subtracted from the other component,
+whereas in CSL it simply materializes out of nowhere. On the flip
+side, CSL doesn't consider the other component, and can't easily
+express a spec such as~\eqref{eq:pair-spec-read}.
+%At the same time, the result $\histO'$ of the subtraction is
+%existentially quantified.
+
+\subsection{Concurroids}
+\label{sec:concurroids}
+
+We now turn to the component $\ucon$ of the FCSL specs, which is
+called \emph{concurroid}. Concurroids are responsible for enforcing
+the invariants on the evolution of the state. For example, the
+properties $(i)${--}$(iii)$ in Section~\ref{sec:overview} will be
+enforced by defining an appropriate concurroid to govern the
+pair-snapshot structure. Thus, concurroids formally represent
+concurrent data structures, over which the programs operate.
+
+A concurroid is (a form of) a state transition system (STS). It's a
+quadruple $\ucon = ({L}, W, I, {E})$ where: (1) $L$ is a set of
+labels, identifying different data structures; (2) $W$ is a set of
+admissible states (alternatively, an FCSL assertion); (3) $I$ is the
+set of \emph{internal transitions} on $W$; (4) $E$ is a set of pairs
+$(\alpha, \rho)$, where $\alpha$ is a \emph{heap-acquiring} and $\rho$
+is a \emph{heap-releasing} transition, collectively called
+\emph{external} transitions. The internal transitions are relations on
+states, describing how a state of the STS evolves in one atomic
+step. The external transitions serve for transfer of state
+ownership. The concurroids thus bound the moves of the concurrent
+programs that operate on a data structure, and therefore represent a
+structured form of rely/guarantee transitions from Rely/Guarantee
+logics~\cite{Feng-al:ESOP07,Vafeiadis:PhD,Jones:IFIP83,Feng:POPL09,Vafeiadis-Parkinson:CONCUR07}. We
+next illustrate concurroids by example.
+
+\paragraph{Pair-snapshot concurroid.}
+Given a label $\hps$, pointers $x$, $y$, and the type $A$ of the
+accessible contents of $x$ and $y$, the concurroid for the
+pair-snapshot structure is ${\pscon} = (\{\hps\}, W_{\pscon}, \{wr_x,
+wr_y, \id\}, \emptyset)$.
+%
+The set of states $W_{\pscon}$ is described below. We assume that
+$\histS, \histO$ are histories, $c_x, c_y\,{:}\,A$ and $v_x,
+v_y\,{:}\,\mathsf{nat}$, and are implicitly existentially quantified.
+%
+%\vspace{-5pt}
+%
+\[
+{\small
+\begin{array}{l@{\ }c@{\ }l}
+W_{\pscon} & \eqdef & \hps \spts \histS \aand \hps \jpts (x \hpts (c_x, v_x) \hunion y \hpts (c_y, v_y)) \aand \hps \opts \histO \aand \hbox{}\\
+    & & \mbox{$\histS$, $\histO$ satisfy $(ii)-(iii)$}, \mbox{$\histS \hunion \histO$ is continuous, and}\\
+    & & \mbox{if $t = \last{\histS \hunion \histO}$, then $(\histS \hunion \histO)[t] = (c_x, c_y, v_x)$}
+\end{array}
+}
+\]
+%
+A state in $W_{\pscon}$ consists of the auxiliary part, which are
+histories in the self and other components, and concrete part, which
+is a joint heap, storing pointers $x$ and $y$, with accessible
+contents $c_x, c_y$, and version numbers $v_x, v_y$,
+respectively.\footnote{Notice the overloading of the $\hpts$ notation
+  for singleton heaps and histories.}
+%
+It requires several additional properties of the auxiliary
+histories. First, the combined history $\histS \hunion \histO$ is
+continuous; that is, adjacent timestamps have matching states. Second,
+the last timestamp in $\histS \hunion \histO$ correctly reflects
+what's stored in $x$ and $y$. Finally, $W_{\pscon}$ also bakes in the
+properties $(ii)-(iii)$ required in the proof outline of
+\code{readPair}, so the specification~\eqref{eq:pair-spec-read} and
+its proof were, in fact, carried out in the concurroid context
+$@\pscon$, which was omitted.
+
+The internal transitions $wr_x$ and $wr_y$ synchronize the changes to
+$x$ and $y$ with histories. The transitions operate only on self and
+joint portions of the state, and the other-portion, $\histO$, is fixed
+(\cf\ notation (\ref{spts-opts})). That is, the transitions
+essentially define the concurroid's Guarantee. In both transitions,
+$\tfr{\histS \hunion \histO}$ is the smallest timestamp unused by
+$\histS$ and~$\histO$.
+%
+%\vspace{-5pt}
+%
+\[ 
+{\small 
+  \begin{array}{l@{\ }c@{\ }l@{\ }c}
+    wr_x & \eqdef &\hps \jpts (x \hpts (c_x, v_x) \hunion y
+    \hpts (c_y, v_y))  \aand 
+    \hps \spts \histL ~~~~~\rightsquigarrow \\
+    & &
+    \hps \jpts (x \hpts (c'_x, v_x + 1) \hunion y \hpts (c_y, v_y) \aand \hps \spts \histL \hunion \tfr{\histS \hunion \histO} \hpts (\angled{c_x, c_y, v_x},\angled{c'_x, c_y, v_x+1})
+    \\
+    wr_y & \eqdef & \hps \jpts (x \hpts (c_x, v_x) \hunion y
+    \hpts (c_y, v_y)) \aand \hps \spts \histL ~~~~~\rightsquigarrow \\
+    && \hps \jpts (x \hpts (c_x, v_x) \hunion y \hpts (c'_y, v_y
+    +1) \aand \hps \spts \histL \hunion \tfr{\histS \hunion \histO} \hpts (\angled{c_x, c_y, v_x},\angled{c_x, c'_y, v_x})
+    \end{array}
+}\] 
+%
+The first conjunct after $\rightsquigarrow$ in $wr_x$ (and $wr_y$ is
+similar) allows that the version number of $x$ can only increase by 1
+in an atomic step. The second conjunct shows that simultaneously with
+the change of $x$, the snapshot of the changed state is committed to
+the self-history of the invoking thread.
+%
+Together, $wr_x$ and $wr_y$ ensure that histories only grow, and only
+by adding valid snapshots; \ie, precisely the property $(i)$ from
+Section~\ref{sec:overview}.
+%
+
+$\ucon$ also contains the identity transition $\id$, whose presence
+enables programs that don't modify the state at all. In the
+pair-snapshot example, these are the \code{readX} and \code{readY}
+actions, and the \code{readPair} method.  The pair-snapshot example
+doesn't involve ownership transfer, so $\pscon$ has no external
+transitions, but these will be important in the forthcoming examples.
+
+\paragraph{Entanglement and private heaps.} 
+Larger concurroids may be constructed out of smaller ones. A
+particularly common construction is
+\emph{entanglement}~\cite{Nanevski-al:ESOP14}. Given concurroids
+$\ucon$ and $\vcon$, the entanglement $\ucon \entangle \vcon$ is a
+concurroid whose state space is the Cartesian product $W_{\ucon}
+\times W_{\vcon}$, and the transitions allow the $\ucon$ portion to
+perform a $\ucon$ transition, while the $\vcon$ portion remains idle,
+and vice-versa. Additionally, $\ucon$ and $\vcon$ portions can
+communicate to \emph{transfer a heap} between themselves, by having
+one take a heap-acquiring, and the other \emph{simultaneously} taking
+a heap-releasing transition.
+
+The most common is the entanglement with the concurroid $\privcon$ of
+\emph{private heaps} (see
+Appendix~\ref{sec:conc-priv-heaps}). Entangling with $\privcon$ lets
+the concurroids temporarily move heaps to a private section, via the
+communication discussed above, where threads may then perform the
+customary operations of reading, writing, allocating, and deallocating
+pointers, without interference.\footnote{Our Coq proofs actually use
+  two different concurroids, one for reading/writing, another for
+  allocation/deallocation, which we entangle to provide all four
+  operations. For simplicity, here we assume a monolithic
+  implementation.}
+%
+$\privcon$ comes with a dedicated label $\hpriv$. As an illustration,
+the following assertion may describe one possible state in the state
+space of the entanglement $\privcon \entangle \pscon$ with the
+snapshot concurroid.
+%
+%\vspace{-8pt}
+%
+\[
+{\small
+\begin{array}{c}
+\hpriv \spts (z \hpts 0) \lsep \hps \jpts (x \hpts (c_x, v_x) \hunion
+y \hpts (c_y, v_y))
+%\vspace{-7pt}
+\end{array}
+}
+\]
+%
+%%\vspace{-5pt}
+%
+The $\hps \jpts -$ portion describes the part of the state coming from
+$\pscon$, which is joint, containing pointers $x$ and $y$, as
+explained before. The $\hpriv \spts (z \hpts 0)$ describes the part of
+the state coming from $\privcon$. In this case, it contains a heap
+with a single pointer $z$. The heap is private, \ie, owned by the self
+thread, so $z$ can't be modified by other threads.
+%
+Notice that the assertions about $\hpriv$ and $\hps$ are separated by
+the resource separating conjunction $\lsep$, which splits the state
+into portions with disjoint labels and heaps. In this particular case,
+it signifies that the labels $\hpriv$ and $\hps$ are distinct, as are
+the pointers $z$, $x$~and~$y$.
+
+%
+%Moreover, heaps can be transfered to $\privcon$ from the other
+%components of the entanglement, thus becoming private, or out of
+%$\privcon$, when the private status of the heap is not desired
+%anymore.
+
+\newcommand{\inject}[1]{[#1]}
+
+\subsection{Extending and hiding concurroids}
+Concurroids represent concurrent data structures; thus it's important
+to be able to introduce and eliminate them. FCSL provides two
+programming constructors (both no-ops operationally), and
+corresponding inference rules for that purpose. For completeness, we
+introduce them here, but postpone the illustration until
+Section~\ref{sec:examples}.
+
+The injection rule shows that if a program is proved correct with
+respect to a smaller concurroid $\ucon$, then it can be extended to
+$\ucon \entangle \vcon$, without invalidating the proof.
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:inject}
+\begin{array}{c}
+ \stconc{p}{c}{q}{\ucon}\\\hline
+ \stconc{p \lsep r}{\inject c}{q \lsep r}{{\ucon} \entangle {\vcon}}
+\end{array} \quad \mbox{$r \subseteq W_{\vcon}$ stable under $\vcon$}
+\]
+%
+This is a form of framing rule, along the axis of adding new
+resources. The operator $\lsep$ splits the state into portions with
+disjoint labels, and the side-condition that $r \subseteq W_{\vcon}$
+forces $r$ to remove the labels of the concurroid $\vcon$, so that $c$
+is verified \wrt~the labels of $\ucon$. The program constructor
+$\inject -$ is a coercion from $\ucon$ to ${\ucon} \entangle {\vcon}$.
+
+Hiding is the ability to introduce a concurroid $\vcon$, \ie, install
+it in a private heap, for the scope of a thread $c$. The children
+forked by $c$ can interfere on $\vcon$'s state, respecting $\vcon$'s
+transitions, but $\vcon$ is hidden from the environment of $c$, To the
+environment, $\vcon$'s state changes look like changes of the private
+heap of $c$. Upon termination of $c$, $\vcon$ is deinstalled.
+%
+\begin{gather*}
+{\small
+\begin{array}{c}
+{\stconc{\hpriv\spts h \lsep p}{c}{\hpriv\spts h' \lsep q}{(\privcon
+    \entangle {\ucon}) \entangle {\vcon}}} 
+\\ \hline
+{\stconc{\Psi\ g\ h \lsep (\Phi\,(g) \wand p)}{\mathsf{hide}_{\Phi, g}\ c}{\exists g'. \Psi\ g'\ h' \lsep (\Phi\,(g') \wand q)}{\privcon \entangle \ucon}}
+\end{array}
+}
+\\
+\tag{\normalsize\arabic{tags}}\refstepcounter{tags}\label{eq:hide-rule}
+{\small
+\mbox{where}\ \Psi\ g\ h = \exists k{:}\mathsf{heap}.\, \hpriv \spts {h \hunion k} \aand \Phi\,(g)\ \mbox{erases to}\ k
+}
+\end{gather*}
+
+%\[
+%\begin{array}[t]{c}
+%  {\stconc{\hpriv\spts h_1 * r * \Phi\ g_1}{C}{\hpriv\spts h_2 * q * \Phi\ g_2}{P \entangle (U \apart V)}}\\\hline
+%  {\stconc{\hpriv \spts {h_1 \hunion x_1} * r \aand \Phi g_1 \downarrow x_1}{\mathsf{hide}_{\Phi} C}{\hpriv \spts {h_2 \hunion x_2} * q \aand \Phi g_2 \downarrow x_2}{P \entangle U}}
+%\end{array}
+%\]
+%\an{Here's where the point-free notation may look attractive. We can
+%  define $\Psi$ simply as $\mathsf{this}\ h \lsep_\pi \Phi\
+%  g\downarrow$ and save one existential.}  
+%
+%
+Since installing $\vcon$ consumes a chunk of private heap, the rule
+requires the overall concurroid to support private heaps, \ie, to be
+an entanglement of $\privcon$ with an arbitrary $\ucon$. In programs,
+we use the coercion $\mathsf{hide}\ c$ to indicate the change from
+$(\privcon \entangle {\ucon}) \entangle {\vcon}$ to $\privcon
+\entangle \ucon$. If $\ucon$ is of no interest, one can take it to be
+the empty concurroid $\econ$, which is a right unit for $\entangle$
+(see Appendix~\ref{sec:empty-concurroid}).
+
+The annotation $\Phi$ is a predicate; it describes an invariant that
+holds within the scope of $\mathsf{hide}$, parametrized by an
+argument. It's subject to a number of conditions (see
+Appendix~\ref{sec:phi-properties}). $g$ is the initial argument, so
+$\Phi(g)$ holds in the initial state into which $\vcon$ is placed upon
+installation. The rule guarantees that the ending state of $c$
+satisfies $\exists g'\ldot \Phi(g')$. The surrounding connectives
+$\lsep$ and $\wand$ merely mediate between $\ucon$, $\vcon$, and the
+erasure of $\vcon$ to heaps. We explain the precondition, and the
+postcondition is similar.
+
+In the precondition, $*$ separates private heaps from $\ucon$, and
+$\Psi$ requires that every state in $\Phi(g)$ obtains the same private
+heap when the auxiliary fields are erased. $\wand$ is inherited from
+separation logic. $\Phi(g) \wand p$ says that if the initial state
+(which is in $W_{\ucon}$) is extended with a state from $\Phi(g)$
+(which is in $W_{\vcon}$), then the result is a state satisfying
+$p$. In other words, if a state satisfying $\Phi(g)$ is installed in
+the initial state of $c$, while its heap footprint is removed from the
+private heaps, then $c$'s precondition is satisfied.
+
+% In the formal FCSL reasoning, all ``relevant'' concurroids, whose
+% state is being affected or examined by the program being verified,
+% should be mentioned explicitly and concretely, similarly to
+% Rely/Guarantee-style reasoning. The ``irrelevant'' concurroids can be
+% (and usually are) "framed away" by means of the
+% rule~\eqref{eq:inject}.

@@ -1,0 +1,166 @@
+===========================================================================
+                           PLDI '16 Review #105A
+---------------------------------------------------------------------------
+Paper #105: Subjective Hoare-style Specifications as Correctness Conditions
+            for Non-linearizable Concurrent Objects
+---------------------------------------------------------------------------
+
+                 Reviewer expertise: Z. Some familiarity
+                      Overall merit: C. Weak paper, though I will not fight
+                                        strongly against it
+
+                         ===== Paper summary =====
+
+This paper describes a Hoare-style logic suitable for proving
+correctness properties of data structure libraries that do not simply
+provide a set of linearizable functions.  This is illustrated largely
+by applying the logic to two such data structures:
+java.util.concurrent Exchangers and a counting network.
+
+                      ===== Comments for author =====
+
+As far as I can tell, with somewhat limited expertise, this is
+correct, and useful for some machine-checked verification problems.
+But it seems to me that the original intuitive nature of Hoare Logic
+has fallen somewhere by the way side; this seems unlikely to be useful
+for the kind of informal reasoning for which I often see Hoare Logic
+used.  This feels a lot more like we're explicitly reasoning about
+thread traces.
+
+To me this result feels narrow enough that it would be more at home at
+a dedicated verification conference than PLDI.  I also suspect that
+the paper is accessible to a small fraction of the PLDI audience.
+
+Much of the paper is focused on two examples, and that's probably
+fundamentally a good thing.  Unfortunately, neither example struck me
+as particularly fundamental.
+
+I don't think Exchangers are one of the more commonly used
+j.u.c. classes.  Is there a better one?  Is it better to model
+Exchangers as pairs of linearizable operations
+(arrive/test-for-completion-returning-result)?  That seems somewhat
+standard for blocking operations.  Do more conventional Hoare logic
+techniques then work?
+
+Counting networks seem more attractive at the hardware level.  At the
+software level, it seems that flip needs to be implemented as atomic
+or, which has the same cost as an atomic add. Thus they seem a bit
+contrived.  Other kinds of distributed (e.g. aggregate per thread, and
+occasionally merge into a global) counters are common, but have very
+different properties.
+
+Details:
+
+Page 2: "interfering thread try to fill"
+
+The memory leak discussion doesn't seem correct, given that you
+started out talking about garbage-collected languages.
+
+The sleep(50) in Figure 1 makes this look like a toy.  This is clearly
+an unacceptable implementation for any real use.  Is there an easy way
+to make it somewhat realistic?
+
+Page 8: "with a N concurrent calls"
+
+===========================================================================
+                           PLDI '16 Review #105B
+---------------------------------------------------------------------------
+Paper #105: Subjective Hoare-style Specifications as Correctness Conditions
+            for Non-linearizable Concurrent Objects
+---------------------------------------------------------------------------
+
+                 Reviewer expertise: Z. Some familiarity
+                      Overall merit: C. Weak paper, though I will not fight
+                                        strongly against it
+
+                         ===== Paper summary =====
+
+I had a very difficult time understanding the motivation, key
+insights, and major new ideas in this paper.
+
+The paper describes a new formalism and proof of a useful data
+consistency/correctness property for non-linearizable data structures.
+The paper focuses on a data structure / module called an exchanger and
+another called a counting network.  The authors use their formalism to
+describe the two kernels and then to show that their new formalism is
+a unified description language that allows them to prove correctness.
+
+The authors describe a Coq proof that leverages the formalism to show
+some useful correctness properties for the code they studied. The
+evaluation characterizes the mechanized proof experience.
+
+                      ===== Comments for author =====
+
+Proving correctness properties for complex, non-linearizable
+structures is important for making software verifiably correct.  The
+problem is a good one and, from what I understood, this paper is a new
+look at this old problem.  A unified formalism that helps prove many
+different kinds of properties about many different kinds of structures
+seems like a valid contribution.
+
+I had a lot of trouble understanding this paper.  The descriptions of
+the structures you formalized (the exchanger and the counting network)
+were hard to follow -- I wasn't clear after several readings what the
+purpose or mechanism behind the exchanger was.  That understanding is
+pretty central to the remainder of the paper and the exposition got in
+the way here.
+
+The formalism and its associated jargon were opaque and it was
+difficult to piece out what was ad hoc, what was new and fundamental,
+and what was reused from prior work.
+
+From this description, which read a little bit like a pair of use
+cases, rather than a general study, I wasn't sure that the ideas
+generalize.  How broadly applicable is this technique to other types
+of structures?  Are there classes of structures to which this new kind
+of reasoning does not work?  Getting across an idea of how useful this
+is in general would be helpful.
+
+===========================================================================
+                           PLDI '16 Review #105C
+---------------------------------------------------------------------------
+Paper #105: Subjective Hoare-style Specifications as Correctness Conditions
+            for Non-linearizable Concurrent Objects
+---------------------------------------------------------------------------
+
+                 Reviewer expertise: X. Expert
+                      Overall merit: C. Weak paper, though I will not fight
+                                        strongly against it
+
+                         ===== Paper summary =====
+
+This paper presents a proof technique for non-linearizible concurrent
+objects. The approach is a derivative of FCSL (fine grain concurrent
+separation logic) [33]. The approach is based on subjective auxiliary
+state, where the spec of one thread can refer to local state of other
+threads.
+
+Overall, I suspect there is an interesting Coq proof behind this
+paper.
+
+Hopwever, the distillation of that proof into this paper is not
+particularly accessible or crisp, which made it extremely difficult to
+read and understand this paper.
+
+A  second concern I have with this paper is that, with any proof
+methodology, a key question is how useful are how general it is.In
+this particular case, this methodology has been used to verify five
+subtle but rather small programs, such as the exchanger, which is 17
+lines of code.
+
+                      ===== Comments for author =====
+
+ Section 2.2 seemed quite fuzzy. Could you please include a figure
+ summarizing the formalism, including the names and types of all of
+ these meta-variables.
+
+What is the type of {\cal E}. Is it the same as {\cal R}?
+
+ Section 3 suggests that the correctness criteria depends on a
+ property that is verified by a type checker, without the only mention
+ of the type checker in the entire paper, so I'm a little unclear as
+ to what exactly is verified here.
+
+"Our goal is to prove, out of (2), that the parallel composition
+e = ex seq (vs1, nil) ∥ ex seq (vs2, nil)" --  Is there some implicit
+assumption that the two lists of the same length here?

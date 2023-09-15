@@ -1,0 +1,83 @@
+===[Reviewer1]===
+
+Main concerns:
+
+-What about dynamic locks?
+
+Dynamic locks can be encoded without extension, though we haven't done
+so yet. One needs a concurroid having a "pool of locks" in its joint
+part, so they are moved to self/other components when allocated and
+returned back when disposed. The concurroid is created in a scoped
+manner, but its locks aren't lexically scoped.
+
+-How to split auxiliary state?
+
+Human prover chooses the split, similar to how * splits heaps in CSL.
+
+-Is entanglement associative?
+
+No, but there's an operator × st. (U⋊V1)⋊V2=U⋊(V1×V2).
+
+-Why check stability for RET?
+
+Indeed, it may be possible to assign RET the unit concurroid, for
+which every assertions is trivially stable. But we haven't tried that.
+
+-What about generalized HIDE rule, not mentioning P?
+
+This is possible (Appendix F2).
+
+===[Reviewer2]===
+
+Good examples of quantification over capabilities and transferring
+their ownership are CAP proofs of ticketed locks and, especially,
+concurrent sets. With subjectivity, the definitions and proofs are
+much more minimal ([11] for sets, Appendix E for ticketed locks).
+
+FCSL considers uniform abstractions for composition of concurroids,
+whereas other approaches aren't focused on composition (as the
+reviewer concedes). One pleasant outcome is that private state becomes
+just another resource. Another is that FCSL allows atomic actions that
+span several concurroids, to synchronize changes to their state. The
+latter isn't possible in CaReSL or CAP (though is, in HOCAP, via
+view-shifts).
+
+Instead of stability checks in FCSL, one may stabilize assertions by
+composing them with environment stepping, which the reviewer refers to
+wrt. CaReSL. We can mention this, but in our experience, this doesn't
+change the proofs. The same obligations reappear in proofs out of
+stabilized hypotheses.
+
+Thanks for explaining the trick of hiding via emptying regions; we
+haven't noticed it before. Nevertheless, it seems to come with a price
+of adding new layers of token encoding and terminal regions lingering
+forever.
+
+===[Reviewer3]===
+
+-Will PCMs work for stacks/queues?
+
+We just discovered how to use PCMs and subjectivity on ADTs:
+mentioning "other" in assertions obviates the need for prophecy
+variables. But this is a separate topic.
+
+-Should one redefine external transitions depending on the usage of
+ the concurroid?
+
+We can strive for "most general specification", but it's not clear it
+always exists. If the concurroid usage is unclear upfront, one can
+parametrize. Eg, the Lock concurroid, its transitions and actions, are
+parametrized by resource invariants.
+
+-Logic soundness has only been proved on paper.
+
+Soundness is proved in Coq. File model.v defines denotational
+semantics for constructs and ascribes them types corresponding to
+rules in Fig2. These type ascriptions require proofs, and together
+establish soundness. The proofs employ lemmas 9-14 themselves proved
+in always.v. Rules/types in the implementation differ somewhat from
+Fig2, facilitating encoding in Coq: (1) they use binary posts, (2)
+pres/posts are in higher-order logic over heaps and PCMs, instead of
+notation from Fig1, (3) they infer weakest-pres/strongest-posts, (4)
+assertions are stabilized. However, the correspondence between the
+implementation and Fig2 is straightforward, but established by hand.

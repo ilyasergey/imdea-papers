@@ -1,0 +1,77 @@
+We thank the reviewers for the detailed feedback and respond to their
+questions and main concerns.
+
+[Reviewer 1]
+
+(*) The encoding of history and linearizability in this paper is
+  specific to snapshot algorithms, can it be modified to match
+  linearizability more generally? How general is this proof method,
+  what other kinds of algorithms can it prove? How much of this work
+  can be reused in proving another algorithm with dynamic LPs?
+
+We could have given a specification to the snapshot methods that is
+more linearizability-like by tracking scan events in histories, in
+addition to write events. However, we decided for the more streamlined
+specification to showcase that the method offers unusual flexibility.
+
+As for the generality, we believe that the gist of the technique,
+keeping a logical ordering of atomic events which can be modified in
+place to reflect dynamic or speculative behavior is simple yet
+powerful enough to tackle the verification of linearizable data
+structures in general.
+
+As a first step, we have sketched the proofs of the Herlihy-Wing queue
+[19] on paper using the "linking in time" approach, and the same
+concepts distilled in the paper appeared again (e.g, color patterns,
+internal logical ordering, registering and forwarding of events, and
+most importantly, relinking). We are currently implementing this in
+Coq. However, it remains future work to see how these concepts could
+be developed as a reusable library.
+
+[Reviewer 2]
+
+(*) "Write coherence" example.
+
+Indeed v1=(2,_) /\ v2=(1,_) is not a valid postcondition of the
+composition. Let us call this postcondition H. Assuming H were valid,
+it creates a contradiction as follows. Let us assume that t2 is a
+timestamp for write (x,2) and t1 is the timestamp for write (x,1). In
+the absence of interference, we infer from H that the timestamp that
+determines the snapshot v2 must be the one of the event write (x, 1),
+i.e. t1. Similarly for v1 and t2. Now, from the sequence of writes on
+the left, one derives that t1 \Omega t2 and t1 <> t2 by sequential
+reasoning (since each write allocates a fresh timestamp). However, the
+sequence of scans on the right entails that t2 \Omega t1. By
+anti-symmetry of \Omega, then it must be t1 = t2, which is a
+contradiction.
+
+(*) IRIW-like example.
+
+Indeed one could again prove a contradiction. Let us call t_x0 and
+t_y0 the timestamps for the initial 0 writes on each component, and
+t_x1 and t_y1 the ones for, respectively, the two leftmost write
+events. As in the example above, it must be t_x1 <> t_y1. Now, again
+as above, the observation that v1 = (0,1) entails that t_x0 \Omega
+t_y1 and, specifically, t_y1 \Omega t_x1. Dually, v2 = (1,0), entails
+t_y0 \Omega t_x1 and, specifically, t_x1 \Omega t_y1. Again by
+anti-symmetry, this implies t_x1 = t_y1, which is a contradiction.
+
+We thank the reviewer for these examples.
+
+(*) How specifications compose between objects? Would combining two
+snapshot objects require more auxiliary state to synchronize a shared
+order?
+
+In the particular case of combining two snapshot objects, whether or
+not extra auxiliary state is necessary to reconcile or synchronize
+each snapshot object's order will depend on the specification that one
+has in mind for the combination object.
+
+The histories in \Xi of each of the snapshots objects are disjoint
+pieces of ghost state. Therefore, if the combined specification
+requires a unique linear history, then some extra auxiliary state may
+be necessary to describe how to merge the two histories into the
+combination history of the conglomerate object. We expect that such
+auxiliary state may include information that identifies the origin of
+each event in the first or the second snapshot object, respectively.
+

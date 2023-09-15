@@ -1,0 +1,124 @@
+% \begin{comment}
+% Linearizability is the de facto correctness criterion for reasoning
+% with concurrent fine-grained data-structures. It works by relating the
+% concurrent history of a program with its sequential behaviour. More
+% precisely, for each concurrent history of an object, linearizability
+% requires that there exists a mapping to a sequential history, such
+% that the ordering of matching call/return pairs is preserved either if
+% they are performed by the same thread, or if they do not overlap. To
+% prove linearizability, one usually has to identify linearization
+% points in programs or object methods, showing that this particular
+% point is the single, atomic, point where the effect of the operation
+% occurs.
+
+% However, for certain complex concurrent objects, proving them to be
+% linearizable is not a straightforwards task: the linearization points
+% of their methods are not fixed by the structure of the programs
+% themselves, but rather depend on intricate interactions with the
+% environment. Traditionally, verifying such objects requires a
+% dedicated metatheory, e.g. supporting prophecy variables, capable of
+% reasoning about their highly speculative nature.
+
+% In contrast, in this paper we will present our on-going effort to
+% verify such objects in an existing concurrent Hoare-style logic, FCSL,
+% giving them (and proving) intuitive specifications that hide the
+% speculative reasoning about the environment. We build on the
+% philosophy of FCSL, where by relying upon simple, but powerful,
+% abstractions like partial commutative monoids (PCMs), auxiliary
+% histories, and state transition systems it is possible prove tight
+% specifications for concurrent fine-grained data-structures that
+% resemble those of its sequential counterparts.
+
+% To that end, we introduce re-sortable histories as an abstraction that
+% (i) can be implemented in FCSL off-the-shelf, without changes to the
+% underlying logical framework, and (ii) in combination with other FCSL~
+% features, such as history PCMs, it can internalize speculative
+% reasoning about the concurrent environment, hiding it from the library
+% clients.
+
+% We will illustrate our technique by presenting the mechanization in
+% FCSL of an optimal concurrent-snapshot algorithm originally introduced
+% by Jayanti, whose correctness itself has a highly-speculative nature,
+% relying on non-trivial arguments about its non-fixed linearization
+% points. Furthermore, we will comment on a few interesting details
+% about its mechanization in the Coq proof assistant and discuss its
+% pitfalls and the challenges ahead.
+% \end{comment}
+
+% \begin{comment}
+% Arguments about linearizability of a concurrent data structure are
+% typically carried out by specifying the linearization points of the
+% structure's procedures.
+% %
+% Carrying proofs out of such specification is often cumbersome, as the
+% linearization points' position in time can be \emph{dynamic} and
+% \emph{non-local}: it can depend on the interference, run-time values
+% and events from the past, or even future, and appear in procedures
+% other than the one considered.
+
+% In this paper we propose a new method, based on a separation logic,
+% for reasoning about concurrent objects with such linearization
+% points. The method embraces the dynamic nature of linearization
+% points, and encodes it as part of the structure's \emph{auxiliary
+%   state}, so that it can be dynamically changed by \emph{auxiliary
+%   code}, \emph{in place}.
+
+% We name the idea \emph{linking in time}, because we reason about
+% temporal ordering of events using the same logical features that one
+% would use to reason about spatial linking via pointers in separation
+% logic. Moreover, relying on separation logic to reason about time
+% enables that linearization points of a procedure can be specified
+% locally, even when they may be positioned in other procedures in the
+% classical approach.
+
+% We illustrate the method by verifying an intricate optimal snapshot
+% algorithm due to Jayanti.
+% \end{comment}
+
+Arguments about correctness of a concurrent data structure are
+typically carried out by using the notion of \emph{linearizability}
+and specifying the linearization points of the data structure's
+procedures.
+%
+Such arguments are often cumbersome as the linearization points'
+position in time can be \emph{dynamic} (depend on the interference,
+run-time values and events from the past, or even future),
+\emph{non-local} (appear in procedures other than the one considered),
+and whose position in the execution trace may only be determined after
+the considered procedure has already terminated.
+
+In this paper we propose a new method, based on a separation-style
+logic, for reasoning about concurrent objects with such linearization
+points. We embrace the dynamic nature of linearization points, and
+encode it as part of the data structure's \emph{auxiliary state}, so
+that it can be dynamically modified in place by auxiliary code, as
+needed when some appropriate run-time event occurs.
+%
+We name the idea \emph{linking-in-time}, because it reduces temporal
+reasoning to spatial reasoning. For example, modifying a temporal
+position of a linearization point can be modeled similarly to a
+pointer update in separation logic.
+%
+Furthermore, the auxiliary state provides a convenient way to
+concisely express the properties essential for reasoning about clients
+of such concurrent objects.
+%
+%Or, if a procedure $A$ has a linearization point in procedure B, that
+%can be modeled by $B$ rearranging a list of temporal nodes, without
+%invalidating $A$'s temporal pointers into the list.
+%
+%Or, if a procedure $A$ has a linearization point in procedure B, that
+%can be modeled similarly to $B$ allocating a pointer and then passing
+%it on to $A$.% and can be specified locally.
+%
+% in separation
+%logic. Moreover, relying on separation logic to reason about time
+%enables that linearization points of a procedure can be specified
+%locally, even when they may be positioned in other procedures in the
+%classical approach.
+%
+We illustrate the method by verifying (mechanically in Coq) an
+intricate optimal snapshot algorithm due to Jayanti, as well as some
+clients.
+
+

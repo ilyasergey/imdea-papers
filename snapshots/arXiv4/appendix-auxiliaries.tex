@@ -1,0 +1,138 @@
+\section{Implementation and Correctness of $\aux{relink}$}
+\label{sc:relink-lemmas}
+\def\cat{{\mathbin{+\!\!+}}}
+
+In Section~\ref{sc:implementation}, we described briefly the
+implementation of $\aux{relink}$, without giving much details on the
+auxiliary helper functions $\aux{inspect}$ and $\aux{push}$. We give
+here their definitions, together with some associated properties:
+
+\begin{definition}[inspect]\label{def:inspect}%
+Given two timestamps $t_x$, $t_y$ then $\aux{inspect}\ t_x\, t_y\,
+\ordlist\, \C$ is defined as follows:
+\begin{equation*}
+\aux{inspect}\ t_x\, t_y\ \C\ \eqdef
+\begin{cases}
+  \mathsf{Yes}\ x\ t_z\ \qquad \qquad
+      \begin{array}[t]{l}
+      \textrm{if}\ t_x \tle t_y,\ t_x = \mathsf{last\_green}_\ordlist\ \histx, \\
+       t_z = \mathsf{yellow\_timestamp}_\ordlist\ \histx,\,
+       \textrm{and} \ t_z \tle t_y
+      \end{array} \\[5pt]
+  \mathsf{Yes}\ y\ t_z\ \qquad \qquad
+      \begin{array}[t]{l}
+      \textrm{if}\ t_y \tle t_x,\ t_y = \mathsf{last\_green}_\ordlist\ \histy, \\
+       t_z = \mathsf{yellow\_timestamp}_\ordlist\ \histy,\,
+       \textrm{and} \ t_z \tle t_x
+      \end{array} \\[5pt]
+  \mathsf{No}\hphantom{\mathsf{s}\ x\ t_z}\ \qquad \qquad \textrm{otherwise}
+\end{cases}
+\end{equation*}
+\end{definition}
+
+\begin{definition}[push]\label{def:push}%
+ $\aux{push}$ is a surgery operation defined on $\ordlist$ as
+  follows:
+\[\hfill
+  \textrm{Let}\ \ordlist = \ordlist_{<_i}\ \cat
+  \ i\ \cat\ \ordlist_{i..j}\ \cat\ j\ \cat\ \ordlist_{>_j},\
+  \textrm{then}\
+  \aux{push}\ i\ j\ \ordlist =
+  \ordlist_{<_i} \cat\  \ordlist_{i..j}\ \cat\ j\ \cat\ i\ \cat \ordlist_{>_j}
+  \hfill
+\]
+\end{definition}
+
+The definition of $\aux{inspect}$ works under the assumption that
+$t_x$ and $t_y$ are, respectively, the last green or yellow timestamp
+in $\histx$ and $\histy$. This latter fact is recovered in the
+definition of $\aux{relink}$ in Figure~\ref{fig:auxcode} and
+reinforced in line~21 in the proof of {\jyscan} in
+Figure~\ref{proof:scan}. When $\aux{inspect}$ returns
+$\mathsf{Yes}\ p\, t_z$, $\ordlistP$ is computed by pushing some $i$
+timestamp past another timestamp $j$ in $\ordlist$. The definition of
+$\aux{push}$ above shows that this operation is an algebraic
+manipulation on sequences. In fact, we implement it using standard
+{\it surgery} operations on lists: $\cat$, $\mathsf{take}$, \etc.
+
+In Section~\ref{sc:implementation}, we have mentioned that the
+correctness aspect of auxiliary code involves proving that the code
+preserves the auxiliary state invariants from
+Section~\ref{sc:auxiliaries}. For example, the correctness proof of
+$\aux{relink}$, relies on the following helper lemmas. The first lemma
+asserts that $\aux{inspect}$ correctly determines the ``offending''
+timestamp; the second and the third lemma assert that $\aux{push}$
+modifies $\ordlist$ in a way that allows us to prove (in
+Section~\ref{sc:proof}), that the pair $(r_x, r_y)$ a valid snapshot.
+
+\begin{lemma}[Correctness of $\aux{inspect}$]\label{lem:inspect}
+If $t_x$, $t_y$ are timestamps for write events of $r_x$, $r_y$, then
+$\aux{inspect}\ t_x\ t_y\ \ordlist\ \C$ correctly determines that
+$(r_x, r_y)$ is a valid snapshot under ordering $\tle$ and colors
+$\C$, or otherwise returns the ``offending'' timestamp. More formally,
+if $\sss = \sOff\ \toff, \sx =\TT, \sy =\TT$, and for each $p \in
+\{x,y\}$, $ t_p \hpts (p, r_p) \in \hist$ and $\lgVy\ p\, t_p $, the
+following are exhaustive possibilities.
+
+\begin{enumerate}
+ \item If $t_x \tle t_y$ and $ \C(t_x) = {\sf yellow}$, then
+   $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C =
+   \mathsf{No}$. Symmetrically for $t_y \tle t_x$.
+
+ \item If $ t_x \tle t_y $, $ t_x = \aux{last\_green}\ \histx$, and
+       $\forall s \in \histx\ldot\ t_x \tle s\,{\implies}\,t_y \tle
+       s$, then \\ $\aux{inspect}\ t_x\, t_y\, \ordlist\, \C
+       = \mathsf{No}$. Symmetrically for $t_y \tle t_x$.
+
+ \item If $ t_x <_{\ordlist} t_y $, $ t_x = \aux{last\_green}\ \histx
+   $, $s \in \histx$, and $t_x \tle s \tle t_y$, it follows that
+   $\aux{inspect}\ t_x\, t_y \ordlist \C = \mathsf{Yes}\, x\, s$ and
+   $\C(s) = {\sf yellow}$. Symmetrically for $t_y \tle t_x$.
+\end{enumerate}
+\end{lemma}
+
+\begin{lemma}[Push Mono]\label{lem:push-mono}
+Given elements $a, b, i, j$, all in $\ordlist$, and $\ordlistP =
+\aux{push}\ i\, j\, \ordlist$, then:
+\begin{enumerate}
+\item\label{lem:push:left} If $a \tle i$ then $ a \tle b \implies a
+  \tleP b$.
+\item\label{lem:push:right} If $j \tle b$ then $ a \tle b \implies a
+  \tleP b $.
+\item\label{lem:push:window} If $a \neq i$ then $ a \tle b \implies a
+  \tleP b $
+\end{enumerate}
+\end{lemma}
+
+%% \begin{proof}
+%% First, as $\ordlist$ is used to order timestamps, it contains only
+%% distinct elements. Second, by the definition of $\aux{push}$ above,
+%% the changes in the order $\tle$ can therefore occur only in the
+%% segment $ i\ \cat\ \ordlist_{i..j}\ \cat\ j$ of $\ordlist$.
+%% %
+%% Thus, (\ref{lem:push:left}) and~(\ref{lem:push:right}) are trivial, as
+%% changing the position of $i$ does not affect $a \tle b$. For
+%% (\ref{lem:push:window}), observe that the only relations invalidated
+%% by $\aux{push}$ are those $ i \tle b$, where $b \in
+%% \ordlist_{i..j}\ \cat\ j$. Since $a \neq i$, it follows that $ a
+%% <_{\aux{push}\, i\, j\, \ordlist} b$. \qed
+%% \end{proof}
+
+
+\begin{lemma}[Correctness of $\aux{push}$]\label{lem:push}
+Given $\sss = \sOff\ \toff, \sx = \sy =\TT$, and for $p \in \{x,y\}$,
+we have $t_p \hpts (p, r_p) \in \hist$, $ \lgVy\ p\, t_p$, and
+{$\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = {\sf Yes}\ p\ t_s$}. If we
+name $t_z \in \{ t_x, t_y\}$, with $p \neq z$, and $\ordlist' =
+\aux{push}\ t_s\ t_z\ \ordlist$, then:
+\begin{enumerate}
+ \item $\aux{relink}$ satisfies the 2-state invariants from
+   Invariant~\ref{inv:mono}.
+\item $\histP, \ordlistP, \EP, \CP$ satisfies all the resource
+  invariants from Section~\ref{sc:auxiliaries}, \ie
+  Invariants~\ref{inv:overlap}--\ref{inv:dom-tau}.
+\end{enumerate}
+\end{lemma}
+
+In our mechanization, these three lemmas allow us to prove
+Lemma~\ref{lem:relink-prefix}, $\aux{relink}$'s main property.

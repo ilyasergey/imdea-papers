@@ -1,0 +1,243 @@
+\section{Related and future work}
+\label{sec:related}
+%% History-based semantics for concurrency
+Histories are a recurring idea in the semantics of shared-memory
+concurrency, in one form or another. For example, the classical
+Brookes' semantics~\cite{Brookes:TCS07} uses \emph{traces} to give a
+model for CSL.
+%
+%Arguing for grainless semantics, Reynolds~\cite{Reynolds:FSTTCS04}
+%suggests traces with , similar
+%to our self/other combining.
+%
+Traces are similar to histories, but don't contain time stamps. The
+explicit time-stamping makes it straightforward to define a merge
+(\ie, join) for histories, and endows them with PCM structure. While
+Brookes uses traces in the semantics, we use histories in the specs.
+
+%% Hindsight
+
+Temporal reasoning about shared-memory concurrent programs has also
+been employed before. For example, O'Hearn
+\etal~\cite{OHearn-al:PODC10} advocate \emph{hindsight lemmas} to
+directly and elegantly capture the intuition about linearizability of
+a class of concurrent data structures. In this paper, we put histories
+to use in ordinary Hoare-style specs. This avoids the relational
+reasoning about permuting traces of \emph{two} programs, as required
+by linearizability, but is strong enough to provide Hoare logic specs
+that are expressive, and capable of abstracting granularity. In our
+experience, deriving history-based specs very much resembles reasoning
+by hindsight (\eg, verifying \code{locate}~\cite{OHearn-al:PODC10} and
+\code{readPair}).
+
+%% Logics with temporal reasoning
+
+HLRG by Fu \etal is a Hoare logic for concurrency that admits
+history-based assertions~\cite{Fu-al:CONCUR10}. However, their
+histories are hard-coded into the logic. In contrast, our histories
+are just a specific PCM, that one can use to instantiate the general
+framework of FCSL. This affords greater flexibility: if history-based
+specifications are not needed (\eg, the incrementation
+example~\cite{Nanevski-al:ESOP14}), they don't have to be used.  HLRG
+defines separating conjunction~$\sep$ over histories as follows:
+conjoined histories must have equal length, and their corresponding
+entry heaps are merged via disjoint union.  In contrast, our histories
+are not required to have heaps in the codomain. One can choose an
+arbitrary datatype to capture what is important for an example at
+hand.
+
+Bell \etal use a variant of concurrent separation logic augmented with
+a monoid of \emph{sets of histories} to reason about programs with
+asynchronous communication via channels~\cite{Bell-al:SAS10}. Their
+logic is tailored for producer/consumer pattern (similar to the
+example we have considered in Section~\ref{sec:examples}), and it
+features dedicated produce/consume predicates PHist and CHist defined
+for a particular channel and a set of histories. However, without
+time-stamping, Bell \etal's sets of histories don't enjoy the
+unifomity with heaps, hence, they are a subject of a series of
+dedicated inference rules.
+
+Gotsman \etal use temporal reasoning to verify several concurrent
+memory reclamation algorithms using the notion of \emph{grace
+  period}~\cite{Gotsman-al:ESOP13}. Their logic extends
+RGSep~\cite{Vafeiadis-Parkinson:CONCUR07} with a very specific notion
+of histories, which live in the shared state. In contrast, we use
+histories not as shared, but as private auxiliary state, following the
+self/other dichotomy. This enables us to directly reuse the frame
+rule and other logical infrastructure from the separation logic FCSL,
+without any extensions.
+
+%with no possibility of framing with
+%respect to them.
+%%
+%Even though we believe that the notion grace period can be captured
+%using our formulation of the histories, in our experience it is not
+%significantly more difficult to specify and verify correct memory
+%reclamation in FCSL without relying on any sort of temporal reasoning.
+%%%
+%% \footnote{Our paper-and-pencil proof of the Michael's
+%% stack~\cite{Michael:TPDS04} employs heap ownership transfer to
+%% specify memory reclamation and can be carried out solely basing on a
+%% formulation of the concurroid, and do not require to make statements
+%% about histories. Since we did not implement this proof in Coq by the
+%% time of submission, we do not present it here, leaving it for future
+%% work.}
+%%
+%Unlike our host logic FCSL, none of the above mentioned
+%logics~\cite{Fu-al:CONCUR10,Gotsman-al:ESOP13} has a notion of
+%subjective contributions, which prevents them from giving principal
+%elementary Hoare-style specifications as well as restricting
+%other-interference by means of hiding.
+
+Several recent approaches, such as Turon \etal's
+CaReSL~\cite{Turon-al:ICFP13} (which also verifies the flat combiner),
+and the logic of Liang and Feng (L\&F)~\cite{Liang-Feng:PLDI13}
+support granularity abstraction by unifying Hoare-style reasoning with
+linearizability and contextual refinement. 
+%
+%\ab{Drop LF. It has other connotations.}
+%
+In contrast, in this paper, we argue that a form of granularity
+abstraction achieved by these works can already be obtained
+\emph{without} relying on linearizability. Instead, by using
+histories, one obtains Hoare-style specs which hide the fine-grained
+nature of the underlying programs. This can be done in a simple Hoare
+logic (and we reuse FCSL off-the-shelf), whereas CaReSL and L\&F
+require significant additional logical
+infrastructure~\cite{Liang-al:POPL12,Turon-al:POPL13}, as
+linearizability is a stronger property than our specs. One example of
+the additional infrastructure has to do with helping (\eg, in the flat
+combiner), where these logics consider the refined effectful commands
+as resources, and make them subject to ownership
+transfer~\cite{Turon-al:ICFP13}.
+% 
+While on the surface there's a similarity between
+commands-as-resources and histories-as-resources, there are also
+significant differences. Commands-as-resources are about executing
+specification-level programs (and an effectful abstract program, once
+executed, can't be ``re-executed'', since it has reached a value),
+while histories are about what has transpired. Unlike
+commands-as-resources, histories also contain information about the
+order in which something happened in the form of timestamps, thus
+enabling temporal reasoning by
+hindsight~\cite{OHearn-al:PODC10}. Histories have a PCM structure,
+whereas commands-as-resources don't. Hence, histories in FCSL are
+subject to the same set of inference rules as heaps, in contrast to
+commands-as-resources which requires a number of dedicated inference
+rules.
+
+% Liang and Feng presented a methodology to verify linearizability by
+% means of establishing linearization points in via Hoare-style
+% reasoning~\cite{Liang-Feng:PLDI13} by extending a general-purpose
+% concurrency logic LRG~\cite{Feng:POPL09}.
+
+Many of our history-based proofs are very close in spirit to proofs of
+linearizability (\eg, the proofs of Treiber stack in
+Section~\ref{sec:examples} compared to the proofs in
+L\&F~\cite{Liang-Feng:PLDI13}), since adding an entry to a self-history
+can be seen as linearizing an effectful operation.
+%
+However, we obtain some simplification in the proofs of pure methods
+such as \code{readPair}. In particular, L\&F and related logics require
+\emph{prophecy variables}~\cite{Qadeer-al:TR09} (or, equivalently,
+\emph{speculations}~\cite{Liang-Feng:PLDI13,Turon-al:POPL13}) in their
+proofs of \code{readPair}, but we don't.
+%
+We do expect, however, that prophecy variables will be required in
+examples where the shape of the event to be inserted into the history
+can't be fully determined at the moment when it logically takes place
+(\eg, Harris \etal's MCAS~\cite{Vafeiadis:PhD}). We plan to address
+such examples in the future work, by choosing another history-based
+PCM; that of branching-time histories, in contrast to the linear-time
+ones used here.
+ 
+In this work, we argued for the abstraction of granularity via the
+singleton histories of the form $t \hpts (s_1, s_2)$, which describe
+the atomic changes in the abstract state, although other ways are
+possible to express what it means for a program to behave ``like an
+atomic one'' in a setting of a Hoare-style logic.
+
+In particular, a different approach to express atomicity abstraction
+is suggested by da Rocha Pinto \etal's logic
+TaDA~\cite{ArrozPincho-al:ECOOP14} (a successor of the Concurrent
+Abstract Predicates framework (CAP)~\cite{DinsdaleYoung-al:ECOOP10})
+using the notion of an ``atomic Hoare triple'' of the form
+$\drspec{p}~c~\drspec{q}$, where the precondition $p$ is required to
+be stable, whereas $q$ is not.
+% 
+TaDA proposes a \emph{make\_atomic} command and a number of related
+inference rules, which allow one to specify \emph{synchronized
+  changes} of auxiliary resources across \emph{several} shared
+regions. The changes themselves don't have to be physically atomic;
+it's sufficient that they appear atomic from the point of view of
+specs. TaDA's assertions range over \emph{atomic tracking} resources,
+similar to the operations-as-resources in the linearizability
+proofs~\cite{Liang-Feng:PLDI13,Turon-al:ICFP13}. Unlike histories,
+these resources don't have the PCM structure, and thus require special
+treatment in TaDA's metatheory. The atomic tracking resources aren't
+subject of ownership transfer, which is why TaDA currently doesn't
+support reasoning about helping.
+
+Yet another view of atomicity abstraction and canonical concurrent
+specifications, which also bypasses linearizability, is advocated by
+Svendsen~\etal in a series of papers on Higher-Order and Impredicative
+Concurrent Abstract
+Predicates~\cite{Svendsen-al:ESOP13,Svendsen-Birkedal:ESOP14}.
+%
+Both HOCAP and iCAP leverage the idea, originated by Jacobs and
+Piessens~\cite{Jacobs-Piessens:POPL11}, of parametrizing specs of
+concurrent data types by a user-provided auxiliary code.
+%
+Such auxiliary code can be seen as a callback, which, when invoked at
+some point during the execution of a specified method, changes the
+values of auxiliary resources in several regions simultaneously.
+%
+Thus, when proving a parametrized spec, one should locate a right
+moment to invoke the provided auxiliary code, so its precondition
+would be ensured and the postcondition handled properly, a reasoning
+similar to locating a linearization point.
+%
+The use of the first-class auxiliary code can introduce circularity in
+the domain underlying the logic---the issue tackled in HOCAP by means
+of indirection via ``region types'' and resolved in iCAP by providing
+a (non-elementary) model in the topos of trees.
+%
+One difference between iCAP and TaDA is that \emph{make\_atomic} in
+TaDA presents a more \emph{localized} view of atomicity, whereas the
+specs in iCAP have to predict the uses of the data structure, and
+provide hooks for callbacks. The hooks lead to somewhat indirect
+specs, and propagate client-side information into the reasoning about
+the structure.
+
+We haven't considered either of these two ways of exploiting abstract
+atomicity in the current paper, 
+%
+%
+%Had we done it, it would made it possible to replace the non-local
+%reasoning based on execution traces in assertions, (\eg, in the proof
+%of the stack client in Section~\ref{sec:examples} by means of
+%Lemmas~\ref{lm:pushpop1} and~\ref{lm:pushpop2}), by ``more local''
+%reasoning in Hoare logic rules themselves (such as TaDA's
+%\emph{make\_atomic} or iCAP's \textsc{(Atomic)}). To implement the
+%possibility of such a trade-off, we plan to add \emph{make\_atomic} to
+%
+but plan to add \emph{make\_atomic} to FCSL in the future work. The
+challenge will be to generalize \emph{make\_atomic} to work with
+different notions of histories (\eg, branching-time histories may be
+useful, as mentioned above). We believe that the PCM approach
+(together with subjectivity), neither of which is exploited by TaDA
+and iCAP, will be beneficial in that respect. In particular, we plan
+to use PCMs to generalize the notion of logical atomicity afforded by
+histories, that we explored in this paper. Given a PCM $\pcmS$, the
+element $x \in \pcmS$ is \emph{prime} if it can't be represented as $x
+= x_1 \bullet x_2$, for non-unit $x_1$, $x_2$. For example, in the PCM
+of heaps, the prime elements are the singleton heaps. In the PCM of
+natural numbers with multiplication, the prime elements are the prime
+numbers. In the PCM of histories, the prime elements are the singleton
+histories $t \hpts a$. A program can be considered logically atomic if
+it augments the self-owned portion of its state by a prime element, or
+by a unit. According to this definition, all the examples presented in
+this paper are atomic. We expect it should be possible to soundly
+apply \emph{make\_atomic} to programs that are atomic in this logical
+sense.
+

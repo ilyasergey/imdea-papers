@@ -1,0 +1,29 @@
+\begin{wrapfigure}[12]{t}{0.4\textwidth} 
+%% \begin{figure}
+%
+%\centering  
+%\begin{tabular}{l}
+% 
+\begin{minipage}[t]{.4\textwidth}
+\[\hfill
+\begin{array}{rl}
+\num{1} & \esc{scan}\ () : ( A \times A )~ \{ \\ 
+\num{2} & ~~~ (\var{cx}, \var{vx}) \tbnd \act{read}(\x);\\
+\num{3} & ~~~ (\var{cy}, \_ ) \tbnd \act{read}(\y);\\
+\num{5} & ~~~ (\_ , \var{tx}) \tbnd \act{read}(\x);\\
+\num{5} & ~~~ \kw{if}\ vx = tx \\
+\num{6} & ~~~ \kw{then}\ \kw{return}\ (\var{cx},\var{cy})\\
+\num{7} & ~~~ \kw{else}\ \esc{scan}\ (); \}
+\end{array}\hfill
+\]
+\end{minipage}
+%
+%\end{tabular}
+%
+\caption{{\tt scan} using versions.}
+\label{fig:readpair}
+%\end{figure}
+\end{wrapfigure}
+
+% \gad{\textbf seems to have no efect whatsoever on alttt}
+% \gad{unified action-names not to leave spaces before arguments}

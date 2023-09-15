@@ -1,0 +1,361 @@
+===========================================================================
+                          OOPSLA 2016 Review #49A
+---------------------------------------------------------------------------
+Paper #49: Hoare-style Specifications as Correctness Conditions for
+           Non-linearizable Concurrent Objects
+---------------------------------------------------------------------------
+
+                 Reviewer expertise: Y. I am knowledgeable in this area,
+                                        but not an expert
+                Reviewer confidence: 2. Medium
+                      Overall merit: 4. Significant merit, some objections
+
+                         ===== Paper summary =====
+
+The paper proposes the use of FCSLs (Fine Grained Concurrent
+Separation Logic) for the specification and proof of the
+implementation and use of non-linearisable concurrent objects.  The
+motivation for the use of FCSLs is that other Hoare logics only
+specify the behaviours under specific conditions, such as
+concurrency-aware linearizability (CAL), quiescent consistency (QC)
+etc.  The authors argue that FCSLs can capture all these conditions,
+and indeed the FCSL specification is shown to do so for the example of
+a counting network.
+
+One strength of FCLSs is that is supports the use of any mathematical
+structures which are PCMs (i.e. have an associative commutative
+operator and a unity element). This allows for elegant mathematical
+structures which characterise the state of the ADT concurrent object
+at an abstract level.
+
+The paper gives a very high level introduction to the concepts
+necessary for FCSLs, and gives as a first example the implementation
+of an Exchanger (part of the Java STL, developed by Doug Lea). The
+Exchanger has only been specified (and proven?) for concurrency-aware
+linearizability (where?). The paper describes the various concepts
+required to specify the exchanger, shows two rules from FCSL and
+applies these to reason about a client of the exchanger. It then moves
+to the example of a network which has more complex invariants, and
+lists 3 properties which come for the concurrency-aware
+linearizability, quiescent consistency, and the strong concurrent
+counter semantics.  It shows how the invariants and the specification
+of the function indeed imply these three properties. It also outlines
+the proof of the network and of the exchanger (in the appendix).  The
+proofs have been mechanised in Coq, and the number of lines is
+tractable: 4,500 LOC in total, and the times too: 21 mins.
+
+                      ===== Comments for author =====
+
+I enjoyed reading the paper. Being a weak Y, I found it difficult to
+read, but I also found that it was well-structured, and beautifully
+presented, and that it gave me enough information to build my missing
+knowledge and make progress. And I learnt lots while reading it.
+
+My main concern is that I am unclear where exactly is the contribution
+of the given paper.  Namely, FCSL has been proposed in [34], and the
+Coq mechanisation has been given in [38]. Is the contribution of this
+paper the insight that FCSL can be used to reason about the conditions
+of CAL, QC etc? If so, then where were the challenges/difficulties in
+realising that? Or did you find new styles of writing FCSLs? Are you
+claiming that the proof using FCSLs is much easier/natural than the
+proof using other approaches? If the latter, then how would you
+justify the claim (e.g. point to proofs for same programs written in
+other methodologies and compare?)
+
+My secondary concern is that the paper is semiformal to a large part
+(which is good, as it makes it possible to make progress without being
+stuck in small mathematical details), but in the process it does not
+speak much about the treatment of the resources — the fourth part in
+the Hoare tuples.
+
+* Also, I do not understand your comment that "instead of proving
+  theorems that relate Hoare triples to existing conditions" ... What
+  did you mean? Are you talking about proving soundness of the Hoare
+  Logic? If so, then I thought that had already been done in [34].
+
+More detailed questions:
+
+Q1: I do not understand why dom(m_J) is the disjoint union of \pi_S
+and \pi_O, since m_J is about the matched offers, while \pi_S and
+\pi_O are outstanding offers. Also, I was expecting to see in the else
+branch of Fig. 8 somewhere a point where m_J would be augmented by the
+match just being made.
+
+Q2: In (2) does the use of \eta mean that \chi_o \union [[m_J]] grows?
+Does it mean anything more than that (i.e. is it equivalent with
+saying something like (\chi_o \union [[m_J]])_{old} \subseteq \chi_o
+\union [[m_J]]?
+
+Q3: I would have expected the specification of ex_seg(vs,ac) rather
+than the special case ex_seq(vs,nil)
+
+Q4: At which points do you have to prove adherence to invariant? Each
+step in the object code, or only some (e.g. in Banerjee and Naumann
+there are some restrictions as to where invariants have to
+hold). Where do you show that Exchanger preserves its invariants? And
+how much of the 4,500 LOCs were devoted to showing invariant
+preservation?
+
+Other Comments
+
+1) page 3: “exchanger tries to move p from h_s to h_J” Does this
+correspond to line 3?
+
+2) In (2) please say early that , is used for \wedge and last(\eta) <
+t, t’ means last(eta)<t and last(eta)<t’. Also say that last(\eta)
+means the largest index in the domain of \eta.
+
+3) page 7 you are talking about Figure 2 (b), but there is only a
+Figure 2.
+
+                 ===== Questions for Author Response =====
+
+Please address my main concern about the contribution of your paper as
+also stated in my review. And the point under (*)
+
+Then address as many of the other questions I asked.
+
+===========================================================================
+                          OOPSLA 2016 Review #49B
+---------------------------------------------------------------------------
+Paper #49: Hoare-style Specifications as Correctness Conditions for
+           Non-linearizable Concurrent Objects
+---------------------------------------------------------------------------
+
+                 Reviewer expertise: X. I am an expert in this area
+                Reviewer confidence: 2. Medium
+                      Overall merit: 3. Some merit, weak objections
+
+                         ===== Paper summary =====
+
+This paper presents a technique for reasoning about concurrency.  The
+goal is to find a single formalism that subsumes all previous
+formalisms, and thereby makes it easier to reason about programs and
+to compare techniques.  The chosen approach is Hoare-style
+specifications and a program logic called FCSL (Fine-grained
+Concurrent Separation Logic).  The paper doesn't follow through on its
+claims to produce one specification technique to rule them all, but
+the paper does illustrate generality by showing that the proposed
+approach can handle two examples that had previously been proven using
+other techniques.  Table 1 indicates that for the exchanger example,
+the spec has 17 times as many lines of code as the implementation;
+this is not unreasonable given that the technique has been formalized
+in Coq.
+
+                      ===== Comments for author =====
+
+One key idea is "subjective" state: the specification and proof have
+access to the private state of other objects, even though the
+implementation does not.  This is a fairly common proof approach,
+though I can't put my finger on a seminal citation.  For each proof,
+the implementer decides how many implementation details to reveal as
+subjective state -- the paper doesn't give any guidance on this topic,
+so it doesn't feel like a coherent methodology.  One can expose
+details in any methodology, and the paper doesn't lay out why this
+particular Hoare logic is the best way to do it.  I'm not saying that
+isn't true, just that the paper needs to make the argument.
+
+Another key idea is to store information about interference in a
+logical history, much like the trace that is often used as a shadow or
+specification variable.  The techniques espoused in Section 2 also
+have strong similarities to (standard) separation logic and
+rely-guarantee reasoning.  I found the related work too brief and not
+helpful in drawing out conceptual similarities and differences, so a
+reader cannot appreciate the paper's contributions.
+
+I found the paper's terminology inconsistent and hard to follow.  Even
+in the first sentence linearizability is called both a specification
+technique and a correctness condition, but these are not the same
+thing.  The paper is extremely difficult for a non-expert to read (and
+I have published in this area).  It does not define important concepts
+such as PCM, elimination-based, CAS, ABA problem, program logic, etc.
+No specification is given for the exchange procedure of figure 1, just
+a procedural description (repeated procedurally in text as well as in
+a figure).
+
+Together with the lacking context, I conclude that this paper is
+likely to be of interest to an extremely narrow set of specialists in
+the area, but not to the vast majority of the OOPSLA audience.  I like
+the Coq formalization, which indicates that the authors have been
+rigorous in their definitions and proofs.  The paper, though, should
+bring out the big ideas and surprising outcomes more than low-level
+details of how the results were achieved.  I like the paper's topic
+and thrust, but the paper needs a significant rewrite to convey its
+novel contributions to a wider audience.
+
+The abstract led me to believe that the paper would
+generalize/formalize other techniques; in fact, the paper just shows
+that some examples done in other techniques can be done in the
+authors' formalism.
+
+                 ===== Questions for Author Response =====
+
+See above.
+
+===========================================================================
+                          OOPSLA 2016 Review #49C
+---------------------------------------------------------------------------
+Paper #49: Hoare-style Specifications as Correctness Conditions for
+           Non-linearizable Concurrent Objects
+---------------------------------------------------------------------------
+
+                 Reviewer expertise: Y. I am knowledgeable in this area,
+                                        but not an expert
+                Reviewer confidence: 1. Low
+                      Overall merit: 2. Some merit, significant objections
+
+                         ===== Paper summary =====
+
+This paper describes how FCSL (Fine-grained Concurrent Separation
+Logic, Nanevski et al, ESOP 2014) can be put to work to verify clients
+and implementations of concurrent objects that are not amenable to a
+conventional linearizability argument.
+
+The motivation for the work is the observation that verifying
+non-linearizable concurrent objects typically requires
+highly-specialized techniques (e.g., concurrency-aware linearizability
+(CAL), quiescent consistency (QC), or quantitative quiescent
+consistency (QQC)). These approaches all involve global conditions (so
+we must use the same technique for our entire programming ecosystem),
+and it is not clear that they can be combined. This paper argues that
+the kinds of program that motivated the development of CAL/QC/QQC can
+be just as well verified using FCSL. FCSL has the added bonus of being
+formalized within Coq. (NB: The paper doesn't show that CAL/QC/QQC can
+be *encoded* within FCSL; it simply shows that FCSL can verify the
+same sort of programs.)
+
+                      ===== Comments for author =====
+
+I found the Introduction to the paper, which lays out this motivation,
+very compelling, and expected to enjoy the paper a lot. Unfortunately,
+I was disappointed to find the rest of the paper quite
+impregnable. I'm reasonably well-versed in Hoare Logic and Separation
+Logic and even Concurrent Separation Logic, but I simply couldn't
+understand what the "main ideas" of this paper were.
+
+I found that the paper alternated between being too vague and being
+too detailed. The first part of Section 2 ("Main Ideas and Overview"),
+for instance, describes "three steps" for applying FCSL to
+non-linearizable concurrent objects. I found these steps far too
+generic -- I could not "get a handle" on what phrases like "define
+object-specific auxiliary state" or "formulate Hoare-style
+specifications parametrized by interference" really mean in practice
+without the help of an example. After this, the paper immediately
+becomes too detailed. The exchanger, for instance, is an unfamiliar
+and rather complex concurrent program. The paper spends a page or so
+explaining how to verify it in FCSL, but seems to concentrate
+exclusively on the details. From this, I can see *that* FCSL is able
+to verify a couple of rather involved concurrent programs, but I
+cannot really understand *how* it is managing this.
+
+I think what the paper really needs is a *simple* example. The general
+explanations in Sections 2.0 and 3 are too vague, and the two case
+studies are too complex. Can you demonstrate your ideas on a simple
+concurrent program of just two or three lines? I doubt it would matter
+if such a program were highly contrived, or not even non-linearizable,
+since its purpose would be purely pedagogical. As it stands, I can't
+recommend that the paper be accepted, as it is simply too technical to
+be appreciated by more than a very small number of experts.
+
+Moreover, I would have liked to have seen a comparison to
+Dinsdale-Young et al's "Views" framework. The current paper is
+proposing a generic system for verifying concurrent programs based on
+Hoare logic; the Views framework also makes such a claim, so a
+comparison would be useful, even if just to say something like "Views
+cannot handle objects" (or whatever).
+
+===========================================================================
+                          OOPSLA 2016 Review #49D
+---------------------------------------------------------------------------
+Paper #49: Hoare-style Specifications as Correctness Conditions for
+           Non-linearizable Concurrent Objects
+---------------------------------------------------------------------------
+
+                 Reviewer expertise: Y. I am knowledgeable in this area,
+                                        but not an expert
+                Reviewer confidence: 3. High
+                      Overall merit: 4. Significant merit, some objections
+
+                         ===== Paper summary =====
+
+Linearizability is too strong of a condition for designing
+efficient concurrent objects. More relaxed conditions are
+often adopted, such as concurrency-aware linearizability or
+quiescent consistency. Various frameworks have been developed
+for verifying these relaxed properties. However, it is difficult
+to choose which conditions to verify and there is no way to
+compose these different tools when verifying composite objects;
+as each of them is based on slightly different methods.
+Furthermore, most of tools use execution traces which make
+it difficult to reason about client code.
+
+The paper proposed a uniform approach using Hoare logic with a
+subjective auxiliary state satisfying PCM, along with the mechanisms
+of Fine-grained Concurrent Separation Logic. Using the auxiliary state,
+a thread can see the private state of the other interfering threads.
+This auxiliary state has a user-defined structure, as long
+as it is a partial commutative monoid (PCM), enabling it to
+be composed with other PCMs.
+
+The current property seems like a good unifying framework that
+is built on top of the following past works:
+ (i) FCSL (fined grained concurrent separation logic) from [34]
+ (ii) subjective auxiliary state proposed in [31]
+(iii) PCM property to support concurrency reasoning in [39]
+  (e.g timed stamped history with PCM property)
+
+Two examples were highelighted, namely elimination-based exchanger
+and counting network. The specification required for concurrency
+reasoning is non-trivial and I wonder if the current specification
+could be further simplified, perhaps by sacrificing some
+less critical aspect of correctness.
+
+Strong points:
+- a unifying Hoare-style framework for
+  relaxed variants of linearizabilty
+- proof-of-concept verifications for elimination-based exchanger
+  and a counting network in the above
+- mechanized proofs in Coq
+- can compose auxiliary states for different objects
+- can verify client code
+
+Weak points:
+- only provides abstract steps to be taken for verification
+- no methodology to define structure of auxiliary state - it is
+  intimately related to the data structure in question
+- auxiliary state has a complicated structure and depends on
+  what conditions the programmer wants to verify - not trivial
+  to develop
+- only formalism they provide are two FCSL rules
+
+Our assessment is that it is a good paper. A slight concern
+is how much of the contribution in the current paper would have
+already been covered in the past paper mentioned above.
+
+Other Comments
+--------------
+
+- section 1.2, last row: "conludes"
+
+Approach:
+They propose 3 steps for verification:
+- define object-specific auxiliary state, histories, invariants
+- formulate Hoare-style specifications and verify them
+- combine thread contributions in a global knowledge so clients can be verified
+
+Exchanger proof
+- define 3 groups of 2 components - quite complicated structure,
+  no methodology to choose this structure
+- section 4, exchange' code - a "return" should be before
+   recursive call to exchange' v
+- section 4, ex_seq code - vs' undefined
+- section 4 - only verify if it returns (v2, v1) pair but that's for one thread only
+- proof looks correct
+
+Counting network proof
+- auxiliary state has tokens and histories
+- section 5.1 - � is not defined
+
+                 ===== Questions for Author Response =====
+
+Can you summarise your new contributions when compared to [34,31,39]?

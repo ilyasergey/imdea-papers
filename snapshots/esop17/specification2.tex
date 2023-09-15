@@ -1,0 +1,381 @@
+\section{Specification}
+\label{sc:formal}
+
+%% Auxiliary state defs
+
+\def\histx{\hist_\x}
+\def\histy{\hist_\y}
+\def\histp{\hist_p}
+
+\newcommand{\sx}{S_\x}
+\newcommand{\sy}{S_\y}
+\newcommand{\spp}{S_p}
+\newcommand{\sss}{S_s}
+\newcommand{\wx}{W_\x}
+\newcommand{\wy}{W_\y}
+\newcommand{\wpp}{W_p}
+
+%\newcommand{\admissible}{\mathsf{fine}}
+
+% Names for writer/scanner-states
+\def\toff{t_{\mathsf{off}}}
+
+%% \newcommand{\wInit}{\mathsf{W_{Off}}}
+%% \newcommand{\wWrite}{\mathsf{W_{New}}}
+%% \newcommand{\wDirty}{\mathsf{W_{Fwd}}}
+%% \newcommand{\wClean}{\mathsf{W_{Done}}}
+
+%% \newcommand{\sOn}{\mathsf{S_{On}}}
+%% \newcommand{\sOff}{\mathsf{S_{Off}}}
+
+
+\paragraph*{General considerations.}
+%
+For the purposes of specification and proof, we record a history of
+the snapshot object as a set of entries of the form $t \mapsto (p,
+v)$. The entry says that at time $t$ (a natural number), the value $v$
+was written into the pointer $p$. We thus identify a write event with
+a \emph{single} moment in time $t$, enabling the specs of
+\jywrite\ and \jyscan\ to present the view that write events are
+logically atomic.
+%
+Moreover, in the case of snapshots, we can ignore the scan events in
+the histories. The latter do not modify the state in a way observable
+by clients who can access the shared pointers only via interface
+methods \jywrite\ and\ \jyscan.
+
+We keep three auxiliary history variables. The history variables
+$\histS$ and $\histO$ are local to the specified thread, and record
+the \emph{terminated} write events carried out by the specified
+thread, and that thread's interfering environment, respectively. We
+refer to $\histS$ as the \emph{self}-history, and to $\histO$ as the
+\emph{other}-history~\cite{LeyWildN+POPL13,NanevskiLSD+ESOP14,OPLSS:Notes,SergeyNB+ESOP15}. The role of 
+$\histO$ is to enable the spec of \jywrite\ to situate the performed
+write event within the larger context of past and ongoing writes, and
+the spec of \jyscan\ to describe how it logically reordered the writes
+that overlapped with it.
+%
+
+The third history variable $\histJ$ records the set of write events
+that are in progress. These are events that have been initiated,
+timestamped, and have executed their physical write to memory, but
+have not terminated yet. It is an important component of our auxiliary
+state design that when a write event terminates, it is moved from
+$\histJ$ to the invoking thread's $\histS$, to indicate the
+\emph{ownership} of the write by the invoking thread.
+%
+We name by $\hist$ the union $\histS \hunion \histO \hunion \histJ$,
+which is the global history of the data structure. As common in
+separation logic, the union is \emph{disjoint}, \ie, it is undefined
+if the components contain duplicate timestamps. By the semantics of
+our specs, $\hist$ is always defined, thus $\histS$, $\histO$ and
+$\histJ$ never duplicate timestamps.
+
+The real-time ordering of the timestamped events is the natural
+numbers ordering on the timestamps. To track the \emph{logical}
+ordering, we need further auxiliary notions.
+%
+The first is the auxiliary variable $\ordlist$, whose type is a
+mathematical sequence. The sequence $\ordlist$ is a permutation of
+timestamps from $\hist$ showing the logical ordering of the events in
+$\hist$. We write $t_1 \tleq t_2$, and say that $t_1$ is logically
+ordered before $t_2$, if $t_1$ appears before $t_2$ in $\ordlist$. The
+sequence $\ordlist$ resides in joint state, and can be dynamically
+modified by any thread. For example, the execution of the scanner may
+reorder $\ordlist$, as shown in
+Figure~\ref{fig:reorder:after}. Because $\ordlist$ is a sequence, the
+order $\tleq$ is linear.
+
+%
+%In this sense, $\ordlist$ is the linkage in time for the snapshot
+%algorithm, and it will be dynamically modified. 
+%
+
+Because sequence $\ordlist$ changes dynamically under interference, it
+is not appropriate for specifications. Thus, our second auxiliary
+notion is the \emph{partial} order $\stableorder$, a suborder of
+$\tleq$ that is \emph{stable} in the following sense. It relates the
+timestamps of events whose logical order has been determined,
+\emph{and will not change in the future}. Thus $\stableorder$ can grow
+over time, to add new relations between previously unrelated
+timestamps, but cannot change the old relations.
+
+%we require further a subset of ${\tleq}$, that is \emph{stable} in the
+%following sense. This order relates the timestamps of events whose
+%logical order has already been fixed, and will not change in the
+%future. One can say that such events have been ``linearized''.  Being
+%stable, $\stableorder$ can only grow over time to add new relations
+%between previously unrelated timestamps, but cannot change the old
+%relations.
+%
+
+To illustrate the distinction between the two orders, we refer to
+Figure~\ref{fig:reorder:before}. There, $\ordlist$ represents the
+linear order $5{-}0{-}2{-}3{-}1$, which changes in
+Figure~\ref{fig:reorder:after} to $5{-}0{-}2{-}1{-}3$.
+%
+Since $1$ and $3$ exchange places, the stable order $\stableorder$
+cannot initially relate the two. Thus, in
+Figure~\ref{fig:reorder:before}, $\stableorder$ is represented by
+the Hasse diagram as
+$5{-}0{-}2{<}\!\begin{array}[c]{c}1\\ 3\end{array}$. In
+Figure~\ref{fig:reorder:after}, the relation $1{-}3$ is added to this
+partial order, making it the linear order $5{-}0{-}2{-}1{-}3$. Note
+how the previous relations remain unchanged.
+
+\newcommand{\scanned}[1]{\mathsf{scanned}\,#1}
+
+The third auxiliary notion is the set $\scanned\stableorder$ of
+timestamps. A write's timestamp is placed in $\scanned\stableorder$,
+if that write has been observed by some scanner; that is, the written
+value is returned in some snapshot, or has been rewritten by another
+value that is returned in some snapshot. To illustrate, in the above
+example, $\{5, 0, 2\} \subseteq \scanned\stableorder$.  Intuitively,
+we want to model that after a write has been observed, the ordering of
+the events logically preceding the write must be stabilized, and
+moreover, must be a sequence. Thus,
+%If $t \in \scanned\stableorder$, then all the events logically
+%preceding $t$ should also satisfy the above property, thus
+$\scanned\stableorder$ is a \emph{linearly ordered subset} of
+$\stableorder$.\footnote{In terminology of linearizability, one may
+  say that $\scanned\stableorder$ is the set of ``linearized''
+  writes.}  The set $\scanned\stableorder$ can also be seen as
+\emph{representing all the scans that have already been
+  executed}. Such representation of scans allows us to avoid tracking
+scan events directly in the history.
+
+In the sequel, we concretize $\stableorder$ and
+$\scanned\stableorder$ in terms of $\ordlist$ and other auxiliary
+state. However, we keep the notions abstract in the method specs and
+in client reasoning. This enables the use of different snapshot
+algorithms, with the same specs, without invalidating the client
+proofs. We also mention that $\ordlist$, $\stableorder$ and
+$\scanned\stableorder$ can be encoded as user-level concepts in FCSL,
+and require no new logic to be developed.
+
+%%
+%% \begin{equation}
+%% \begin{array}{l}
+%% \mathtt{write}\ (p : \mathtt{ptr}, n : \mathtt{int}) : 
+%% \!\!\!\begin{array}[t]{l}
+%% \{\hists = \hempty \wedge h \subseteq \histO
+%%            \wedge \omega \subseteq {\stableorder}\}\\[3pt]
+%% \{\exists t\ldot\, \hists = t \mapsto (p, n) \wedge h \subseteq \histO \wedge
+%%   \omega \subseteq {\stableorder}\,{\wedge}\, h \subseteq H^{\hbox{}\sqsubsetneq_\ordlist t}\}
+%% \end{array}\\
+%% %
+%% \mathtt{scan} : 
+%% \!\!\!\begin{array}[t]{l}
+%% \{\hists = \hempty \wedge\, h \subseteq \histO \wedge\,
+%%           \omega \subseteq {\stableorder}\}\\[3pt]
+%% \{\hists = \hempty \wedge\, h \subseteq \histO \wedge\, \omega \subseteq {\stableorder} \wedge\, \exists\, t\ldot\, %
+%%            h \subseteq H^{\hbox{}\sqsubseteq_\ordlist t} \wedge\,
+%%            \mathsf{chain}\ H^{\hbox{}\sqsubseteq_\ordlist t} \wedge\,
+%%            r = \mathsf{eval}\ {H^{\hbox{}\sqsubseteq_\ordlist t}}\}
+%% \end{array}
+%% \end{array}
+%% \label{eq:specs}
+%% \end{equation}
+%
+
+\paragraph*{Snapshot specification.}
+\input{specs} 
+%
+Figure~\ref{fig:specs} presents our specs for \jyscan~and
+\jywrite. These are partial correctness specs that describe how
+the methods change the state from the precondition (first braces) to
+the postcondition (second braces), possibly influencing the value $r$
+that the procedure returns. We use VDM-style notation with unprimed
+variables for the state before, and primed variables for the state
+after the method executes. We use Greek letters for state-dependent
+values that can be mutated by the method, and Latin letters for
+immutable variables.
+%
+The component $C$ is a state transition system (STS) that describes the
+state space of the algorithm, i.e, the invariants on the auxiliary and
+real state, and the transitions, i.e., the allowed atomic mutations of
+the state. For now, we keep $C$ abstract, but will define it in
+Sections~\ref{sc:auxiliaries} and~\ref{sc:implementation}.
+%
+We denote by $\ideal{\stableorder}{t}$ the downward-closed set of
+timestamps
+$\ideal{\stableorder}{t} = \{ s \mid s\ {\stableorder}\ t \}$. Let
+$\sideal{\stableorder}{t} = (\ideal{\stableorder}{t})\setminus\{t\}$.
+
+%downward-closed wrt.~$\stableorder$:
+%\begin{align*}
+%%\label{eq:ideal-order} 
+%\alekideal{\stableorder}{t} \eqdef \{ s \mid s\ {\stableorder}\ t \}\qquad\mbox{and}\qquad
+%%\label{eq:sideal-order} 
+%\aleksideal{\stableorder}{t} \eqdef
+%  \{ s \mid s\ {\stableorder}\ t \wedge s \neq te\}
+%\end{align*}
+
+The spec for \jywrite\ says the following. The precondition starts
+with the empty self history $\histS$, indicating that the procedure
+has not made any writes. In the postcondition, a new write event $t
+\mapsto (p, v)$ has been placed into $\histS'$. Thus, a call to
+\jywrite\ wrote $v$ into pointer $p$. The timestamp $t$
+is fresh, because $\histP$ does not contain duplicate timestamps.
+%
+%\histS$ and $\hist$ \ab{?} are always disjoint (by the
+%semantics of FCSL triples). 
+%
+Moreover, the write appears as if it occurred atomically at time
+$t$, thus capturing the logical atomicity of \jywrite.
+
+The next conjunct, $\dom{\histO} \cup \scanned\stableorder \subseteq
+\sideal{\stableorderP}{t}$, positions the write $t$ into the context
+of other events. In particular, if $s \in \dom{\histO}$, \ie, if $s$
+finished prior to invoking \jywrite, then $s$ is logically ordered
+strictly before $t$. In other words, \jywrite\ cannot reorder prior
+events that did not overlap with it. The definition of linearizability
+contains a similar prohibition on reordering non-overlapping events,
+but here, we capture it using a Hoare-style spec. For similar reasons,
+we require that $\scanned\stableorder \subseteq
+\sideal{\stableorderP}{t}$. As mentioned before,
+$\scanned\stableorder$ represents all the scans that finished prior to
+the call to \jywrite. Consequently, they do not overlap with
+\jywrite\ in real time, and have to be logically ordered before $t$.
+
+Notice what the spec of \jywrite\ \emph{does not prevent}. It is
+possible that some event, say with a timestamp $s$, finishes in real
+time before the call of \jywrite~at time $t$. Events $s$ and $t$ do
+not overlap, and hence cannot be reordered; thus
+$s\ {\stableorder}\ t$ always. However, the relationship of $s$ with
+other events that ran concurrently with $s$, may be fixed only later,
+thus supporting implementation of ``future-dependent'' nature, such as
+Jayanti's.
+
+%For example, in Figure~\ref{fig:reorder:before}, the event $3$ is
+%ordered after $5$, $0$, and $2$, but its order wrt.~$1$ is determined
+%only later.
+
+%For example, if $s$ overlapped with some other event $s'$, it is
+%possible for $s$ and $s'$ to not be immediately related in
+%$\stableorder$. The relative ordering of $s$ and $s'$ may be
+%determined after either of the events has terminated.  \ab{Can we give
+%  an example here?}
+
+In the case of \jyscan, we start and terminate with an empty $\histS$,
+because \jyscan\ does not create any write events, and we do not track
+scan events. However, when \jyscan\ returns the pair $r = (r_\x,
+r_\y)$, we know that there exists a timestamp $t$ that describes when
+the scan took place. This $t$ is the timestamp of the last write
+preceding the call to \jyscan.
+
+The postcondition says that $t$ is the moment in which the snapshot
+was logically taken, by the conjunct $r =
+\eval\ t\ \stableorderP\ \histP$.  Here, $\eval$ is a pure,
+specification-level function that works as follows. First, it reorders
+the entire real-time post-history $\histP$ according to logical
+post-ordering $\stableorderP$. Then, it computes and returns the
+values of $x$ and $y$ that would result from executing the write
+events of such reordered history up to the timestamp $t$. For example,
+if $t$ is the timestamp of event $1$ in
+Figure~\ref{fig:reorder:after}, then $\eval\ t\ \stableorderP\ \histP$
+would return $(2, 1)$. Hence, the conjunct says that
+\jyscan\ performed a scan of $x$ and $y$, consistent with the ordering
+$\stableorderP$, and returned the read values into $r$. The scan
+appears as if it occurred atomically, immediately after time $t$, thus
+capturing the atomicity of \jyscan.
+
+%\ab{Can we connect with Figure 3b here?}
+
+The next conjunct, $\dom{\hist} \subseteq \ideal{\stableorderP}{t}$,
+says that the scanner returned a snapshot that is current, rather than
+corresponding to an outdated scan. For example, referring to
+Figure~\ref{fig:reorder}, if \jyscan\ is invoked after the events $2$
+and $1$ have already executed, then \jyscan\ should not return the
+pair $(5, 0)$ and have $t$ be the timestamp of the event $0$, because
+that snapshot is outdated. Specifically, the conjunct says that the
+write events from $\hist$ are ordered no later than $t$, similar to
+the postcondition of \jywrite. However, while in \jywrite\ we
+constrained the events from $\dom{\histO} \cup \scanned\stableorder$,
+here we constrain the full global history $\hist = \histO \hunion
+\histJ$. The addition of $\histJ$ shows that the scanner will observe
+and order all of the write events that have been timestamped and
+recorded in $\histJ$ (and thus, that have written their value to
+memory), prior to the invocation of \jyscan.
+
+Lastly, the conjunct $t \in \scanned\stableorderP$ explicitly says
+that $t$ has been observed by the just finished call to scan.
+
+Again, it is important what the spec does not prevent. It is possible
+that the timestamp $t$ identified as the moment of the scan,
+corresponds to a write that has been initiated, but has not yet terminated.
+Despite being ongoing, $t$ is placed into $\scanned\stableorderP$
+(\ie, $t$ is ``linearized''). Also, notice that the postcondition of
+\jyscan\ actually specifies the ``linearization'' order of events that
+are initiated by another method, namely \jywrite, thus supporting
+implementations of ``non-local'' nature, such as Jayanti's.
+
+We close the section with a brief discussion of how the specs are
+used. Because $C$, $\stableorder$ and $\scanned$ are abstracted from
+the clients, we need to provide an interface to work with them. The
+interface consists of a number of properties showing how various
+assertions interact, summarized in the statements below.
+
+The first statement presents the invariants on the transitions of STS
+$C$, often referred to as 2-state invariants.
+%
+Another way of working with such invariants is to include them in the
+postcondition of every method.\footnote{In fact, this is what we
+  currently do in our Coq files.} For simplicity, here we agglomerate
+the properties, and use them implicitly in proofs as needed.
+%
+\begin{invariant}[Transition invariants]\label{inv:monotonicity}
+In any program respecting the transitions of $C$: 
+\begin{enumerate}
+\item\label{inv:mono:hist} $\hist \subseteq \histP$, $\histS \subseteq
+  \histSP$ and $\histO \subseteq \histOP$, and also $\stableorder
+  \subseteq \stableorderP$.
+\item\label{inv:mono:ideal} For every $s \in \scanned{\stableorder}$,
+  $\ideal{\stableorder}{s} = \ideal{\stableorderP}{s}$.
+\end{enumerate}
+\end{invariant}
+
+Invariant~\ref{inv:monotonicity}.\ref{inv:mono:hist} says that
+histories and $\stableorder$ only grow, but does not insist that
+$\histJ \subseteq \histJP$, as timestamps can be removed from $\histJ$
+and transferred to $\histS$.
+%
+Invariant~\ref{inv:monotonicity}.\ref{inv:mono:ideal} says that if a
+new event is added to increase $\stableorder$ to $\stableorderP$, that
+event appears logically later than any $s \in
+\scanned{\stableorder}$. In other words, once events are observed by a
+scanner, and placed into $\scanned{\stableorder}$ in a certain order,
+we cannot insert new events among them to modify the past observation.
+
+The second statement exposes the properties of $\stableorder$ and
+$\scanned$ that are used for client reasoning.
+%
+\begin{invariant}[Relating $\stableorder$ and $\scanned$]\label{lem:scanned}%
+%The set $\scanned\, \stableorder$ satisfies the following properties:
+%
+\begin{enumerate}
+ \item\label{lem:scan:total} if $ t_1 \in
+   \scanned{\stableorder}$ and $t_2 \in \scanned{\stableorder}$, then
+   $ t_1 \mathrel{\stableorder} t_2 \vee t_2 \mathrel{\stableorder}
+   t_1 $ (linearity).
+   
+ \item \label{lem:scan:wkn} if $ t_2 \in
+   \scanned{\stableorder}$ and $ t_1 \mathrel{\stableorder} t_2$, then
+   $t_1 \in \scanned{\stableorder}$ (downward closure).
+
+%\item[\textit{(principality???)}] \label{lem:scan:subset} if $ t \in
+%  \scanned{\stableorder}$ then $\ideal{\stableorder}{t} \subseteq
+%  \scanned{\stableorder}$.
+
+\item \label{lem:scan:prefix} if $t \in
+  \scanned{\stableorder}$ and $ \ideal{\stableorder}{t} =
+  \ideal{\stableorderP}{t}$, then $t \in \scanned{\stableorderP}$ (principality).
+  
+\item \label{lem:scan:eval} if $t \in
+  \scanned{\stableorder}$, $\ \hist \subseteq \histP$ and $
+  \ideal{\stableorder}{t} = \ideal{\stableorderP}{t}$ then $ \eval\,
+  t\, \stableorder\, \hist = \eval\, t\, \stableorderP\, \histP$. % (eval preservation).
+\end{enumerate}
+\end{invariant}
+
+\gad{Principality should be moved to Invariant~\ref{inv:monotonicity}}

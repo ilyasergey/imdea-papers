@@ -1,0 +1,136 @@
+\documentclass[runningheads,evnscountsame]{llncs}
+
+\bibliographystyle{plainurl}% the recommended bibstyle
+
+%Math
+\usepackage{amsmath,amssymb}
+\usepackage{latexsym,mathabx}
+\usepackage[noend]{algorithmic}
+\usepackage{mathpartir}
+\usepackage{dsfont}
+%\usepackage{bm}
+
+%Graphics
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage{graphicx}
+\usepackage{pgf,tikz}  
+
+% Fonts
+\usepackage[scaled]{helvet}
+\usepackage{alltt}
+%\usepackage{verbdef}
+\usepackage{xspace} %% for comment environment
+%\usepackage{textcomp}
+%\usepackage{txfonts} %% for various points-to symbols. use pxfonts for 5-tip stars
+\usepackage{verbatim} %% for comment environment
+%\usepackage{soul}
+\usepackage{cancel} % for crossing Owns 
+
+%% Save the class definition of \subparagraph
+\let\llncssubparagraph\subparagraph
+%% Provide a definition to \subparagraph to keep titlesec happy
+\let\subparagraph\paragraph
+%% Load titlesec
+\usepackage[compact]{titlesec}
+%% Revert \subparagraph to the llncs definition
+\let\subparagraph\llncssubparagraph
+
+%Format
+\usepackage{xspace}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage{float} 
+\usepackage{framed}
+\usepackage{hyperref}
+\usepackage{parskip}
+\usepackage{wrapfig}
+\usepackage{subcaption}
+%\usepackage{listings}
+\usepackage{multirow}
+
+%Citations
+\usepackage{cite}
+
+
+\hypersetup{linkcolor=black,citecolor=black,urlcolor=RubineRed}
+\input{flags}
+\input{defs}
+
+% Keep footnotes on one page
+\interfootnotelinepenalty=10000 
+
+%\setlist[itemize]{leftmargin=*}
+
+\setlength{\parindent}{0.15in}
+\setlength{\topsep}{0cm}
+\setlength{\parskip}{0pt}
+
+\titlespacing*{\section}{0pt}{*2.0}{*1.5} 
+\titlespacing*{\subsection}{0pt}{*0.8}{*0.5}
+\titlespacing*{\subsubsection}{0pt}{*0.8}{*0.5}
+\titlespacing*{\paragraph}{0pt}{*0.5}{*1.2}
+
+% SSReflect listings 
+%\input{lstcoq}
+%\lstset{style=Coq}
+
+
+%% I want the same Counter for Invariants/Lemmas/Thms
+\spnewtheorem{invariant}[theorem]{Invariant}{\bfseries}{\itshape}
+% \let\lemma\relax%
+%\spnewtheorem{lemma}[theorem]{Lemma}{\bfseries}{\itshape}
+\spnewtheorem*{myprop}{Proposition}{\bfseries}{\itshape}
+
+\title{Concurrent Data Structures Linked in Time}
+\ifdefined\extflag {\subtitle{Extended Version}}\fi
+
+\author{
+   Germ\'{a}n Andr\'{e}s Delbianco\inst{1,2} \and 
+   Ilya Sergey\inst{3} \and\\
+   Aleksandar Nanevski\inst{1}\ \and
+   Anindya Banerjee\inst{1}
+}
+
+\authorrunning{G.A. Delbianco, I. Sergey, A. Nanevski and A. Banerjee}
+
+\institute{
+  IMDEA Software Institute, Spain\\ 
+  \email{\{german.delbianco,aleks.nanevski,anindya.banerjee\}@imdea.org}\and
+  Universidad Polit\'{e}cnica de Madrid, Spain \and
+  University College London, United Kingdom\\
+  \email{i.sergey@ucl.ac.uk}}
+
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\input{abstract}
+\end{abstract}
+
+\input{intro2}
+\input{overview}
+\input{specification2}
+\input{clients}
+\input{formal3}
+\input{auxiliary}
+\input{proof2}
+\input{related}
+\input{conclusions}
+
+%\ifdefined\subflag {\newpage} \else {}\fi
+%\newpage
+
+\bibliography{references,procs}
+
+\ifdefined\subflag {} \else
+\newpage   
+\appendix
+
+\input{appendix-fcsl}
+\input{appendix-auxiliaries}
+%\input{appendix-stability}
+%\input{appendix-clients}
+\fi
+
+\end{document}

@@ -1,0 +1,263 @@
+\documentclass[preprint,9pt,nocopyrightspace]{sigplanconf}
+
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage{latexsym}
+\usepackage{graphicx}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage[scaled]{helvet}
+\usepackage[noend]{algorithmic}
+\usepackage{mathrsfs}
+\usepackage{mathpartir}
+\usepackage{dsfont}
+\usepackage{stmaryrd}
+\usepackage{url}
+\usepackage{textcomp} 
+\usepackage[colorlinks=true,allcolors=blue,breaklinks,draft=false]{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{alltt}
+\usepackage{bbm}
+\usepackage{alltt}
+\usepackage{verbdef}
+\usepackage{xspace}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage{lipsum}
+\usepackage{wrapfig}
+%\usepackage[strut=on,labelfont=bf]{caption}
+\usepackage[usenames,dvipsnames]{xcolor}
+\hypersetup{linkcolor=black,citecolor=black,urlcolor=RubineRed}
+
+\newcounter{tags}
+
+
+% \usepackage{natbib}
+% \bibpunct();A{},
+% \let\cite=\citep
+
+% For turned column headers 
+\usepackage{adjustbox} 
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{pifont}
+ 
+\input{defs}
+
+% Keep footnotes on one page
+\interfootnotelinepenalty=10000 
+
+\setlist[itemize]{leftmargin=*}
+\setlength{\parindent}{0.15in}
+\setlength{\topsep}{0cm}
+\setlength{\parskip}{0pt}
+
+\titlespacing*{\section}{0pt}{*1.5}{*1.5} 
+\titlespacing*{\subsection}{0pt}{*0.8}{*0.5}
+\titlespacing*{\subsubsection}{0pt}{*0.8}{*0.5}
+\titlespacing*{\paragraph}{0pt}{*0.5}{*1.2}
+
+% SSReflect listings 
+\input{lstcoq}
+\lstset{style=Coq}
+
+% Hyphenation
+\hyphenation{Veri-Fast}
+
+% Bibtgex tweaks
+\setcitestyle{square}
+\defcitealias{Coq-manual}{Coq proof assistant}
+
+\begin{document}
+
+%\special{papersize=8.5in,11in}
+
+
+\authorinfo{Ilya Sergey \and
+  Aleksandar Nanevski \and 
+  Anindya Banerjee \and 
+  Germ\'{a}n Andr\'{e}s Delbianco}
+{IMDEA Software Institute, Madrid, Spain}
+{
+\{ilya.sergey, aleks.nanevski, anindya.banerjee,
+  german.delbianco\}@imdea.org 
+}
+
+% \vspace{-20pt}}
+
+
+
+% \authorinfo{}{}{}
+
+% \conferenceinfo{PLDI~'15} {June 13--17, 2015, Portland, OR, USA}
+% \CopyrightYear{2015}
+% \copyrightdata{TODO}
+% \doi{TODO}
+
+
+%\title{The Power of Subjectivity}
+
+\title{
+  Hoare-style Specifications as Correctness Conditions\\
+  for Non-linearizable Concurrent Objects
+% 
+%\vspace{-42pt}
+}
+ 
+
+\maketitle
+
+\begin{abstract}
+
+%
+% 1. The setting
+%
+
+  Designing scalable concurrent objects, which can be efficiently used
+  on multicore processors, often requires one to abandon standard
+  specification techniques, such as \emph{linearizability}, in favor
+  of more relaxed consistency requirements.
+  %
+  However, the variety of alternative correctness conditions makes it
+  difficult to choose which one to employ in a particular case, and to
+  compose them when using objects whose behaviors are specified via
+  different criteria. The lack of syntactic verification methods for
+  most of these criteria poses challenges in their systematic adoption
+  and application.
+
+  % 
+  % To specify different useful classes of non-linearizable concurrent
+  % objects, a number of alternative correctness criteria have been
+  % proposed recently: \emph{Quiescent} and \emph{Quantitative
+  % Quiescent Consistency}, \emph{Concurrency-Aware Linearizability},
+  % and \emph{Quasi-Linearizability}, to name just a~few.
+%
+%
+% 2. The problem(s): too many of correctness criteria
+%
+  % However, it is not trivial to design new concurrent correctness
+  % conditions, which are compositional and general enough to
+  % accommodate highly parallel concurrent objects.
+  % 
+  % It is even less trivial to supply these conditions with
+  % compositional proof methods, making them amenable for structured
+  % formal program verification.
+  %
+  % Finally, the diversity of existing specification approaches makes it
+  % tricky to reason uniformly about client code that employs various
+  % concurrent objects, whose semantics is defined via different
+  % correctness criteria.
+
+  % Furthermore, the clients of a concurrent data structure, when
+  % committing to one or another correctness criterion, need to adopt
+  % specific reasoning principles necessary to characterize the
+  % structure's behavior. Therefore, client-side reasoning about
+  % programs that incorporate several structures, specified via
+  % \emph{different} criteria, might be tricky.
+%
+% 3. Our solution
+%  
+
+  In this paper, we argue for using Hoare-style program logics as an
+  alternative and uniform approach for specification and compositional
+  formal verification of safety properties for concurrent objects and
+  their client programs.
+  %
+  Through a series of case studies, we demonstrate how an existing
+  program logic for concurrency can be employed off-the-shelf to
+  capture important state and history invariants, allowing one to
+  \emph{explicitly quantify over interference} of environment threads
+  and provide intuitive and expressive Hoare-style specifications for
+  several \emph{non-linearizable} concurrent objects that were
+  previously specified only via dedicated correctness criteria.
+  %
+  We illustrate the adequacy of our specifications by verifying a
+  number of concurrent client scenarios, that make use of the
+  previously specified concurrent objects, capturing the essence of
+  such correctness conditions as \emph{concurrency-aware
+    linearizability}, \emph{quiescent}, and \emph{quantitative
+    quiescent consistency}.
+  %
+  % The compositionality of our approach follows from the
+  % compositionality of the logical specifications, that abstract away
+  % the implementation details and enable program substitution.
+  % 
+  % Using an existing logic off-the-shelf provides us with a general
+  % structural verification method.
+  %
+  All examples described in this paper are verified mechanically
+  in~Coq.
+
+% Points to emphasize:
+
+% \begin{itemize}
+
+% \item Algorithms of multicore era: better scalability requires
+%   rethinkin correctness
+
+% \item Multiple ways to define correctness in some relaxed flavours, by
+%   relating it to the sequential executions - name a few correctness
+%   conditions
+
+% \item These conditions are difficult to design and they are not even
+%   supplied with the corresponding proof methods, which are easy
+%   amenable for mechanization
+
+% \item Furthermore, clients need to adapt their reasoning principles to
+%   each of this criteria, and reasoning about programs that incorporate
+%   structures with several criteria might be tricky
+
+% \item We suggest program logic as a uniform framework for specifying
+%   safety  aspects of concurrent objects 
+
+% \item We illustrate the generality of the approach by providing
+%   intuitive specifications to two concurrent objects, each of which
+%   required a dedicated correctness condition to be specified
+
+% \item Out of provided specifications, we verify a series of concurrent
+%   client programs, which make use of the above described concurrent
+%   objects
+
+% \item All examples are verified mechanically in Coq
+
+% \end{itemize}
+
+  % \todo{Rephrase the abstract as follows: (1) keep the first paragraph
+  %   (2) Outline the situation with the variety of alternative criteria
+  %   and implications of this fact; (3) say, which alternative (Hoare
+  %   logic) we consider and what benefits it brings; (4) mention the
+  %   key observation that we need quantify over interference in order
+  %   to provide concurrent specs for all these interesting concurrent
+  %   objects. }
+
+\end{abstract}
+
+%\input{intro}
+\input{intro1}
+\input{overview}
+\input{background}
+\input{cal}
+\input{counting}
+\input{qclients}
+\input{discussion}
+\input{related}
+\input{conclusion}
+
+
+% \acks
+% \todo{Acknowledgments, if needed.}
+
+%\newpage
+
+\setlength{\bibsep}{2.5pt}
+\bibliographystyle{abbrv}
+\softraggedright 
+\bibliography{bibmacros,references,proceedings}
+
+
+\end{document}
+
+

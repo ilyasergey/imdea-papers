@@ -1,0 +1,201 @@
+
+\section{Related Work}
+\label{sec:related}
+
+% Existing methods for specifying the behavior of concurrent data
+% structures and programs are either history-based or state-based.
+% %
+% The former ones describe the behavior of an object by describing and
+% characterizing call/return strings that can be obtained by invoking
+% the methods concurrently by several threads. 
+% %
+% The later ones define the object's behavior by posing requirements to
+% a state, in which object's methods are safe to run, and stating
+% assertions over a state, resulting from the object's method call. The
+% second group of approaches employs program logics as a way to specify
+% the state of interest as well as a mechanism to compose the program
+% specifications.
+
+% This paper contributes to the goal of unifying the history- and
+% state-based views to specification and verification of concurrent
+% objects.
+
+In this section we describe related approaches for reasoning about
+concurrency that have motivated our work.
+
+\paragraph{Linearizability and relaxed history-based criteria.}
+
+In the twenty five years since its invention, linearizability has been
+shown to be remarkably scalable as a correctness condition, widely
+applicable to capture the behavior of implementations of multiple
+concurrent objects with intuitive sequential specifications, such as
+stacks, queues, sets, locks, snapshots and their combinations, and
+even suitable for automatic synthesis of some concurrent
+objects~\cite{Vechev-Yahav:PLDI08}. Thanks to the compositional proof
+method, based on \emph{linearization points}, proofs of
+linearizability in most of the cases are amenable for practical
+computer-aided
+verification~\cite{Burckhardt-al:PLDI10,Derrick-al:TOPLAS11,Vafeiadis:CAV10,Amit-al:CAV07,Shacham-al:OOPSLA11}.
+
+The need for alternative, more relaxed yet compositional, correctness
+criteria for describing the behavior of some concurrent objects, has
+been recognized in the work that introduced counting
+networks~\cite{Aspnes-al:JACM94}, a structure, that later has been
+proved to be impossible to implement in a both efficient and
+linearizable way~\cite{Herlihy-al:DC96}.
+%
+The suggested criterion, dubbed quiescent
+consistency~\cite{Shavit-Zemah:TOPLAS96}, required the operations
+separated by a quiescent state to take effect in their logical order. 
+%
+%\ab{In the order in which they arrived?}
+%
+%\is{I rephrased this as logical order}
+%
+The need for a quantitative correctness condition which relaxes
+linearizability, allowing one to reason about ``almost'' linearizable
+behaviors ($\varepsilon$-linearizability), was hinted later by Shavit
+and Touitou~\cite{Shavit-Touitou:SPAA95}, although no formal definition
+was provided.
+
+Such a correctness condition, implementing a relaxed version of
+linearizability with an upper bound on nondeterminism, was proposed by
+Afek~\etal under the name
+\emph{quasi-linearizability}~\cite{Afek-al:OPODIS10}, allowing them to
+obtain the quantitative boundary similar to what we proved in
+Section~\ref{sec:qqc-client} for a bitonic counting network of a fixed
+width.
+%
+The idea of relaxed linearizability was later employed by
+Henzinger~\etal in the work on \emph{quantitative
+  relaxation} (QR)~\cite{Henzinger-al:POPL13} to drive the methodology
+for designing novel scalable concurrent data structures by changing
+the specification set of sequential histories, so it would include
+\emph{out-of-order} or \emph{stuttering} behaviors.
+%
+Most recently, \emph{quantitative quiescent consistency} has been
+proposed as another criterion incorporating the possibility to reason
+about effects of bounded interference in relaxed data
+structures~\cite{Jagadeesan-Riely:ICALP14}.
+
+It is worth noticing that some of the listed correctness criteria are
+incomparable (\eg, QC and QR~\cite{Henzinger-al:POPL13}, QL and
+QQC~\cite{Jagadeesan-Riely:ICALP14}) hence, for a particular
+concurrent object, choosing one or another criterion should be
+justified by the needs of the object's client. However, how suitable
+is one or another relaxed correctness condition %from the listed ones
+for reasoning about safety properties of a particular client program
+is still largely an open question.
+
+\paragraph{Hoare-style specifications of concurrent objects.}
+\label{sec:related-logic-based}
+
+Program logics for concurrency allow one to capture in the
+specification precisely those bits of information about the program's
+state, which are relevant for the program's clients, making it
+possible to abstract over the irrelevant details of the
+implementation~\cite{DinsdaleYoung-al:ECOOP10}.
+
+Hoare-style program logics were used with great success to specify and
+verify a number of concurrent data structures and algorithms, which
+are much more natural to specify in terms of observable state
+modifications, rather than via call/return histories. The examples of
+such objects and programs include
+barriers~\cite{Dodds-al:POPL11,Hobor-Gherghina:ESOP11}, concurrent
+indices~\cite{ArrozPincho-al:OOPSLA11}, flat
+combiner~\cite{Turon-al:ICFP13,Sergey-al:ESOP15}, event
+handlers~\cite{Svendsen-Birkedal:ESOP14}, shared graph
+manipulations~\cite{Raad-al:ESOP15,Sergey-al:PLDI15}, as well as their
+multiple client programs.
+%
+The observation about a possibility of using Hoare-style logics as a
+correctness criterion, alternative to linearizability, has been made
+in some of the prior
+works~\cite{ArrozPincho-al:OOPSLA11,Svendsen-al:ESOP13}, but it was
+never substantiated by demonstrating Hoare-style reasoning about
+objects whose behavior is specified via dedicated
+criteria~\cite{Hemed-Rinetzky:PODC14,Aspnes-al:JACM94,Jagadeesan-Riely:ICALP14}.
+%
+% Verification in such logics is done structurally, \ie, by
+% systematically applying syntax-directed inference rules, until the
+% spec is proved. Several mechanized tools for logic-based
+% concurrent reasoning have been
+% released~\cite{Sergey-al:PLDI15,Appel-al:BOOK14}.
+
+Several logics for proving linearizability or, equivalently,
+observational refinement~\cite{Filipovic-al:TCS10}, have been proposed
+recently~\cite{Turon-al:ICFP13,Liang-Feng:PLDI13,Vafeiadis:PhD}, all
+employing variations of the idea of using \emph{specifications as
+  resources}, and identifying (possibly, non-fixed or non-local)
+linearization points, at which such specification should be ``run''.
+%
+In these logics, after establishing linearizability of an object's
+operation, one should still devise a suitable Hoare-style
+specification for it, which would be useful for the clients.
+%
+To avoid this detour, a number of other logic-based approaches have
+suggested to assign Hoare-style specifications \emph{directly} to
+fine-grained object
+implementations~\cite{Svendsen-al:ESOP13,Svendsen-Birkedal:ESOP14,ArrozPincho-al:ECOOP14}
+and reason out of these specs.
+
+Similarly to the way linearizability allows one to think of a
+concurrent operation in terms of an atomic one, these logics implemented the
+notion of \emph{logical atomicity}, allowing the clients of a data
+structure, to implement application-specific synchronization on top of
+the data structure operations, suitably specified in the Hoare style.
+%
+Different logics implement abstract atomicity either by parametrizing
+program specs with client-specific auxiliary
+code~\cite{Jacobs-Piessens:POPL11} (usually dubbed
+\emph{view-shift}~\cite{DinsdaleYoung-al:POPL13})~\cite{Svendsen-al:ESOP13,Svendsen-Birkedal:ESOP14,Jung-al:POPL15}
+or by engineering dedicated rules for resource coupling, relying on
+the simulation between the actual implementation and the ``atomic''
+one~\cite{ArrozPincho-al:ECOOP14}.
+%
+Both approaches to logical atomicity require one to identify precisely
+a \emph{synchronization point}~\cite{Svendsen-al:ESOP13} within the
+structure being verified, which makes it non-trivial to apply them for
+specifying non-linearizable objects, especially when conducting
+quantitative logic-based reasoning, which we demonstrated in
+Section~\ref{sec:qqc-client}.
+
+Instead of trying to extend the existing approaches for logical
+atomicity to non-linearizable objects (for which the notion of
+atomicity is not intuitive), we relied on a general mechanism of
+auxiliary state, provided by FCSL~\cite{Nanevski-al:ESOP14}. 
+%
+Specifically, we adopted the idea of histories as auxiliary
+state~\cite{Sergey-al:ESOP15}, which, however, was previously explored
+in the context of FCSL only for specifying linearizable structures.
+%
+% Similarly to logical atomicity, the histories-as-state specification
+% approach makes fine-grained concurrent programs look like atomic ones,
+% since due to compositionality, the specification clients only see the
+% history entries.
+%
+% 
+To make the proof outlines more intuitive, in this work we introduced
+enhanced notation for referring directly to histories (\eg, $\hists$,
+$\histo$) instead of generic components of concurrent resources,
+although FCSL's initial logical infrastructure, notion of concurrent
+resources, and inference rules remained unchanged.
+
+
+% \paragraph{Reasoning about linearizability in program logics}
+% \label{sec:rel-linear}
+
+% \begin{itemize}
+
+% \item Logics for linearizability (viktor's PhD), LF, Turon, contextual refinement
+
+% \item Hindsight paper by O'Hearn and company
+
+% \item Observation from the HOCAP paper about the push2 method, that,
+%   however, never were extended to any interesting structures, so we
+%   did it.
+
+% \item Abstract atomicity
+
+% \end{itemize}
+

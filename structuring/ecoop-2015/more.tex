@@ -1,0 +1,127 @@
+\section{More examples}
+\label{sec:more-examples}
+
+We next briefly illustrate two additional features of FCSL that our
+implementation uses extensively: concurroid composition and reasoning
+about higher-order concurrent structures with work stealing.
+
+\subsection{Composing concurrent resources}
+\label{sec:comp-conc-reso}
+
+The \code{span} algorithm uses only one concurroid \code{SpanTree},
+allocated by $\mathsf{hide}$ out of the concurroid \code{Priv} for
+thread-local state.
+%
+In general, FCSL specs can span multiple primitive concurroids, of the
+same or different kinds, which are \emph{entangled} by interconnecting
+special \emph{channel}-like transitions~\cite{Nanevski-al:ESOP14}. The interconnection
+implements synchronized communication, by which concurroids 
+exchange heap ownership.
+%
+Entangling several concurroids yields a new concurroid.
+%
+Omitting the formal details of the entanglement
+operators, let us demonstrate a program
+whose spec uses a composite concurroid.
+%
+\begin{lstlisting}
+Definition alloc : {h : heap}, STsep [entangle (Priv pv) ALock] 
+   (fun s1 => pv_self s1 = h, 
+    fun r s2 => exists B (v : B), pv_self s2 = r :-> v \+ h) := 
+  ffix (fun (loop : unit -> alloc_tp) (_ : unit) =>
+    Do (res <-- try_alloc; 
+        if res is Some r then ret r else loop tt)) tt.  
+\end{lstlisting}
+%
+The \code{alloc} procedure implements a pointer allocator. Its
+postcondition says that the initial heap \code{h} is augmented by a
+new pointer \code{r} storing some value \code{v} (\code{r :-> v}). The
+heap \code{h} is part of the \code{Priv} concurroid, as evident by the
+projection \code{pv_self} in the precondition. The pointer \code{r} is
+logically transferred from the concurroid \code{ALock} which
+implements a coarse-grained (\ie, lock-protected) concurrent
+allocator. Hence, the whole procedure \code{alloc} uses the composed
+concurroid \code{[entangle (Priv pv) ALock]}.
+%
+The body of \code{alloc} implements a simple spin-loop, trying to
+acquire the pointer by invoking the \code{try_alloc} procedure, omitted
+here.
+
+Whereas separation logic~\cite{Reynolds:LICS02} always assumes
+allocation as a primitive operation, the above example illustrates
+that in FCSL, allocation is definable. One can also define a new
+variant of the \code{STsep} type that automatically entangles the
+underlying concurroid with \code{ALock}, thus enabling allocation
+without the user having to explicitly do so herself.
+
+\subsection{Higher-order specifications}
+\label{sec:high-order-spec}
+
+Due to embedding in Coq, FCSL is also capable of specifying and
+verifying higher-order concurrent data structures, which we illustrate
+by an example of a universal non-blocking construction of \emph{flat
+  combining} by~\citet{Hendler-al:SPAA10}.\footnote{For simplicity, we
+  present here a specification that is much weaker than what we have
+  actually verified in our implementation.}
+
+A flat combiner (FC) is a higher-order structure, whose method
+\code{flat_combine} takes a sequential state-modifying
+function~\code{f} and its argument~\code{v}, and works as
+follows. While for the client, invoking \code{flat_combine(f, v)} looks
+like a sequence \texttt{\small{lock; f(v); unlock}}, in reality, the
+structure implements a sophisticated concurrent
+behavior. Instead of expensive locking and unlocking, the calling
+thread doesn't run \code{f}, but only \emph{registers} \code{f} to be
+executed on \code{v}. One of the threads then becomes a
+\emph{combiner} and executes the registered methods on behalf of
+everyone else. Since only the combiner needs exclusive access to the
+data structure, this reduces contention and improves cache
+locality. This design pattern is known as \emph{work stealing} or
+\emph{helping}: a thread can complete its task even without accessing
+the shared resource.
+
+To specify FC, we parametrize it by a sequential data structure and a
+\emph{validity predicate} \code{fc_R}, which relates a function
+\code{f} (from a fixed set of allowed operation), the argument of type
+\code{fc_inT f}, result of type \code{fc_outT f} and the
+\emph{contribution} of type \code{fc_pcm}. The last entry is a
+description of what \code{f} \emph{does} to the shared state,
+expressed in abstract algebraic terms as a value from a user-supplied
+PCM.
+%
+\begin{lstlisting}
+Variable fc_R : forall f, fc_inT f -> fc_outT f -> fc_pcm -> Prop.
+\end{lstlisting}
+%
+The spec of the \code{flat_combine} is then given in the context of
+three entangled concurroids: \code{Priv} for thread-local state, a
+lock-based allocator \code{Alloc}, adapted from the previous example
+(since a sequential function \code{f} might allocate new memory), and
+a separate concurroid \code{FlatCombine}.
+%
+\begin{lstlisting}
+Definition PA := (entangle (Priv pv) Alloc).
+Definition W  := (entangle PA (FlatCombine fc)).  
+Program Definition flat_combine f (v : fc_inT f) : STsep [W] 
+ (fun s1 => pv_self s1 = Unit /\ fc_self s1 = Unit,
+  fun (w : fc_outT f) s2 => exists g,
+     pv_self s2 = Unit /\ fc_self s2 = g /\ fc_R f v w g) := ...
+\end{lstlisting}
+% 
+The precondition says that \code{flat_combine} executes in the empty
+initial heap (which is encoded as \code{pv_self s1 = Unit}), and hence
+by framing, in any initial heap. Similarly, the initially assumed
+effects of the calling thread on the shared data structure are empty
+(\code{fc_self s1 = Unit}), but can be made arbitrary by applying
+FCSL's \emph{frame rule} to the spec of \code{flat_combine}.
+%
+The postcondition says that there exists an abstract PCM value
+\code{g} describing the effect of \code{f} in terms of PCM elements
+(\code{fc_R f v w g}). Moreover, the effect of \code{g} is attributed
+to the invoking thread (\code{fc_self s2 = g}), even though in reality
+\code{f} could be executed by the combiner, \emph{on behalf} of the
+calling thread.
+%
+In our Coq implementation, we instantiated the FC structure with a sequential
+stack, showing that the result has the same spec as a concurrent stack
+implementation.

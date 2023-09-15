@@ -1,0 +1,273 @@
+\section{Introduction}
+\label{sec:intro}
+%In this work we present a model that distills the essential
+%ingredients required for compositional specification and verification
+%of shared-memory concurrent programs.
+%
+There are two main styles of program logics for shared-memory
+concurrency, customarily divided according to the supported kind of
+granularity of program interference. Logics for coarse-grained
+concurrency such as Concurrent Separation Logic
+(CSL)~\cite{OHearn07,Reynolds02} restrict the interference to critical
+sections only, but generally lead to more modular specifications and
+simpler proofs of program correctness. Logics for fine-grained
+concurrency, such as Rely-Guarantee (RG)~\cite{jones83} admit
+arbitrary interference, but their specifications have traditionally
+been more monolithic, as we shall illustrate. In this paper, we identify the essential
+ingredients required for compositional specification of concurrent
+programs, and combine them in a novel way to reconcile the two
+approaches. We present a semantic model and a logic that enables
+specification and reasoning about fine-grained programs, but in the
+style of CSL.
+%
+To describe our contribution more precisely, we first compare the
+relevant properties of CSL and RG.
+%Logics for coarse-grained concurrency allow shared memory to be
+%accessed by a thread only after the thread acquires exclusive
+%ownership of it. Such a protocol is limiting, but it enables
+%encapsulating the interference between threads to a well-circumscribed
+%region of memory, typically called a \emph{shared resource}, with an
+%associated \emph{resource
+%  invariant}~\cite{Owicki-Gried:CACM76}. Resources are an abstraction
+%which modularize the specification and reasoning. One may verify a
+%program wrt.~the smallest set of resources required, then introduce
+%additional resources without invalidating the existing verification.
+%Logics for fine-grained concurrency allow arbitrary protocols on
+%shared memory, but the protocol specification has historically been
+%monolithic, requiring the user to predict the full context  in which 
+%
+%For example, one may create and
+%discard resources on the fly, while verifying programs wrt.~the
+%smallest set of resources required.
+%
+%
+% the kind of programs that can be written and verified, it provides a
+% useful concept of a \emph{shared resource} and associated
+% \emph{resource invariants}~\cite{Owicki-Gries:CACM76}, which abstract
+% the interference between threads, and help modularize the
+% reasoning. For example, one may freely introduce new resources,
+% discard old ones, verify programs wrt.~the smallest set of resources
+% it requires.
+%
+%\emph{resource invariants}, which modularize the reasoning about
+%interference between threads.
+%
+%While following this protocol on shared state limits
+%the kind of programs that can be verified, this kind of discipline has
+%
+%\an{Describe the topic of the paper here. Strengthen the point about 
+%composing concurrent systems, which neither CSL nor RG do. Strengthen
+%the point about identifying components \emph{and properties} that
+%enable concurrent systems composition.}
+
+%\subsubsection{Coarse-grained concurrency and Concurrent Separation Logic}
+%\label{sec:coarse-grain-conc}
+%The main representative of logics for \emph{coarse-grained
+%  concurrency}, 
+CSL employs \emph{shared resources} and associated
+\emph{resource invariants}~\cite{Owicki-Gries:CACM76}, to abstract the
+interference between threads. A resource $r$ is a chunk of shared state,
+and a resource invariant $I$ is a predicate over states, which holds
+of $r$ whenever all threads are outside the critical section. By
+mutual exclusion, when a thread enters a critical section for $r$, it
+acquires ownership and hence exclusive access to $r$'s state. The
+thread may mutate the shared state and violate the invariant $I$, but
+it must restore $I$ before releasing $r$ and leaving the critical
+section, as given by the following CSL rule~\cite{Brookes:TCS07}.
+\begin{mathpar}
+{\small
+\inferrule*[right={CritSecCSL}]
+  {\Gamma \vdash \{p \lsep I\}\ c\ \{q \lsep I\}}
+  {\Gamma, r : I \vdash \{p\}\ \mathsf{with}\ r\ \mathsf{do}\ c\ \{q\}}
+}
+\end{mathpar}
+%
+$\Gamma$ is a context of currently existing resources. The rule for
+parallel composition assumes that forked threads don't share any state
+beyond that of the resources in $\Gamma$, and may divide the private
+state of the parent thread disjointly among the children.
+%
+\begin{mathpar}
+\begin{small}
+\inferrule*[right={ParCSL}]
+  {\Gamma \vdash \{p_1\}\ c_1\ \{q_1\} \and \Gamma \vdash \{p_2\}\ c_2\ \{q_2\}}
+  {\Gamma \vdash \{p_1 \lsep p_2\}\ c_1 \parallel c_2\ \{q_1 \lsep
+    q_2\}}
+\end{small}
+\end{mathpar}
+%
+\noindent
+A private heap of a thread may be promoted into a freshly allocated
+shared resource in a scoped manner by the following rule.
+\begin{mathpar}
+{\small
+
+\inferrule*[right={ResourceCSL}]
+  {\Gamma, r : I \vdash \{p\}\ c\ \{q\}}
+  {\Gamma \vdash \{p \lsep I\}\ \mathsf{resource}\ r\ \mathsf{in}\ c\ \{q \lsep I\}}
+}
+\end{mathpar}
+%
+One may see from these rules that resources are abstractions that
+promote modularity. In particular, one may verify a thread wrt.~the
+smallest resource context required. By context weakening, the
+introduction of new resources will not invalidate the existing
+verification. Thread-local resources can be hidden from the
+environment by the \textsc{ResourceCSL} rule.
+%One difficulty with resource invariants is that they can't directly
+%specify non-invariant properties. For example, a reasource invariant
+%can express that an integer value stored in $r$ is non-negative
+%throughout program execution, but not that $r$ increments by some
+%specified amount. Expressing the latter requires \emph{auxiliary
+%  state}~\cite{owi+gri, r-l+n}.
+
+%\subsubsection{Fine-grained concurrency and Rely-Guarantee reasoning}
+%\label{sec:fine-grain-conc}
+%The main representative of logics for \emph{fine-grained concurrency},
+%where interference may occur between any two memory operations, is
+%Rely/Guarantee (RG)~\cite{Jones83}. 
+In RG, the interaction between threads is directly specified by the
+rule for parallel composition.\footnote{In the presence of heaps, the
+  rule is more
+  complicated~\cite{Vafeiadis-Parkinson:CONCUR07,Feng-al:ESOP07}, but
+  we elide the issue here.} 
+%
+\begin{mathpar}
+{\small
+\inferrule*[right={ParRG}]
+  {R \oor G_2, G_1 \vdash \{p\}\ c_1\ \{q_1\} \and
+   R \oor G_1, G_2 \vdash \{p\}\ c_2\ \{q_2\}}
+  {R, G_1 \oor G_2 \vdash \{p\}\ c_1 \parallel c_2\ \{q_1 \aand q_2\}}
+}\end{mathpar}
+%
+The rely transition $R$ and guarantee transitions $G_1$ and $G_2$ are
+relations on states. A rely specifies the thread's expectations of
+state transitions made by its environment. A guarantee specifies the
+state transitions made by the thread itself. The disjunctive
+combinations of $R$ and $G$'s in the rule captures the idea we call
+\emph{forking shuffle}, whereby upon forking, the thread $c_1$ becomes
+part of the environment for $c_2$ and vice-versa.
+
+RG is more expressive than CSL because transitions can encode
+arbitrary protocols on shared state, whereas CSL is specialized to a
+fixed mutual exclusion protocol on critical sections. But, CSL is more
+compositional in manipulating resources. Where a CSL resource
+invariant specifies the behavior of an individual chunk of shared
+state, the transitions in RG treat the whole state as monolithically shared. Feng's
+work on Local Rely Guarantee (LRG)~\cite{Feng:POPL09} has made first
+steps in improving RG in this respect.
+% (and we compare with it in
+%Section~\ref{sec:related}).
+%The recent work on combining RG with
+%CSL~\cite{Vafeiadis-Parkinson:CONCUR07,Feng-al:ESOP07,Feng:POPL09} has
+%made the first steps in improving the former in this respect.
+
+\subsection{Contributions}
+\label{sec:our-approach}
+We propose that a logic for fine-grained concurrency can be based on a
+notion of a \emph{fine-grained resource}. Fine-grained resources serve
+as buildings blocks for program specification, and generalize
+CSL-style coarse-grained resource management.
+%
+%
+%Instead of improving on RG, in this paper we propose that attaining
+%the best of both reasoning styles can be achieved by generalizing CSL
+%with a novel notion of \emph{fine-grained resource}. 
+%
+A fine-grained resource is specified by a resource invariant, as in
+CSL, but it also adds transitions in the form of relations between
+resource states. Thus, it is best viewed as a \emph{state transition
+  system} (STS), where the resource invariant specifies the state
+space. We identify a number of properties that an STS has to satisfy
+to specify a fine-grained resource, and refer to such STSs as
+\emph{concurroids}. We refer to our generalization of CSL as
+Fine-grained CSL (\SCST).
+
+There are two main ideas that we build on in \SCST, and which separate
+\SCST from LRG and other recent related
+work~\cite{DinsdaleYoung-al:ECOOP10,Svendsen-al:ESOP13,Turon-al:ICFP13}
+(see Section~\ref{sec:related} for details):
+(a)~\emph{subjectivity} and (b)~\emph{communication}.
+%
+Subjectivity~\cite{LeyWild-Nanevski:POPL13} means that each state of a
+concurroid STS describes not only the shared resource, but also
+\emph{two} abstractions of it that represent the views of the state by
+the thread, and by its environment,
+respectively. Subjectivity will enable us to capture the idea of
+forking shuffle by a rule for parallel composition akin to
+\textsc{ParCSL} (but with a somewhat generalized notion of separating
+conjunction~$(\lsep)$~\cite{LeyWild-Nanevski:POPL13}), rather than in
+the monolithic style of \textsc{ParRG}.
+
+%encode the idea of the forking shuffle \emph{at the level of state},
+%rather than by disjoining transitions. Hence, the \SCST rule for
+%parallel composition will be in the compositional style of
+%\textsc{ParCSL}, with a somewhat generalized notion of separating
+
+To compositionally build large systems out of a number of smaller
+ones, we make concurroids communicate.
+%Intuitively, communication
+%generalizes the folklore notion of the \emph{ownership
+%  transfer}~\cite{OHearn07}. 
+In addition to standard for STS \emph{internal} transitions between
+states, concurroids contain \emph{external} transitions. These may be
+thought of as ``wires'' whose one end is connected to a state in the
+STS, but whose other end is dangling, representing either an ``input''
+into or an ``output'' out of the STS. Concurroids can be
+\emph{entangled}, \ie, composed by interconnecting their dangling wires
+of opposite polarity, where the interconnections serve to transfer heap
+ownership between concurroids. Communication and entanglement endow
+\SCST with the compositionality of CSL. For example, entanglement
+generalizes the notion of adding a resource to the context $\Gamma$ in
+\textsc{ResourceCSL}. 
+%However, while CSL resources are independent
+%from each other and don't interact, \SCST resources can exchange
+%information by communication. 
+We also rely on entanglement to
+formulate a rule generalizing the scoped resource allocation of
+\textsc{ResourceCSL}.
+%
+% \SCST provides a specific inference rule \textsc{Inject} which
+% generalizes the corresponding notion of context weakening, and allows
+% that verifications carried out wrt.~a concurroid $U$ can be lifted to
+% an entanglement $U \entangle V$. \SCST also provides an inference rule
+% \textsc{Hide} for creating a resource out of private state in a scoped
+% manner, thus generalizing \textsc{ResourceCSL}.
+%
+%\subsection{Contributions}
+%\label{sec:contr-outl}
+%
+%\begin{itemize}
+More precisely, our contributions are:
+\begin{itemize}
+\item We identify STSs with subjectively-shaped states (concurroids)
+  and a number of algebraic properties, as a natural model for
+  scalable concurrency verification.  We show how communication
+  enables composing larger STSs out of smaller ones.
+\item We present \SCST---a simple and expressive logic for
+  fine-grained resources that combines expressivity of RG with the
+  compositional resource management of CSL.
+\item We illustrate \SCST by showing how to implement a coarse-grained
+  resource of CSL by a fine-grained resource of \SCST in which an
+  explicit spin lock protects the resource's state. We also
+  implemented examples such as ticketed locks, that go beyond
+  coarse-grained CSL resources, and present them in the extended
+  version~\cite{fcsl-coqscripts}.
+%
+%in the appendix.
+%
+\item We implemented \SCST~\cite{fcsl-coqscripts} as a shallow
+  embedding within the type theory of the Calculus of Inductive
+  Constructions (\ie, Coq~\cite{coq-team,Bertot-Casteran:04}). Thus,
+  \SCST naturally reconciles with features such as higher-order
+  functions, abstract predicates, modules and functors. We formally
+  instantiated the whole stack of abstractions: the semantic model is
+  formalized in Coq, \SCST is built on top of the semantic model, CSL
+  is built on top of \SCST, and then verified programs are built on
+  top of CSL.
+\end{itemize}
+
+
+
+
+

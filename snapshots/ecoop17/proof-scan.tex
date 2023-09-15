@@ -1,0 +1,93 @@
+\begin{figure}[!htp]
+\[
+  \begin{array}[t]{r l}
+  \num{1} & \specK{\{ \histS = \hempty \wedge h \subseteq \hist \}} \\
+  \num{2} & \specK{\{ \histS = \hempty \wedge
+                \sss = \sOff\, \_ \wedge \sx = \sy = \FF
+                \wedge h \subseteq \hist\}}\\
+  \num{3} & \lat\,\actwrite{\s}{\esc{true}};\ \aux{set}(\esc{true}) \rat;\\
+  \num{4} & \specK{\{\, \histS = \hempty \wedge
+              \sss = \sOn \wedge \sx = \sy = \FF \wedge
+              h \subseteq \hist \}}\\
+  \num{5} & \lat\,\actwrite{\var{\fx}}{\bot};\ \aux{clear}(x)\rat;\\
+  \num{6} & \specK{\{
+                 \histS = \hempty \wedge \sss= \sOn \wedge \sx = \TT
+                 \wedge \sy = \FF \wedge
+%          & \specK{\hphantom{\{}\,
+               h \subseteq \hist \wedge
+               \C(\dom{h_{x}}) = \mathsf{green}\}}\\
+  \num{7} & \lat\,\actwrite{\var{\fy}}{\bot};\ \aux{clear}(y)\rat;\\
+  \num{8} & \specK{\{\histS = \hempty \wedge \sss= \sOn \wedge
+             \sx = \sy = \TT \wedge
+             h \subseteq \hist \wedge \C(\dom{h}) = \mathsf{green}\}}\\
+  \num{9} & \var{vx} \tbnd \lat \act{read}(x) \rat;\\
+  \num{10} & \specK{\{ \exists\, t_x\ldot\, \histS = \hempty \wedge
+                  \sss = \sOn \wedge \sx = \sy = \TT  \wedge}\\
+           & \specK{\hphantom{\{ \exists\, t_x\ldot}
+                h \subseteq \hist \wedge \C(\dom{h}) = \mathsf{green} \wedge    
+                \botLGY\ x\, t_x\, \var{vx} \}} \\
+  \num{11} & \var{vy} \tbnd \lat \act{read}(y) \rat;\\
+  \num{12} & \specK{\{ \exists\, t_x\, t_y\ldot\, \histS = \hempty \wedge
+              \sss = \sOn \wedge \sx = \sy = \TT  \wedge
+              h \subseteq \hist \wedge}\\
+           & \specK{\hphantom{\{ \exists\, t_x \, t_y\ldot}
+             \C(\dom{h}) = \mathsf{green} \wedge    
+            \botLGY\ x\, t_x\, \var{vx} \wedge \botLGY\ x\, t_x\, \var{vy}\}} \\
+  \num{13} &\lat\,\actwrite{\s}{\esc{false}};\ \aux{set}(\esc{false}) \rat;\\\
+  \num{14} & \specK{\{ \exists\, t_x\, t_y\, \toff \ldot\, \histS = \hempty \wedge
+             \sss = \sOff\, \toff \wedge \sx = \sy = \TT  \wedge
+             h \subseteq \hist \wedge}\\
+           & \specK{\hphantom{\{ \exists\, t_x \, t_y\, \toff\ldot}
+             \C(\dom{h}) = \mathsf{green} \wedge    
+            \botLGY\ x\, t_x\, \var{vx} \wedge \botLGY\ y\, t_y\, \var{vy}\}} \\
+  \num{15} & \var{ox} \tbnd \lat \act{read}(\var{\fx}) \rat;\\
+  \num{16} & \specK{\{\, \exists\, t_y\, t'_x\, \toff \ldot\,
+              \histS = \hempty \wedge
+              \sss = \sOff\ \toff \wedge \sx = \sy = \TT \wedge
+              h \subseteq \hist \wedge}\\
+           & \specK{\hphantom{\{\, \exists\, t_y\, t'_x\, \toff \ldot}\,
+              \C(\dom{h}) = \mathsf{green} \wedge
+              \botLGY\ y\, t_y\, \var{vy} \wedge}\\
+           & \specK{\hphantom{\{\, \exists\, t_y\, t'_x\, \toff \ldot}\,
+              \histLGY\ x\ t'_x\ (\textrm{if}\ r = \bot\
+                   \textrm{then}\ \var{vx}\ \textrm{else}\, r)\}}\\
+  \num{17} & \var{oy} \tbnd \lat \act{read}(\var{\fy}) \rat;\\
+  \num{18} & \specK{\{\, \exists\, t'_x\, t'_y\, \toff \ldot\,
+              \histS = \hempty \wedge
+              \sss = \sOff\ \toff \wedge \sx = \sy = \TT \wedge
+              h \subseteq \hist \wedge}\\
+             & \specK{\hphantom{\{\,
+                  \exists\, t'_x\, t'_y\, \toff \ldot}\,
+              \C(\dom{h}) = \mathsf{green} \wedge
+              \histLGY\ x\ t'_x\
+                      (\textrm{if}\ \var{ox} = \bot\
+                       \textrm{then}\ \var{vx}\
+                       \textrm{else}\, \var{ox}) \wedge}\\
+             & \specK{\hphantom{\{\,
+                  \exists\, t'_x\, t'_y\, \toff \ldot}\,
+                 \histLGY\ y\ t'_y\
+                       (\textrm{if}\ \var{oy} = \bot\
+                        \textrm{then}\ \var{vy}\ \textrm{else}\, \var{oy})\}}\\
+  \num{19} & \var{rx} \tbnd \kw{if}\ (\var{ox} \neq\bot)\
+                \kw{then}\ \var{ox}\ \kw{else}\ \var{vx};\\
+  \num{20} & \var{ry} \tbnd \kw{if}\ (\var{oy} \neq\bot)\
+                 \kw{then}\ \var{oy}\ \kw{else}\ \var{vy};\\
+   \num{21} & \specK{\{\, \exists\, t'_x\, t'_y\, \toff \ldot\,
+              \histS = \hempty \wedge
+              \sss = \sOff\ \toff \wedge \sx = \sy = \TT \wedge
+              h \subseteq \hist \wedge}\\
+             & \specK{\hphantom{\{\,
+                  \exists\, t'_x\, t'_y\, \toff \ldot}\,
+              \C(\dom{h}) = \mathsf{green} \wedge
+              \histLGY\ x\ t'_x\ \var{rx} \wedge
+              \histLGY\ y\ t'_y\ \var{ry}\}}\\
+  \num{22} & \lat\,\aux{relink}(\var{rx}, \var{ry});\
+                \kw{return}\ (\var{rx}, \var{ry})\,\rat \\
+  \num{23} & \specK{\{\, r\ldot \exists t\ldot \histS = \hempty \wedge
+    r = \eval\ t\ {\stableorder}\ {\hist} \wedge
+    \dom{h} \subseteq \ideal{\stableorder}{t} \wedge
+    t \in \scanned{\stableorder}\}}
+\end{array}
+\]
+  \caption{\label{proof:scan} Proof outline for $\jyscan$.}
+\end{figure}

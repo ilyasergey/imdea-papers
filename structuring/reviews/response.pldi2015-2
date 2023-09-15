@@ -1,0 +1,72 @@
+We thank the reviewers for more feedback. The concerns of reviewers
+A-C were answered before, so we focus on the comments made by
+reviewers D-F.
+
+<<General concerns>>
+
+* FCSL as a logic is not new: it has already been presented at ESOP14,
+  together with its inference rules and semantics.
+
+Indeed, the logic is not new, but the point of this paper is to
+present and evaluate the *implementation* of the logic as a
+verification tool. The implementation in Coq was a highly non-trivial
+endeavour. It involved a lot of proof engineering, and it was never
+presented or evaluated before.
+
+In our opinion, a program logic only works, if the implementation
+empirically confirms this in practice, one illustration of which is
+our Table 1. It is the implementation that enables different formal
+logics to be properly compared. As we present the first implementation
+of a logic for fine-grained concurrency, we see this paper as a
+starting point for other efforts in this direction.
+
+The paper's conceptual contribution is the proof of the full
+functional correctness of the spanning tree algorithm. As outlined in
+the related work section, this novel proof demonstrates that the FCSL
+reasoning method spreads to data structures with "deep sharing"
+---without additional dedicated logical formalisms [Hobor and Villard
+2013, Raad et al. 2014]. We were surprised to discover this, despite
+FCSL having been already designed.
+
+* Formal presentation of FCSL abstractions is missing from the paper.
+
+We apologize. Unfortunately, without this omission we couldn't fit
+within the space limits.
+
+Should the paper be accepted, we will follow the suggestion of the
+Reviewer F, and provide a broader overview of the necessary concepts
+behind FCSL, such as PCMs and STSs in the conference *presentation*.
+If extra pages are available for camera ready version, we can also
+present the proof of span in the more traditional format of a proof
+outline with intermediate assertions.
+
+<<Some specific questions>>
+
+=====[Reviewer #73E]======
+
+* Do the "-" entries in Table 1 indicate unnecessary components?
+
+Yes. Not all examples required new concurroids (Conc), neither did
+they need new actions (Acts) and stability-related lemmas (Stab). We
+will clarify.
+
+=====[Reviewer #73F]======
+
+* Relation to separation logic and the use of separating conjunction.
+
+We don't use separating conjunction, because in the Coq implementation
+we have found it unnecessary. One can define it, but then constantly
+must unfold its definition, and "destruct" the operator, as explained
+in [Nanevski et al. 2010] for the sequential case. The same holds for
+the concurrent verification.
+
+The omission of * is a small fraction of the significant proof
+engineering that went into the implementation. We tried to give a
+taste of this proof engineering in Section 5, but the section had to
+be significantly shortened to save space for the high-level intuition
+behind the proof structure, which we considered more important.
+
+* Insights behind using PCMs.
+
+This concern was answered before, responding to reviewer #73B.
+

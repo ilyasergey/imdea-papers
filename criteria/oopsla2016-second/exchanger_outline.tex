@@ -1,0 +1,145 @@
+%\newpage
+
+\section{Exchanger Invariants and Proof Outline}
+\label{app:exch}
+
+% In this section, we formally define the exchanger's state invariants,
+% and present the proof outline for its spec~\eqref{tag:exchangespec}.
+
+% \vspace{3pt}
+% \noindent
+% \emph{\textbf{Exchanger invariants}}~~~
+%
+
+\paragraph{Additional exchanger invariants}
+
+The states in the exchanger state-space must satisfy other invariants
+in addition to (\ref{tag:exchanging}). These properties arise from our
+description of how the exchanger behaves on decorated state. We
+abbreviate with $p \mapsto (x; y)$ the heap
+$p \mapsto x \hunion p\!+\!1 \mapsto y$.
+
+\begin{enumerate}[label=(\roman*)]
+\item\label{exP} $\heapj$ contains a pointer $g$ and a number of
+  offers $p \mapsto (v; x)$, and $g$ points to either $\mathsf{null}$
+  or to some offer in $\heapj$.
+
+\item $\hists$, $\histo$ and $\mygather{\pending}$ contain only
+  disjoint time-stamps. Similarly, $\perms$ is disjoint from $\permo$.
+
+\item\label{matched} All offers in $\pending$ are matched and owned
+  by some thread:
+%
+  {\small$\exists t\ldot p \mapsto (t, v, w) \subseteq \pending
+    \Leftrightarrow p \in \perms \hunion \permo, p \mapsto (v;
+    \Matched w) \subseteq \heapj $}.
+
+\item There is at most one unmatched offer; it is the one linked
+  from~$g$. It is owned by someone:
+%
+  {\small{
+      $p \mapsto (v; \Unmatched) \subseteq \heapj \Longrightarrow p
+      \in \perms \hunion \permo, g \mapsto p \subseteq \heapj.  $ }}.
+
+\item Retired offers aren't owned:
+  {\small{$p \mapsto (v; \Retired)\!\subseteq\!\heapj\!\Rightarrow
+    p\!\notin\!\perms\!\hunion\!\permo$}}.
+
+\item The outstanding offers are included in the joint heap, \ie, if
+  $p \in \perms \hunion \permo$ then $p \in \mathsf{dom}\ \heapj$.
+
+\item\label{ex:gapless} The combined history
+  $\hists \hunion \histo \hunion \mygather{\pending}$ is gapless: if
+  it contains a time-stamp $t$, it also contains all the smaller
+  time-stamps (sans 0).
+
+\end{enumerate}
+
+% \vspace{3pt}
+% \noindent
+% \textbf{\emph{Explaining the proof outline}}~~~
+%
+
+\paragraph{Explaining the proof outline}
+
+Figure~\ref{fig:exchanger_proof} presents the proof outline for the
+spec~\eqref{tag:exchangespec}.
+%
+We start with the precondition, and after allocation in line 2,
+$\heaps$ stores the offer $p$ in line 3.
+
+If \code{CAS} at line 4 succeeds, the program ``installs'' the offer;
+that is, the state (real and auxiliary) is changed simultaneously to
+the modification of $g$. In particular, $p$ is added to $\perms$, and
+the offer $p$ changes ownership, to move from $\heaps$ to $\heapj$.
+Since $b$ will be bound to $\mathsf{null}$, this leads us to the
+assertion in line 7. We explain in Section~\ref{sec:background} how
+these kinds of changes to the auxiliary state, which are supposed to
+occur simultaneously with some atomic operation (in this case,
+\code{CAS}), are specified and verified in FCSL. The assertion in line
+7 further states $\mathsf{bounded}\ p\ v\ \gist$. We do not formally
+define $\mathsf{bounded}$ here (it is in the proof scripts,
+accompanying the paper), but it says that $p$ has been moved to
+$\heapj$, \ie, $p \mapsto (v; -) \subseteq \heapj$, and that any
+time-stamp $t$ at which another thread may match $p$, and thus place
+the entry $p \mapsto (t, v,-)$ into $\pending$, must satisfy
+$\mathsf{last}(\gist) < t, \twin{t}$. Intuitively, this property is
+valid, and stable under interference, because entries in $\pending$
+can be added only by generating fresh time-stamps wrt.~the collective
+history $\histo \hunion \mygather{\pending}$, and $\gist$ is a subset
+of it.
+%
+If \code{CAS} in line 4 fails, then nothing changes, so we move to the
+spec in line~15.
+
+At line 8, \code{CAS} succeeds if $x\,{=}\,\Unmatched$, and fails if
+$x\,{=}\,\Matched w$. Notice that $x$ cannot be $\Retired$; since we
+own $p \in \perms$, no other thread could retire $p$.
+%
+If \code{CAS} fails, then the offer has been matched with~$w$. \code{CAS}
+simultaneously ``collects'' the offer as follows. By invariant (iii),
+and $\mathsf{bounded}\ p\ v\ \gist$, the auxiliary map $\pending$
+contains an entry $p \mapsto (t, v, w)$, where $\mathsf{last}(\gist) <
+t, \twin{t}$. The auxiliary state is changed to remove $p$ from
+$\pending$, and simultaneously place $t \mapsto (v, w)$ into $\hists$.
+%
+If \code{CAS} succeeds, the offer was unmatched, and is ``retired'' by
+removing $p$ from $\perms$.
+%
+Lines 12-13 branch on $x$, selecting either the assertion 10 or 11, so
+the postcondition follows.
+
+%Deallocation in line 16 removes the offer $p$ from the heap $\heaps$.
+
+After reading $cur$ in line 18, by invariant (i), we know that $cur$
+either points to $\mathsf{null}$, or to some offer $p \mapsto (w; -)
+\subseteq \heapj$.
+
+%The null-check in line 21, together with line 19, directly establishes
+%the postcondition.
+
+\input{exchange_proof}
+
+At line 24, the \code{CAS} succeeds if $x = \Unmatched$ and fails
+otherwise. If \code{CAS} succeeded, then it ``matches'' the offer in $cur$;
+that is, it writes $\Matched w$ into the hole of $cur$, and changes the
+auxiliary state as follows. It takes $t$ to be the smallest unused
+time-stamp in the history $\hist = \hists \hunion \histo \hunion
+\mygather{\pending}$. Thus $\mathsf{last}(\hist) < t$, and because
+$\hist$ has even size by invariant~(\ref{tag:exchanging}), $t$ must be
+odd, and hence $t < \twin t = t+1$. The $t \mapsto (v, w)$ is placed
+into $\hists$, giving us assertion 26.  To preserve the invariant
+(iii), \code{CAS} simultaneously puts the entry $p \mapsto (t, w, v)$ into
+$\pending$, for future collection by the thread that introduced offer
+$cur$. But, we do not need to reflect this in line 26.
+%
+If the \code{CAS} fails, the history $\hists$ remains empty, as no matching is
+done. However, the hole $y$ associated with $cur$ cannot be
+$\Unmatched$, as then \code{CAS} would have succeded.
+%
+Therefore, it is sound in line 28 to ``unlink'' $cur$ from $g$, as the
+unlinking will not violate the invariant (iv), which says that an
+unmatched offer must be pointed to by $g$.
+%
+Finally, lines 30 and 33 select the assertion 26 or 27, and either
+way, directly imply the postcondition.

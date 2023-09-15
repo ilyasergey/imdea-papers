@@ -1,0 +1,90 @@
+\begin{figure}
+%
+\centering
+\begin{tabular}{c@{\hfill}c}
+%  
+\begin{minipage}[t][4cm][t]{.5\textwidth}
+\begin{alltt}
+\num{1}  write (p, v): () \{
+\num{2}   \lat\,\actwrite{p}{v}; \Aux{register}(p,v)\rat;
+\num{3}   \lat\,b \tbnd \act{read}(S); \Aux{check}(p,b)\rat;
+\num{4}   if b
+\num{5}   then \lat\,\actwrite{(f_of p)}{v}; \Aux{forward}(p,b))\rat
+\num{6}   else  \lat\,\Aux{finalize}(); return ()\rat\}
+\end{alltt}
+\end{minipage}
+%
+&
+%
+\begin{minipage}[t][4cm][t]{.5\textwidth}
+\begin{alltt}
+\num{ 7}  scan (): \(A {\times} A\)  \{
+\num{ 8}  \lat \actwrite{S}{true}; \Aux{setS}(true)\rat;
+\num{ 9}  \lat\,\actwrite{fx}{\(\bot\)}; \Aux{clear}(x)\rat; \lat\,\actwrite{fy}{\(\bot\)}; \Aux{clear}(y)\rat;
+\num{10}  vx \tbnd \act{read}(x); vy \tbnd \act{read}(y);
+\num{11}  \lat \actwrite{S}{false}; \Aux{setS}(false)\rat;
+\num{12}  ox \tbnd \act{read}(fx); oy \tbnd \act{read}(fy);
+\num{13}  rx \tbnd if (ox \(\neq\bot\)) then ox else vx;  
+\num{14}  ry \tbnd if (oy \(\neq\bot\)) then oy else vy;  
+\num{15}  \lat\,\Aux{relink}(rx, ry); return (rx, ry)\,\rat\}
+\end{alltt} 
+\end{minipage}
+%
+\end{tabular}
+%
+\caption{Snapshot procedures annotated with auxiliary code.}
+\label{fig:fcsl-snapshot}
+\end{figure}
+
+
+\begin{comment}
+
+I actually want ot be able to implement the code like above, it would
+allow us to express better and more precise information about
+end-times, and decouple finalize from exit. It would take me a day or
+so to do it, but I think it might be worht it.
+
+The correct version should be
+
+\begin{figure}
+%
+\centering
+\begin{tabular}{c@{\hfill}c}
+%  
+\begin{minipage}[t][4cm][t]{.5\textwidth}
+\small
+\begin{alltt}
+\num{1}  write (p, v): () \{
+\num{2}   \lat\,\actwrite{p}{v}; \Aux{register}(p,v)\rat;
+\num{3}   \lat\,b \tbnd \act{read}(S); \Aux{check}(p,b)\rat;
+\num{4}   if b
+\num{5}   then \lat\,\actwrite{(f_of p)}{v}; \Aux{forward}(p,b))\rat
+\num{6}   else skip;
+\num{7}   \lat\,\Aux{finalize}(); return ()\rat\}
+\end{alltt}
+\end{minipage}
+%
+&
+%
+\begin{minipage}[t][4cm][t]{.5\textwidth}
+\small
+\begin{alltt}
+\num{ 8}  scan (): \(A {\times} A\)  \{
+\num{ 9}  \lat \actwrite{S}{true}; \Aux{setS}(true)\rat;
+\num{10}  \lat\,\actwrite{fx}{\(\bot\)}; \Aux{clear}(x)\rat; \lat\,\actwrite{fy}{\(\bot\)}; \Aux{clear}(y)\rat;
+\num{11}  vx \tbnd \act{read}(x); vy \tbnd \act{read}(y);
+\num{12}  \lat \actwrite{S}{false}; \Aux{setS}(false)\rat;
+\num{13}  ox \tbnd \act{read}(fx); oy \tbnd \act{read}(fy);
+\num{14}  rx \tbnd if (ox \(\neq\bot\)) then ox else vx;  
+\num{15}  ry \tbnd if (oy \(\neq\bot\)) then oy else vy;  
+\num{16}  \lat\,\Aux{relink}(rx, ry); return (rx, ry)\,\rat\}
+\end{alltt} 
+\end{minipage}
+%
+\end{tabular}
+%
+\caption{Snapshot procedures annotated with auxiliary code.}
+\label{fig:fcsl-snapshot}
+
+\end{figure}
+\end{comment}

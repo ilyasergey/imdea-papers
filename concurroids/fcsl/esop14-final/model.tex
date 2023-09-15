@@ -1,0 +1,144 @@
+\subsection{Denotational semantics of \SCST}
+\label{sec:denot-sem}
+
+In this section, we define the denotational semantics of \SCST as a
+shallow embedding into CiC. For the sake of simplicity, one can think
+of the embedding as of a macro-expansion, which compositionally
+replaces \SCST programs by expressions and values of CiC.
+
+The semantics of commands and judgments are defined simultaneously.
+The mutual recursion is necessary because the denotation of judgments
+depends on the denotation of commands and procedures, while the
+denotation of a fixed point procedure depends on the denotation of its
+procedure triple to determine the lattice in which to take the fixed
+point.
+
+We denote \SCST programs as \emph{sets} $T$ of trees of increasing
+precision including the $\mathsf{Unfinished}$ tree, which is the coarsest
+possible approximation of any program: 
+%
+\[
+\mathsf{prog}~U~A \eqdef \{T
+\subseteq \mathcal{P}(\mathsf{tree}~U~A) \mid \mathsf{Unfinished} \in
+T\}.
+\]
+
+To model recursion, we construct a complete lattice of Hoare types to
+get fixed points. We use the $\mathsf{after}$ predicate
+(Definition~\ref{def:modpred}) to ensure the tree approximations are
+memory safe, respect mutual exclusion, and satisfy their \SCST
+specifications. %
+ 
+\begin{definition}[\SCST Hoare types]
+\label{def:htypes}
+%
+For a concurroid $U$ and type $A$, fix a precondition $p \ty \mathsf{state}
+\to \prop$ and a postcondition $q \ty A \to \mathsf{state} \to \prop$, with
+free logical variables $\flv(p, q)$. The \SCST Hoare type
+$\ST{p}{A}{q}{U}$ is defined as follows:
+%
+\[
+\begin{array}{rcl}
+\ST{p}{A}{q}{U} & \eqdef &   
+\left\{ 
+T \in \mathsf{prog}~U~A ~\left|~
+  \begin{array}{l}
+    \forall \flv(p,q)~w~(t \in T) \ldot
+    \\ 
+    w \models p \aand w \in \coh{U} \implies \mathsf{after}_U~w~t~q
+
+  \end{array}
+\right.
+\right\} 
+\end{array}
+\]
+\end{definition}
+
+% Definition has_spec W A (s : spec A) := 
+%   [Pred T : prog W A | forall i t, 
+%      s.1 i -> i \In Mod.coh W -> t \In T -> after i t (s.2 i)]. 
+
+\begin{figure}[t]
+\figsize
+\figDenJdg
+%\rule{1.0\textwidth}{0.2mm}
+\caption{Denotational semantics of \SCST judgments.}
+\label{fig:denj}
+\end{figure}
+
+
+Intuitively, the denotation of a \SCST judgment $\prog{p}{c \ty A}{q}{U}$
+is the set of trees $T$ denoting the command $c$, together with a
+proof that for any initial configuration $w$ that satisfies the
+precondition $p$, then $\mathsf{after}$ executing any tree $t \in T$
+from $c$ produces some result value and final configuration that
+satisfy postcondition $q$. The definition quantifies over the free
+logical variables of $p$ and $q$ in order to give these variables
+local scope, as stipulated in Section~\ref{sec:logic}.
+%
+\SCST assertions (Section~\ref{sec:reasoning}) are arbitrary CiC
+predicates of type $\mathsf{state} \to \prop$; and we model the
+relation $w \models p$ of \SCST as the application $p\ w$ in CiC.
+
+\begin{lemma}
+  The type $\ST{p}{A}{q}{U}$ is a complete lattice, with set
+  union as the join operator, and $\{\mathsf{Unfinished}\}$ as the unit
+  element.
+
+  The type $\forall{x \ty B}\ldot \ST{p}{A}{q}{U}$ of functions
+  mapping $x\,{:}\,B$ into $\ST{p}{A}{q}{U}$, where $A, p, q$
+  may depend on $x$, is also a complete lattice, with the join
+  operator on functions defined point-wise, and the constant
+  $\{\mathsf{Unfinished}\}$ function as the unit element.
+\end{lemma}
+
+% \paragraph{Denotations of Judgements}
+The \textbf{denotation of judgments} $\mean{\Gamma \vdash J}$
+(Figure~\ref{fig:denj}) turns \SCST judgments into CiC typing
+judgments ($\vdashCiC$). 
+% 
+A command specification $\prog{p}{- \ty A}{q}{U}$ is denoted by the CiC
+type $\ST{p}{A}{q}{U}$, and a procedure specification $\forall x \ty
+B\ldot \prog{p}{- \ty A}{q}{U}$ is denoted by the CiC dependent function
+type $\forall{x \ty B}\ldot \ST{p}{A}{q}{U}$. %
+%
+The Hoare ordering $(p_1, q_1) \sqsubseteq (p_2, q_2)$ judgment is
+explained in Section~\ref{sec:ordering}, so here we just literally
+repeat the definition given there.
+
+The \textbf{denotation of commands and procedures}
+(Figure~\ref{fig:den}) is subsidiary to that of judgments because the
+fixed-point construction is indexed by the argument and return types,
+and the pre- and postconditions. %
+An $A$-returning command $c$ is denoted by a set of approximating
+trees in $\mathsf{prog}~U~A$, and an $A$-returning procedure $F$ with
+argument $B$ is denoted by a set of trees in $B \arrow
+\mathsf{prog}~U~A$. 
+
+In the semantic translation for the sequential composition $\mean{x
+  \leftarrow c_1; c_2}$, we employ the fact that the translation
+$\mean{c_2}$ can produce \emph{open} values (\ie, trees $t_2$), where
+a variable $x$ of CiC is not bound. We subsequently close them by
+constructing a continuation $k$ as a CiC function, in an indirect way,
+that is, quantifying over all possible inputs, hence $\forall x, k~x
+\in \mean{c_2}$.
+%
+For the denotational semantics of the hiding statement
+$\mean{\mathsf{hide}_{\Phi,g}~c}$, we appeal to Lemma~\ref{lm:hiding}
+(Section~\ref{sec:prop-inject-hiding}), which give a constructive way
+to construct an elaboration predicate $\Ghi$ from a given abstraction
+function $\Phi$.
+%
+Since all \SCST program constructors preserve \emph{monotonicity}, the
+$\mathsf{fix}\ f.x.c$ procedure can take the least fixed point
+$\mathsf{lfp}$ of the function $\lambda f\ldot \lambda x\ldot
+\mean{c}$ by the Knaster-Tarski theorem.
+
+\begin{figure}[t]
+\figsize
+\figDenCmd
+\caption{Denotational semantics of \SCST commands.}
+\label{fig:den}
+\end{figure}
+
+ 

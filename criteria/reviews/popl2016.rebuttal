@@ -1,0 +1,174 @@
+We thank the reviewers for their feedback. We address their main
+global concerns first, and respond to specific technical questions
+second.
+
+(1) The described specifications are not formally related to existing
+    correctness criteria [Reviewer C].
+
+Our goal was to illustrate a new and *unified* approach to specifying
+and verifying a kind of programs and properties for which no
+*canonical* correctness condition existed. Even though CAL, QC & QQC
+were explored to some extent in the past, none could really be called
+canonical.
+
+Thus, we thought it is much more important to illustrate FCSL, rather
+than to establish backward compatibility. A quality of a logical
+method is established by how simply and naturally it works on actual
+examples, not by it formalistically subsuming previous work.
+
+We should also point out that FCSL is designed to work with modern
+language features such as mutable state, higher-order functions and
+libraries, whereas the correctness conditions are usually considered
+only for simple imperative languages. Thus, establishing backward
+compatibility would require restricting the FCSL language in many
+unnatural ways, just for the sake of getting a theorem whose import is
+limited.
+
+(2) Generality of the approach and its potential for automation are
+    unclear [Reviewer B].
+
+FCSL has been previously applied to many diverse examples; hence, it
+is general. Our surprise while working on this paper was that it also
+applies, without any changes, to examples that we never thought of
+when designing the logic.
+
+Thus, we don't understand what "class" of examples Reviewer B is
+interested in. We are not aware that any other correctness criterion
+has a formally defined class of applicability. Conditions work on
+examples on which they work; when an example appears which isn't
+covered, it's time for a new condition. In this respect, the
+uniformity that we went for with FCSL, i.e., reducing specifications
+to a few simple linguistic primitives (described below in our response
+to a technical question by Reviewer C), is much better.
+
+Regarding automation. Intuitively, automation is orthogonal (and in
+fact, conflicted) with compositional verification of clients. One
+challenge of our paper was to come up with specifications that can be
+used for proving clients. What these specifications should be is *in
+the eye of the beholder*, as is typical in programming, when designing
+libraries and abstract data structures. Hence, it essentially requires
+human intelligence, and we are not aware of an automated method that
+could come up with our specs for these programs.
+
+That said, compositional reasoning has traditionally been a topic of
+interest for POPL.
+
+(3) The idea is simple, and the results are incremental [Reviewer D].
+
+The general way by which the field has progressed seems to involve
+designing a new correctness criteria for each new concurrent data
+structure. Had we done that, that would be incremental.
+
+In contrast, proposing one logic capable of addressing diverse
+examples and properties, provides --- in our view --- a completely new
+perspective.
+
+As for simplicity, in case we didn't emphasize it properly, that's a
+feature, not a bug.
+
+
+--------------------- Technical questions ---------------------
+
+[Reviewer A]
+
+* What is the definition of non-linearizable objects?
+
+A non-linearizable object is one which cannot be specified by relating
+its concurrent executions to some sequential one via linearizability
+[25,32]. We will clarify.
+
+* Why QC/QCC compositionality is "much weaker" than observational
+  refinement?
+
+Because these criteria (unlike linearizability) do not guarantee that
+the clients' behavior will remain the same if, e.g., a coarse-grained
+"atomic" implementation is swapped for the QC/QQC implementation.
+
+* What is !g in line 11 of Figure 1?
+
+It stands for reading a value of the pointer g.
+
+* Why is the exchanger non-linearizable?
+
+The call of "exchange" succeeds only if two threads invoke the
+procedure simultaneously, which is impossible to specify using the
+form of sequential (i.e., single-threaded) executions (see [25] for
+details).
+
+[Reviewer C]
+
+* The specification of the Exchanger has been done previously.
+
+Neither Turon et al.'s POPL'13 paper, nor Turon's thesis provide a
+Hoare-style specification of the Exchanger. In those works, an
+exchanger-like elimination channel was used in the implementation of
+another concurrent structure, but hasn't been given a standalone
+specification.
+
+* Relation to the previous work done in CAP and VeriFast.
+
+The mentioned work, when compared to linearizability, was mainly
+concerned with capturing the state-based properties of concurrent
+objects, such as dynamic memory ownership (as pointed out in the
+related work of [31])---something that linearizability indeed cannot
+tackle, unless it's extended as in [23]. However, we are not aware of
+any prior attempts to capture CAL, QC and QQC-like properties of
+concurrent executions by means of Hoare logic and employ them in the
+client-side reasoning.
+
+* Each entry in the exchanger example must be added by an atomic
+  operation?
+
+As typical for concurrency logics, every change in the auxiliary state
+(of which histories are a specific case) is done via an atomic
+command. That is, in the case of the exchanger, *two* entries are
+added by one atomic command, indicating the contributions of the
+"helper" and a "helpee" threads (successful CAS on line 14 of Fig.1).
+
+* Why the examples from the paper cannot be verified in the frameworks
+  [31,47,48] based on parametrization?
+
+We can't exclude this possibility entirely, but if possible at all, it
+will require some very tricky encoding. One should encode the
+following aspects, which we get in FCSL directly:
+
+(a) explicit quantification over effects of interference in the specs; 
+
+(b) a way to bound the interference, necessary to model QC and QQC
+aspects.
+
+In FCSL, (a) comes with the subjective "other" contribution and (b) is
+achieved via the combinator for hiding. Both are described in Section
+3. We don't see an obvious way to account for (a)-(b) in the mentioned
+approaches.
+
+* What is the common pattern for devising concurrent specs and using
+  them?
+
+The pattern follows the usual practice of designing program libraries
+and abstract data types: come up with specs that expose what's
+important for the client, but hide all other unnecessary
+implementation details.
+
+In all examples we did so far, this translated into: (i) identify
+what's essential about thread's contribution, and store it in
+auxiliary state (e.g., the object's history in this paper); (ii)
+describe the protocol that governs the auxiliary state's evolution;
+(iii) provide open-world specifications for procedures in terms of
+auxiliary state and contributions to it by "self" and "other"; (iv)
+use hiding to bound the interference in specific clients.
+
+* What were the major challenges when verifying the examples?
+
+The major challenge was devising specs, which are abstract yet
+expressive enough, so the potential clients could reason out of
+them. This also included formulating the state invariants,
+constraining the histories and defining the way they are changed.
+
+* Can one see the spec of the QC/QQC queue in Fig.7 as linearizable
+  for a different notion of abstract state?
+
+This doesn't really chime with anything we've experienced when working
+on correctness criteria, so we are sceptical this will work.
+Ultimately, we think it's a Hoare logic with components (a)-(b) above
+that we see as a way forward.

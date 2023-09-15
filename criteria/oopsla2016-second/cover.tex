@@ -1,0 +1,203 @@
+\documentclass{article}
+%\usepackage[2ndsubmission]{oopsla2016}
+%\usepackage[final]{oopsla2016}
+%\usepackage[final]{oopsla2016}
+
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage{mathtools} 
+\usepackage{latexsym}
+\usepackage{graphicx}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage[scaled]{helvet}
+\usepackage[noend]{algorithmic}
+\usepackage{mathrsfs}
+\usepackage{mathpartir}
+\usepackage{dsfont} 
+\usepackage{stmaryrd}
+\usepackage{url}
+\usepackage{textcomp} 
+\usepackage[colorlinks=true,allcolors=blue,breaklinks,draft=false]{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{alltt} 
+\usepackage{bbm}
+\usepackage{alltt}
+\usepackage{verbdef}
+\usepackage{xspace}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage{lipsum}
+\usepackage{wrapfig}
+\usepackage{a4wide}
+\usepackage[usenames,dvipsnames]{xcolor}
+\hypersetup{linkcolor=black,citecolor=black,urlcolor=black}
+\newcounter{tags}
+%\usepackage{flushend}
+
+% \usepackage{natbib}
+% \bibpunct();A{},
+% \let\cite=\citep
+
+% For turned column headers 
+\usepackage{adjustbox} 
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{pifont}
+ 
+\input{defs}
+
+% Keep footnotes on one page
+\interfootnotelinepenalty=10000 
+
+\setlist[itemize]{leftmargin=*}
+
+% \setlength{\parindent}{0.15in}
+% \setlength{\topsep}{0cm}
+% \setlength{\parskip}{0pt}
+
+% \titlespacing*{\section}{0pt}{*1.5}{*1.5} 
+% \titlespacing*{\subsection}{3pt}{*0.8}{*0.5}
+% \titlespacing*{\subsubsection}{0pt}{*0.8}{*0.5}
+% \titlespacing*{\paragraph}{0pt}{*0.5}{*1.2}
+
+% SSReflect listings 
+\input{lstcoq}
+\lstset{style=Coq}
+
+\usepackage{geometry}
+\geometry{margin=2cm}
+
+% Hyphenation
+\hyphenation{Veri-Fast}
+
+% Bibtgex tweaks
+% \setcitestyle{square}
+% \defcitealias{Coq-manual}{Coq proof assistant}
+
+\begin{document}
+
+\author{Ilya Sergey ~~ Aleksandar Nanevski ~~ Anindya Banerjee ~~
+  Germ\'{a}n Andr\'{e}s Delbianco} 
+% {$^\dag$University College London, UK \and\and $^\ddag$IMDEA Software Institute, Spain}
+% {i.sergey@ucl.ac.uk \and \{aleks.nanevski, anindya.banerjee, german.delbianco\}@imdea.org}
+
+%\special{papersize=8.5in,11in}
+
+
+% \authorinfo{}{}{}
+
+% \conferenceinfo{OOPSLA~'16} {June 13--17, 2015, Portland, OR, USA}
+% \CopyrightYear{2016}
+% \copyrightdata{TODO}
+% \doi{TODO}
+
+
+%\title{The Power of Subjectivity}
+
+
+
+\title{Cover Letter for OOPSLA'16 Submission \#49}
+
+\maketitle
+
+\noindent
+%
+This cover letter lists the main revisions and additions made to the
+paper \#49 entitled \textbf{"Hoare-style Specifications as Correctness Conditions for
+    Non-linearizable Concurrent Objects"}, for the second round of
+  OOPSLA'16 submission.
+
+\section*{Summary of the Reviewers' concerns and suggested changes}
+\label{sec:summ-revi-conerns}
+
+The reviewers had the following concerns with respect to the initial
+version of the submission:
+
+\begin{enumerate}
+\item Unclear contributions wrt. the previous work
+  (\ie, Nanevski \etal, ESOP'14, Sergey \etal, ESOP15).
+
+\item Lack of discussion with respect to related logics for
+  concurrency (\eg, CAP and TaDA).
+
+\item Lack of an introductory example motivating the development.
+
+\item Comparison to the \emph{Views} framework.
+\end{enumerate}
+
+We addressed these concerns (as well as other, less critical ones) as
+by making the changes outlined below.
+
+\section*{Major changes}
+\label{sec:major-changes}
+
+\begin{itemize}
+
+\item (\textbf{Section 1.2}) The introduction now better emphasizes
+  the contribution of the work, stating some parts of it as
+  "conceptual" (the method) and some other parts as "technical" (the
+  verified case studies). It also positions the paper's contributions
+  with respect to previous works on FCSL and its applications.
+
+\item (\textbf{Section 2}) The \textbf{Main Ideas and Overview}
+  section has
+  been split into two new sections, with the verification of the
+  exchanger implementation moved to a separate \textbf{Section 3}.
+
+  The revised Section 2 now discusses two simple motivating examples:
+  the exchanger (focusing on its use, without exploring the
+  implementation) and a simplified version of the counting network,
+  featuring two un-synchronized atomic updates to a shared
+  pointer via the atomic \texttt{flip} operation. Both concurrent
+  structures are first presented from the
+  practical perspective of using them.
+
+    The section then explains how to \emph{(i)} define the temporal/spatial
+    invariants for them (using a coloring scheme as an intuition for
+    subjective state dichotomy), \emph{(ii)} capture the effect on history
+    with respect to interference in Hoare-style specs, and
+    \emph{(iii)}
+    immediately employ the specifications for verification of
+    heterogeneous client programs.
+
+    The section is concludes with the 3-step summary of the
+    formalization pattern.
+
+  \item (\textbf{Section 10}) The Related Work section has been
+    expanded with a discussion on related logics and approaches for
+    specifying concurrent programs (including the Views framework),
+    incorporating the corresponding parts of the first round rebuttal.
+
+\end{itemize}
+
+\section*{Other Changes}
+\label{sec:other-changes}
+
+\begin{itemize}
+
+\item (\textbf{Section 9}) The case studies are re-run with the lates
+  Coq version to date (8.5pl2), which slightly changed the compilation
+  times (see Table 1). Some of the times have increased, though, but
+  more detailed forensic work will be required to understand why.
+
+\item Explanations from the rebuttal are incorporated to the test
+    (see the accompanying diff file).
+
+\item Multiple small clarifications in the text of sections
+    describing the case studies and relating the overall presentation
+    to the initial toy examples.
+
+\end{itemize}
+
+
+%\newpage
+
+
+
+\end{document}
+
+

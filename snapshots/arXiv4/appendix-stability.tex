@@ -1,0 +1,429 @@
+\section{On the Stability of Certain Assertions}
+\label{sc:coq-code}
+
+\newcommand\chainjleq[2]{\hist^{\hbox{}\sqsubseteq_{#2} {#1}}}
+\newcommand\chainjltn[2]{\hist^{\hbox{}\sqsubsetneq_{#2} {#1}}}
+\newcommand\chaintleq[2]{\hist^{\hbox{}\leq_{#2} {#1}}}
+\def\cat{{\mathrel{+\!\!+}}}
+
+%% Stablity proofs in general
+In this appendix we discuss the stability of the assertions we used in
+the specifications of {\tt write} and {\tt scan}. A proposition $P$
+over state is stable if it is invariant under environment
+interference. That is, if the state $s$ evolves to $s'$ by environment
+steps, then $P\ s$ implies $P\ s'$. By the nature of our
+setting~\cite{Nanevski-al:ESOP14}, such environment steps are
+restricted to the auxiliary code used by the concurrent object; in
+this case, the auxiliary procedures from Figure~\ref{fig:auxcode}. In
+particular, this appendix develops the stability proofs for the
+properties from Lemma~\ref{lem:menvs}. All the proofs of the lemmas
+listed here have being mechanizaed in our FCSL developement~\cite{CoqFiles}.
+
+%%% PUSH MONO
+We begin with a property of the logical order $\tle$. This order is
+not stable, as it can be changed, for example, by the helper procedure
+$\aux{push}\ i\ j\ \ordlist$, used in $\aux{relink}$
+(Figure~\ref{fig:auxcode}). However, we consider the special cases of
+elements for which the ordering is preserved, as this will become
+important for the subsequent lemmas.
+
+
+
+\begin{lemma}[Push Mono]\label{lem:push-mono}
+Given elements $a, b, i, j$, all in $\ordlist$:
+\begin{enumerate}
+\item\label{lem:push:left} If $a \tle i$ then $ a \tle b \implies a
+  <_{\aux{push}\, i\, j\, \ordlist} b$. 
+\item\label{lem:push:right} If $j \tle b$ then $ a \tle b \implies a
+  <_{\aux{push}\, i\, j\, \ordlist} b $.
+\item\label{lem:push:window} If $a \neq i$ then $ a \tle b \implies a
+  <_{\aux{push}\, i\, j\, \ordlist} b $
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+First, as $\ordlist$ is used to order timestamps, it contains only
+distinct elements. Second, $\aux{push}$ is a surgery operation on
+$\ordlist$ defined as follows.  Let $\ordlist = \ordlist_{<_i}\ \cat
+\ i\ \cat\ \ordlist_{i..j}\ \cat\ j\ \cat\ \ordlist_{>_j}$, then
+%
+$$\aux{push}\ i\ j\ \ordlist = \ordlist_{<_i} \cat\  \ordlist_{i..j}\
+  \cat\ j\ \cat\ i\ \cat \ordlist_{>_j}$$
+%
+%% \begin{equation}
+%%   \aux{push}\ i\ j\ \ordlist =\
+%%    \aux{take}\ \iota_{i}\ \cat\
+%%     \aux{rot}\ 1\ (\aux{drop}\ \iota_i\ (\aux{take}\ (\iota_j + 1))\ \ordlist) \cat\
+%%     \aux{drop}\ (\iota_j+1)\ \ordlist
+%% \end{equation}
+%
+The changes in the order $\tle$ can therefore occur only in the
+segment $ i\ \cat\ \ordlist_{i..j}\ \cat\ j$ of $\ordlist$.
+%
+Thus, (\ref{lem:push:left}) and~(\ref{lem:push:right}) are trivial, as
+changing the position of $i$ does not affect $a \tle b$. For
+(\ref{lem:push:window}), observe that the only relations invalidated
+by $\aux{push}$ are those $ i \tle b$, where $b \in
+\ordlist_{i..j}\ \cat\ j$. Since $a \neq i$, it follows that $ a
+<_{\aux{push}\, i\, j\, \ordlist} b$.
+\end{proof}
+
+We now consider the statements of Lemma~\ref{lem:menvs}, proving each
+one in order, as a separate lemma. First is the lemma on monotonicity
+of the full history $\histx$ wrt.~environment steps.
+
+%will build incrementally from the statements and proofs for
+%items~\ref{lem:menvs:jleq} and~\ref{lem:menvs:drs}, which we have
+%carried out completely in Coq, in order to finish with the more {\it
+%  delicate} assertions about the stability of $\mathsf{chain}$ and
+%$\mathsf{eval}$, resp. items~\ref{lem:menvs:chain}
+%and~\ref{lem:menvs:eval}. The latter lemmas require further
+%consideration and, moreover, have been axiomatized in Coq but we have
+%not (as of the time of this submission) finished discharging
+%them. First, we consider the behaviour of the full history $\histx$
+%\wrt environmment steps:
+
+%%% HISTORIES
+
+\begin{lemma}[Monotonic Histories]\label{lem:hist-mono}
+If $\ordlist$ steps to $\ordlist'$ by environment steps, then $\hist
+\subseteq \hist'$ (i.e., histories grow monotonically).
+\end{lemma}
+
+\begin{proof}
+The proof follows straightforwardly from the definitions of the
+auxiliary code (Figure~\ref{fig:auxcode}). In particular, the
+evolution of the internal state does not remove entries from
+histories, but either $(i)$ adds new entries via $\aux{register}$, or
+$(ii)$ shuffles entries from $\histJ$ to $\histS$ via
+$\aux{finalize}$. In either case, the total history grows. We have
+mechanized this proof in Coq~\cite{CoqFiles}.
+\end{proof}
+
+%%% Stable order
+
+
+\begin{lemma}[$\mathrel{\sqsubseteq}$ is stable]\label{lem:jleq-stable}
+If $\ordlist$ steps to $\ordlist'$ by environment steps, then
+$\stableorder\,{\subseteq}\,\stableorder'$.
+\end{lemma}
+
+\begin{proof}
+This proof has also been mechanized, so we present here only the
+interesting case of $\aux{relink}$, which is the only auxiliary
+procedure that can invalidate existing relations in $\tle$. We assume
+that $a \stableorder b$, and prove that $a \stableorder' b$. From the definition of
+$a \stableorder b$, the cases of this proof are $(i)$ $a = b$, $(ii)$ $E(a) <
+b$, and $(iii)$ $a \tle b \wedge C(a)=\mathsf{green}$. The first two
+follow immediately, by definition of $a \tleqP b$.
+
+In the proof of $a \stableorder' b$ in the case of $(iii)$, the interesting
+situation is when in the call to $\act{relink}$, the environment
+obtains $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C =
+\mathsf{Yes}\ x\ t'$. By Lemma~\ref{lem:inspect}, $\C(t') =
+\mathsf{yellow}$, and thus $a \neq t'$, since
+$\C(a)=\mathsf{green}$. But then by
+Lemma~\ref{lem:push-mono}.\ref{lem:push:window}, we immediately get $a
+\tle_{\aux{push}\ t'\ t_y\ \ordlist} b$.  Since $\ordlist'$ is
+precisely equal to $\aux{push}\ t'\ t_y\ \ordlist$, we obtain the
+result.
+\end{proof}
+
+%In this case, the proof relies on two observations: $(i)$ that
+%$\aux{relink}$ does not affect the order of green entries, and $(ii)$,
+%that in $\aux{push}\ i\ j\ \ordlist$, given $ \ordlist =
+%\ordlist_{<_i}\ \cat
+%\ i\ \cat\ \ordlist_{i..j}\ \cat\ j\ \cat\ \ordlist_{>_j}$, all the
+%write events in $\ordlist_{i..j}\ \cat\ j$ overlap with $i$.
+%
+%Consider an environment call to $\act{relink}$, where
+%$\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = \mathsf{Yes}\ x\ t'$. By
+%Lemma~\ref{lem:inspect}, $\C(t') = \mathsf{yellow}$, and by
+%Lemma~\ref{lem:push-mono}, all relations $a \tle b$ where $a$ is green
+%will be preserved in $a \tle_{\aux{push}\ t'\ t_y \ordlist} b$. This
+%proves $(i)$. For $(ii)$, observe that all $t$'s in the chain $t' \tle
+%\ldots \tle t \tle \ldots \tleq t_y$ belong to $\histy$, by virtue of
+%$t_y$ being the yellow timestamp of $t_y$ (and
+%Proposition~\ref{inv:redzone}). Moreover, observe that $t'$ has
+%necesarily been commited to memory before {\tt scan} set the bit $S$
+%to $\FF$ and either the write event $t'$ is still active (and thus
+%overlapping with all writes after in the chain) or finished after
+%line~11, and hence $ t_{off} \leq E(t')$. All elements $t_z$
+%non-overlapping with $t'$, and thus $t' \tle t_z$, will be painted
+%{\sf red} and hence not considered by $\stableorder$.
+%\end{proof}
+
+%%% Downward restriction
+
+This gives us the first statement of Lemma~\ref{lem:menvs}. The second
+statement of Lemma~\ref{lem:menvs} also follows easily from the
+previous two lemmas, by mere unfolding of the definition of
+$\chainjleq{t}{\ordlist} =\ \{ r \hpts (p,v) \in \hist \mid r
+\stableorder t \}$.
+
+\begin{lemma}[$\chainjleq{t}{}$ is stable]\label{lem:ideal-stable}
+If $\ordlist$ steps to $\ordlist'$ by environment interference then
+forall $t$, $\chainjleq{t}{\ordlist} \subseteq
+\chainjleq{t}{\ordlist'}$.
+\end{lemma}
+
+%% \begin{proof}
+%% The proof of this lemma follows from Lemmas~\ref{lem:hist-mono}
+%% and~\ref{lem:jleq-stable}.
+%% \end{proof}
+
+%% \begin{proof}
+%% The proof of item~\ref{lem:push:left} has been completely mechanized
+%% in {\sf Coq}. The Proof of items~\ref{lem:push:left}
+%% and~\ref{lem:push:window} have been admitted as axioms. And we proceed
+%% to prove them here:
+%% \end{proof}
+
+Now, to consider the stability of {\sf chain} and {\sf eval}, which
+are the third and fourth statements of Lemma~\ref{lem:menvs}, we first
+introduce some intermediate concepts and results.  
+
+%The first observation relies on proving that, as a result of a call to
+%{\tt scan}, the system defines a prefix $ \tle t $ in the logical
+%order $\tle$ --- where $t$ comes from the postcondition of {\tt scan}
+%in Figure~\ref{fig:specs}---and that is all {\sf green}.  Such a
+%prefix makes $\chainjleq{t}{\ordlist}$ {\bf complete}: no new items
+%can be inserted into $\chainjleq{t}{\ordlist}$ by the evolution of the
+%auxiliary state. In the following, we formalize these concepts and
+%subsequently show how this builds up to the stability of {\sf chain}
+%and {\sf eval}.
+
+
+% First definition, history prefix.
+\begin{definition}[$\chaintleq{t}{\ordlist}$]\label{def:chaintleq}%
+The downward restriction on $\tle$ is defined as $
+\chaintleq{t}{\ordlist} = \{ r \hpts (p,v) \in \hist | r \tleq t \}$,
+analogously to $\chainjleq{t}{\ordlist}$.
+\end{definition}
+
+\begin{lemma}\label{lem:chaintleq-dom}
+  $ \dom{ \_ \tleq t} = \dom{\chaintleq{t}{\ordlist}}$.
+\end{lemma}
+
+\begin{proof}
+The statement of this lemma is a direct consequence of one of the
+invariants we omitted in Section~\ref{sc:formal}, which states that $
+\dom{\ordlist} = \dom{\hist}$.
+\end{proof}
+
+We now prove that, if $\chaintleq{t}{\ordlist}$ is a {\sf all green},
+which we denote as $\C(\chaintleq{t}{\ordlist}) = {\sf green}$, then
+$\chaintleq{t}{\ordlist}$ is invariant under environment interference.
+
+% Green prefix STABLE
+
+\begin{lemma}[{\sf all green} stable]%
+\label{lem:green-stable}%
+If $\ordlist$ steps to $\ordlist'$ by environment interference, then
+$\C(\chaintleq{t}{\ordlist}) = {\sf green} \implies
+\chaintleq{t}{\ordlist} = \chaintleq{t}{\ordlist'}$.
+\end{lemma}
+%
+\begin{proof}
+The proof is by induction on environment steps. The inductive case is
+trivial, and of the base cases, the only interesting one is stepping
+by $\aux{register}$. Other auxiliary procedures do not extend
+$\ordlist$, and do not affect the position in $\ordlist$ of green
+timestamps.
+
+By definition, $\aux{register}$ adds a fresh timestamp $t' =
+\mathsf{fresh}\ \ordlist$ to the tail of $\ordlist$, to obtain
+$\ordlist'$. Hence $t \tleP t'$, and $t'$ does not belong to
+$\dom{\chaintleq{t}{\ordlist'}}$. By Lemma~\ref{lem:hist-mono}, we
+know that $\dom{\chaintleq{t}{\ordlist}} \subseteq
+\dom{\chaintleq{t}{\ordlist'}}$. The difference between the two sets
+can be at most $t'$, but since $t'$ does not belong to
+$\dom{\chaintleq{t}{\ordlist'}}$, we obtain the desired equality.
+\end{proof}
+
+%order $\tleP$ are not in the domain of
+%$\dom{\chaintleq{t}{\ordlist'}}$, and hence $
+%\dom{\chaintleq{t}{\ordlist}} = \dom{\chaintleq{t}{\ordlist'}} $ and
+%thus we conclude.  Now, we infer from Lemma~\ref{lem:hist-mono} than $
+%\dom{\chaintleq{t}{\ordlist}} \subseteq
+%\dom{\chaintleq{t}{\ordlist'}}$.
+%\end{proof}
+
+%% From the monotonicity of histories,
+%% Lemma~\ref{lem:hist-mono}, we infer than $
+%% \dom{\chaintleq{t}{\ordlist}} \subseteq
+%% \dom{\chaintleq{t}{\ordlist'}}$. To deduce the equality, it sufices to
+%% show that $ \forall t' \in (\ordlist' \backslash \ordlist)\ldot\ t
+%% \tleP t' $. The latter entails that all new entries in the underlying
+%% order $\tleP$ are not in the domain of
+%% $\dom{\chaintleq{t}{\ordlist'}}$, and hence $
+%% \dom{\chaintleq{t}{\ordlist}} = \dom{\chaintleq{t}{\ordlist'}} $ and
+%% thus we conclude.
+
+%% Now, it suffices to only consider $\aux{register}$, which is the only
+%% auxiliary operation that adds entries to $\ordlist$. By definition,
+%% this will added a new timestamp $t' = {\sf fresh}\ \ordlist$ in the
+%% tail of the $\ordlist$ and hence, $ t \tleP t'$. 
+
+%% COMPLETE
+\begin{definition}[Complete]\label{def:complete}
+Downward restriction $\chainjleq{t}{\ordlist}$ is {\sf complete} \Iff
+$\chainjleq{t}{\ordlist} = \chaintleq{t}{\ordlist}$.
+\end{definition}
+
+%% 
+\begin{lemma}[Complete Greens]\label{lem:green-complete}
+  If $\C(\chaintleq{t}{\ordlist}) = {\sf green}$ then
+  $\chainjleq{t}{\ordlist}$ is {\sf complete},
+  \ie $\chainjleq{t}{\ordlist} = \chaintleq{t}{\ordlist}$.
+\end{lemma}
+
+\begin{proof}
+From the definition of $\chaintleq{t}{\ordlist}$, and of the stable
+order $\stableorder$ (Definition~\ref{def-jleq}), we infer that
+$\dom{\chainjleq{t}{\ordlist}} \subseteq
+\dom{\chaintleq{t}{\ordlist}}$. Then, from
+$\C(\chaintleq{t}{\ordlist}) = {\sf green}$ we know that for all $a
+\in \chaintleq{t}{\ordlist}$, $\C(a) = {\sf green} \wedge a \tleq t$,
+and therefore $ a \stableorder t$. It follows that
+$\dom{\chaintleq{t}{\ordlist}} \subseteq
+\dom{\chainjleq{t}{\ordlist}}$, and thus we conclude, since
+$\dom{\chaintleq{t}{\ordlist}} = \dom{\chainjleq{t}{\ordlist}}$.
+\end{proof}
+
+%%% CHAIN STABLE
+
+\begin{lemma}[$\mathsf{chain}\ H^{\hbox{}\sqsubseteq_\ordlist t}$ is
+    stable]%
+\label{lem:chain-stable}%
+If $\ordlist$ steps to $\ordlist'$ by environment interference then
+if $\mathsf{chain}\ \chainjleq{t}{\ordlist}$ and
+$\C(\chaintleq{t}{\ordlist}) = {\sf green}$ then
+$\mathsf{chain}\ \chainjleq{t}{\ordlist'}$.
+\end{lemma}
+
+\begin{proof}
+The proof follows up from Lemmas~\ref{lem:green-complete}
+and~\ref{lem:green-stable} above: by Lemma~\ref{lem:green-complete} we
+infer that $\chainjleq{t}{\ordlist} = \chaintleq{t}{\ordlist}$. Then
+by Lemma~\ref{lem:green-stable}, $\chaintleq{t}{\ordlist'} =
+\chaintleq{t}{\ordlist}$ and, moreover, $\C(\chaintleq{t}{\ordlist'})
+= {\sf green}$. From the latter fact we apply
+Lemma~\ref{lem:green-complete} again to get $\chainjleq{t}{\ordlist'}
+= \chaintleq{t}{\ordlist'}$. Then, by transitivity
+$\chainjleq{t}{\ordlist} = \chainjleq{t}{\ordlist'}$ and we conclude.
+\end{proof}
+
+%%% EVAL STABLE
+
+\begin{lemma}[$\mathsf{eval}\ {H^{\hbox{}\sqsubseteq_\ordlist t}}$ is
+    stable]%
+\label{lem:eval-stable}%
+If $\ordlist$ steps to $\ordlist'$ by environment interference then
+if $\mathsf{eval}\ \chainjleq{t}{\ordlist}$ and
+$\C(\chaintleq{t}{\ordlist}) = {\sf green}$ then
+$\mathsf{eval}\ \chainjleq{t}{\ordlist'}$.
+\end{lemma}
+
+\begin{proof}
+The proof is analogous to that of Lemma~\ref{lem:chain-stable} above.
+\end{proof}
+%% \gad{Here, we come clean about which lemmas are admitted, and try to
+%%   give an informal proof sketch/intuition on why they should hold. The
+%%   idea is to keep updating this section on the on-line draft until we
+%%   finish the proofs.}
+
+%% \gad{Come clean about these lemmas being whats missing in the mechanization}
+
+\begin{comment}
+%%%% Final Theorem
+To sum up, we revisit Theorem~\ref{thm:specs} from
+Section~\ref{sc:proof}. As for the {\tt write } method, we have
+mechanized its proof of correctness in FCSL:
+%
+\begin{theorem}[{\tt write}]\label{thm:write}
+The implementation for the {\tt write} method in
+Figure~\ref{fig:fcsl-snapshot} can be ascribed the specification given
+in Figure~\ref{fig:specs}.
+\end{theorem}
+%
+As for scan, we haven't finished all the details of the mechanization,
+but we present instead \gad{blah...}
+
+\begin{lemma}[{\sf all green} {\tt scan}]\label{lem:green-scan}
+After the execution of {\tt scan}, given $t_x$ and $t_y$, the
+timestamps of the resulting snapshot $(r_X,r_y)$. If $t =
+\mathsf{max}_{\tle} (t_X,t_y)$ then $ \C(\chaintleq{t}{\ordlist}$.
+\end{lemma}
+\begin{proof}
+The proof unfolds as follows,
+\end{proof}
+
+\begin{theorem}[{\tt scan}]\label{thm:scan}
+The implementation for the {\tt write} method in
+Figure~\ref{fig:fcsl-snapshot} can be ascribed the specification given
+in Figure~\ref{fig:specs}.
+\end{theorem}
+
+\end{comment}
+
+
+%%% Commented out proofs.
+\begin{comment}
+
+We need to tweak the definition of {\sf chain}, else we will be able
+to prove it stable, but only allowed to use the stability inside an
+ongoing scan, and not after the scanner finishes in a client. We need
+to capture the idea that the chain $H^{\hbox{}\sqsubseteq_\ordlist t}$
+is not only a {\sf chain} as we have defined it in
+Section~\ref{sc:formal}, but also is {\sf maximal} or {\sf complete}:
+
+This means that $H^{\hbox{}\sqsubseteq_\ordlist t}$ defines a {\sf
+  prefix} of $\ordlist$, \ie a chain that is completely determined
+from a time onward.  In our development, we are trying to prove the
+stability of {\sf chain}, which is weaker, but the hypothesis in the
+lemma are stronger: we are requiring that
+
+ $$ \forall\ t' \in \hist^{\hbox{}\sqsubseteq_\ordlist t}\ldot\quad
+  \C(t')= {\sf green} $$
+
+This will hold because at the atomic moment relink finishes, it
+defines a {\sf green} prefix from the first timestamp in the history
+$t_0$ up to $t$, $ t_o \tle \ldots \tle t$, which not only is totally
+ordered but also {\emph maximal} any new write event $t'$, either mine
+or the environments' will be positioned after $t$ in the chain, $ t_0
+\tle \ldots \tle t \tle t'$.
+
+However, if we don't include this information, either a a part of the
+definition of ``chain'' or as an extra predicate, we will loose this
+information, to clients, and {\sf eval} becomes uninformative.
+
+
+\begin{lemma}[$\mathrel{\sqsubseteq{\_}}$ is stable]\label{lem:jleq-stable}
+If $\ordlist$ steps to $\ordlist'$ by environment interference, then
+$\stableorder \subseteq\ \stableorder'$.
+\end{lemma}
+
+\begin{proof}
+The proof goes by structural induction on environment steps. Amongst
+them, we highlight only relink relink, as the others are carried out
+without much effort. In this case, the proof that $\aux{relink}$
+preserves the chains in $\stableorder$ relies, ultimately on two
+observations: (i) that the atomic opeation does not affect the order
+of green entries in the history, which we mentioned above and (ii),
+that the elements in the ``window'' determined by the elements being
+pushed correspond to overlapping events. We reason with this case as
+follow: Consider a $\act{relink}$ environment call that pushes $t_y$
+past $t_x$, with $t_y \in \histy$ and $t_x \in \histx$, then all
+elements $t$ in the chain $t_y \tle t \tleq t_x$ belong to $\histx$,
+by virtue of $t_y$ being the yellow timestamp of $t_y$ (and
+Invariant~\ref{inv:redzone}). Then, we observe that en entry that is
+yellow when relink occurs, committed to memory before {\tt scan} set
+the bit to false and either is still active or finished after {\tt
+  scan} set the $S$ bit to false. If any $t$ in that chain began after
+$t_y$ finished it cannot not possibly be green, as the spec for
+register would have marked it red.
+\end{proof}
+
+
+\end{comment}

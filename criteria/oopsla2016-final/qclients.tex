@@ -1,0 +1,638 @@
+
+\section{Verifying Counting Network's Clients}
+\label{sec:qclients}
+
+% We next demonstrate how the spec~\eqref{eq:qc-spec} can be used in
+% clients, to establish properties \textbf{R2} and \textbf{R3}. These
+% properties have been addressed in the previous work using dedicated
+% consistency criteria of quiescent
+% consistency~\cite{Aspnes-al:JACM94,Derrick-al:FM14} and quantitative
+% quiescent consistency and
+% quasi-linearizability~\cite{Afek-al:OPODIS10,Jagadeesan-Riely:ICALP14},
+% but here we derive them compositionally, \ie, out of the spec of
+% \code{getAndInc}. This will demonstrate the usefulness of Hoare logic
+% in deriving properties related to the various flavors of quiescent
+% consistency.
+
+Following \textbf{\emph{Step 3}} of our verification method, we now
+illustrate requirements \textbf{R2} and \textbf{R3} from the previous
+section via two different clients which execute two sequential calls
+to \code{getAndInc}. Both clients are higher-order, \ie, they are
+parametrized by subprograms, which can be ``plugged in''.
+%
+The first client will exhibit a quiescence between the two calls, and
+we will prove that the call results appear in order, as required by
+\textbf{R2}. The second client will experience interference of a
+program with a $N$ concurrent calls to \code{getAndInc}, and we will
+derive a bound on the results in terms of $N$, as required by
+\textbf{R3}.
+
+Both our examples will rely on the general mechanism of hiding,
+presented in Section~\ref{sec:background}, as a way to logically restrict the
+interference on a concurrent object, in this case, a counting network,
+in a lexically-scoped way.
+%
+To ``initialize'' the counting network data structure, we provide the
+starting values for the shared heap ($h_0$) and for the history
+($\gist_0$), assuming that the initial set of tokens is empty:
+%
+% Specifically, we will use the following derived rule:
+% %
+% {\small{
+% \[
+% \begin{array}{c}
+% \spec{P}~e~\spec{Q} @ \ccon\\[2pt]
+% \hline\\[-7pt]
+% \!\!\!
+% \specK{\{\heaps = \Phi_1(\heapj), \Phi_1(P)\}} \hide_{\Phi_1}~e \specK{\{\exists \Phi_2\ldot \heaps = \Phi_2(\heapj), \Phi_2(Q)\}} @ \cal P
+% \end{array}
+% \]
+% }}
+%
+\[
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:hide2}
+{\small{
+\begin{array}{r@{\ }c@{\ }l}
+% \text{\normalsize{where}} &
+% \Phi_1 & \eqdef & [\emptyset/\tkns, \gist_0/\hists, \heap_0/\heapj,
+% \emptyset/\tkno, \histo/\hists] 
+% \\[2pt]
+\heap_0 & \eqdef & \bal \hpts 0 \hunion c_0 \hpts 0 \hunion c_1 \hpts 1     
+\\[2pt]
+\gist_0 & \eqdef & \set{0 \hpts (\set{0}, 0), 1 \hpts (\set{1}, 1)}
+\end{array}
+}}
+\]
+%
+That is, $\gist_0$ provides the ``default'' history for the initial
+values 0 and 1 of $c_0$ and $c_1$, with the corresponding tokens
+represented by numbers 0 and 1.  As always with hiding, the
+postcondition of the hidden program will imply that $\tkno$ and
+$\histo$ are both empty, as there is no interference at the end.
+
+% \gad{I think that here, again, the quotation marks around ``plugged in'',
+%   ``initialize'', and ``default'' are unnecessary.}
+
+\subsection{Exercising Quiescent Consistency}
+\label{sec:qc-client}
+
+\begin{figure}
+\centering
+\[
+{\small{
+\!\!\!\!\!\!\!\!
+\begin{array}{c}
+  \spec{\!\!
+  \begin{array}{c}
+    \tkns = \emptyset,
+    \hists = \gists,
+    \gisto \subseteq \histo, \Ic{\gisto}{\ikno}, \\[2pt]
+    \ikno \subseteq \tkno \hunion (\Tomb~\histo \setminus \Tomb~\gisto)
+  \end{array}
+  \!\!}
+\\\\[-5pt]
+  \begin{tabular}{c || c}
+   $\esc{getAndInc()}$ & ${\small{e_i}}$ 
+\end{tabular}
+\\\\[-5pt]
+~~~~\spec{\!\!
+\begin{array}{c}
+  \exists \iknh~\gist_i \ldot  
+  \tkns = \emptyset\aand \hists = \gbm{\gists \hunion \gist_i \hunion (\res.1 + 2) \hpts (\iknh, -)},\\[1pt]
+  \gisto \subseteq \histo\aand \ikno \subseteq \tkno \hunion
+  (\Tomb~\histo \setminus \Tomb~\gisto), \Ic{\gisto}{\ikno},\\[1pt]
+  \last~(\gists \hunion \gisto)  < \gbm{\res.1} + 2 +
+  2~|\iknh \cap \ikno|
+%
+\end{array}
+\!\!} %@\ccon
+%
+\end{array}
+}}  
+\]
+%
+\caption{Parallel composition of \code{getAndInc} and~$e_i$ in~\eqref{eq:eqc}.}
+  \label{fig:example1} 
+\end{figure}
+%
+
+
+
+Our first client is the following program~$\eqc$:
+%
+\[
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:eqc}
+{\small{
+\begin{array}{ll} 
+\Num{1} & (\res_1, -) \Asgn (\esc{getAndInc()} ~||~ e_1) \esc{;} \\[1pt]
+\Num{2} & (\res_2, -) \Asgn (\esc{getAndInc()} ~||~ e_2) \esc{;} \\[1pt]
+\Num{3} &  \kw{return}~(\res_1, \res_2) 
+\end{array}
+}}
+\]
+%
+Each of the calls to \esc{getAndInc} interferes with either $e_1$ or
+$e_2$, but in the absence of \emph{external} interference, the
+quiescent state is reached between the lines 1 and 2. Hence, after
+executing $\hide~\eqc$, it should be $\res_1 < \res_2$, following
+\textbf{R2}.
+
+The programs $e_1$ and $e_2$ can invoke \code{getAndInc} and modify
+the counters concurrently with the two calls of $\eqc$, which we
+capture by giving both the following generic spec:
+%
+\[
+%
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:eispec}
+{\small
+\!\!\!\!\!\!\!\! 
+\begin{array}{c}
+  \spec{~
+  \hists = \emptyset\aand
+  \tkns = \emptyset\aand
+   \ikn \subseteq \tkno \hunion \Tomb~\histo
+  ~}
+  \\[1pt]
+  e_i
+  % 
+  \\[1pt]
+  \spec{\!\!\!
+  \begin{array}{c}
+    \exists \gist_i \ldot \hists = \gist_i\aand 
+    \tkns = \emptyset\aand 
+    \ikn \subseteq \tkno \hunion \Tomb~\histo
+  \end{array} 
+  \!\!\!} %@\ccon
+%
+\end{array}
+}
+\]
+%
+The postcondition allows for a number of increments via calls to
+\esc{getAndInc}, which is reflected in the addition $\gist_i$ to
+$\hists$. However, all such calls are required to be \emph{finished}
+by the end of $e_i$ ($\tkns = \emptyset$). As customary by now, we use
+the logical variable $\ikn$ to name the initial set of \emph{other}
+tokens.
+
+Figure~\ref{fig:example1} provides a spec for each of the parallel
+compositions in the program~\eqref{eq:eqc}, proved via the
+corresponding FCSL inference rule for parallel
+composition~\eqref{eq:parrule}.
+%
+The spec is very similar to~\eqref{eq:qc-spec} with the differences
+highlighted via gray boxes: (a) the self-history $\hists$ is increased
+by $e_i$'s contribution $\gist_i$ in addition to the entry, introduced
+by \code{getAndInc}, (b) the result of the parallel composition is a
+pair, but we only constrain its first component $\res.1$, resulting
+from the left subprogram. We also drop the last conjunct with
+$\happrox$ from~\eqref{eq:qc-spec}, which we won't require for this
+example.
+
+%
+
+
+
+Next, we use the spec from Figure~\ref{fig:example1} to specify and
+verify the program $\eqc$, so far \emph{assuming} external
+interference.
+%
+\[
+\!\!\!
+{\small{
+\begin{array}{c}
+\!\!\!\!\!
+\spec{\!\!
+  \begin{array}{c}
+    % \tkns = \emptyset,
+    % \gisto \subseteq \histo, \ikno \subseteq \tkno \hunion (\Tomb~\histo \setminus \Tomb~\gisto)\\[2pt]
+    % \hists = \gist_0,
+    \mbox{Fig.~\ref{fig:example1}'s precondition with $\gists := \gist_0$, $\gisto :=
+      \histo$, and $\ikno := \tkno$}
+  \end{array}
+  \!\!}
+  ~\comm{P}
+  \\\\[-6pt]
+  (\res_1, -) \Asgn (\esc{getAndInc()} ~||~ e_1) \esc{;}
+  \\[3pt]
+\!\!\!\!{{
+\spec{\!\!\!\!
+\begin{array}{c}
+ \exists \gist_1\ldot \tkns = \emptyset\aand \hists = \gists',~\ldots
+% \ikno \subseteq \tkno \hunion (\Tomb~\histo \setminus \Tomb~\gisto),
+\\[2pt]
+\mbox{where 
+ $\gbm{\gists' = \gist_0 \hunion
+\gist_1 \hunion (\res_1 + 2)\mapsto -}$, $\gisto := \histo$ and $\ikno :=
+\tkno$} 
+% \\[2pt]
+% \mbox{hence $\Ic{\gisto}{\ikno}$}
+  \end{array}
+\!\!\!\!}
+}}
+%
+\\\\[-5pt]
+(\res_2, -) \Asgn (\esc{getAndInc()} ~||~ e_2) \esc{;}      
+\\[3pt]
+\spec{\!\!\!\!
+\begin{array}{c}
+\exists \gist_1~\gist_2~\iknh \ldot     
+%
+\tkns = \emptyset \aand 
+%%\hists = \gists' \hunion \gist_2 \hunion (\res_2 + 2)\mapsto (\iknh, -)\aand\hbox{}\\[2pt] 
+\gbm{\ikno \subseteq \tkno \hunion (\Tomb~\histo \setminus \Tomb~\gisto)},\\[1pt]
+\gbm{\last~(\gists' \hunion \gisto) < \res_2 + 2 + 2~|\iknh \cap \ikno|},~\ldots 
+\end{array}
+\!\!\!\!\!}~\comm{Q}
+\\\\[-7pt]
+~~~~~~~~~~~\kw{return}~(\res_1, \res_2); ~\comm{=: \res} 
+\\[2pt]
+\spec{~Q(\res.1/\res_1, \res.2/\res_2)~} %@\ccon
+\end{array}
+}} 
+\]
+%
+We start by instantiating the logical variables $\gists$, $\gisto$ and
+$\ikno$ from Figure~\ref{fig:example1} with $\gist_0$, \emph{current}
+$\histo$ and $\tkno$, respectively, naming the obtained precondition
+$P$.
+%
+In the following assertion we focus on the clauses constraining
+$\tkns$ and $\hists$. To verify the second call, we instantiate
+$\gists$, $\gisto$ and $\ikno$ from Figure~\ref{fig:example1} with
+$\gists' = \gist_0 \hunion \gist_1 \hunion (\res_1 + 2)\mapsto -$,
+\emph{current} $\histo$ and $\tkno$, correspondingly, obtaining the
+postcondition, which we name~$Q$.
+
+The inequality in the postcondition $Q$ gives the boundary on the
+out-of-order position of $\res_2$ with respect to the \emph{last}
+value in the history captured in between the two parallel
+compositions. The boundary is given via the size of intersection of
+the two sets of tokens: snapshot ($\iknh$) and ``alive'' between the
+calls ($\ikno$).
+%
+Now, to ensure the absence of external interference, we consider the
+program $(\hide~\eqc)$.
+%
+By the general property of hiding (Section~\ref{sec:background}), we
+know that at the final state there is no interference, hence $\tkno =
+\emptyset$ and $\histo = \emptyset$ in $Q$.
+%
+Therefore, from the set inclusion on $\ikno$ in $Q$ (the grayed part),
+we deduce that $\ikno = \emptyset$.
+%
+As a consequence, the intersection $\iknh \cap \ikno = \emptyset$, so
+from the inequality we obtain
+%
+\[
+%
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:tada1}
+%
+%{\small{
+\begin{array}{c}
+ \last~(\gists' \hunion \gisto) < \res.2 + 2
+\end{array}
+\hfill
+%}}
+\]
+%
+%\noindent
+%
+But $\gists'$ is defined as $(\res.1+2)\mapsto -~\hunion\ldots$,
+hence, $\res.1 + 2 \in \mathsf{dom}\ \gists'$, and thus $\res.1 + 2
+\le \mathsf{last}\ \gists'$. Even more:
+%
+\[
+%
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:tada2}
+%
+%{\small{
+\begin{array}{c}
+\res.1 + 2 \le \last~(\gists' \hunion \gisto).
+\end{array}
+\hfill
+%}}
+\]
+%
+From~\eqref{eq:tada1} and~\eqref{eq:tada2} follows the result
+\textbf{R2}: $\res.1 < \res.2$.
+
+\subsection{Proving Quantitative Bounds}
+\label{sec:qqc-client}
+
+We next show how the spec~\eqref{eq:qc-spec} also obtains quantitative
+bounds on the out-of-order anomalies in terms of a number of running
+threads in the following program $\eqqc$:
+%
+\[
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:eqqc}
+{\small{
+\begin{tabular}{l || l}
+$
+\begin{array}{ll} 
+\Num{1} & \res_1 \Asgn \esc{getAndInc();} \\[1pt]
+\Num{2} & \res_2 \Asgn \esc{getAndInc();}  \\[1pt]
+\Num{3} & \kw{return}~(\res_1, \res_2)
+\end{array}
+$  
+&
+$~~~e$
+\end{tabular} 
+}}
+\]
+%
+The $e$'s spec says that the \emph{number} of calls to \esc{getAndInc}
+in~$e$ (\ie, the size of interference $e$ exhibits) is some fixed $N$:
+%
+\[
+%
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:espec}
+{\small
+\!\!\!\!\!\!\!\!\!  
+\begin{array}{c}
+  \spec{
+  \tkns = \emptyset,
+  \hists = \gists }
+~  e
+~  \spec{\!\!\!
+  \begin{array}{c}
+    \exists \gist \ldot 
+    \tkns = \emptyset,
+    \hists = \gists \hunion \gist,
+    |\gist| = N
+  \end{array} 
+  \!\!\!} %@\ccon
+%
+\end{array}
+}
+\]
+%
+Our goal is to prove that in the absence of external interference for
+$\eqqc$, $\res_1 < \res_2 + 2 \ N$ (requirement \textbf{R3}).
+
+\begin{figure}
+\centering
+%    
+\[
+\!\!\!
+{\small{
+\begin{array}{c}
+  \spec{~
+    \mbox{{\normalsize{\eqref{eq:qc-spec}'}}s precondition with $\gists := \gist_0$, $\gisto :=
+      \histo$, and $\ikno := \tkno$}~}
+% \\\\[-6pt]
+% \spec{\!\!
+%   \begin{array}{c}
+%     \tkns = \emptyset,
+%     \hists = \gists,
+%     \gisto \subseteq \histo,
+%     \ikno \subseteq \tkno \hunion (\Tomb~\histo \setminus \Tomb~\gisto)\\[2pt]
+%     \mbox{where $\gisto = \histo$ and $\ikno = \tkno$, hence $\Ic{\gisto}{\ikno}$}
+% %    \histo \subseteq \histo,\\[2pt]
+% %    \tkno \hunion \Tomb~\histo \subseteq \tkno \hunion \Tomb~\histo
+%   \end{array}
+%   \!\!}
+\\\\[-6pt]
+\res_1 \Asgn \esc{getAndInc();}
+\\[3pt]
+\spec{\!\!
+\begin{array}{c}
+   \exists \ikn \ldot 
+   \tkns = \emptyset, 
+   \hists = \gists',
+   % \gisto \subseteq \histo, \ikno \subseteq \tkno \hunion
+   % (\Tomb~\histo \setminus \Tomb~\gisto)
+   \ldots
+   \\[2pt]
+   \mbox{where $\gbm{\gists' = \gist_0 \hunion (\res_1 + 2) \hpts
+       (\ikn, -)}$} 
+   % , $\gisto = \histo$ and $\ikno = \tkno$, \ldots}
+% \\[2pt]
+%    \mbox{hence $\Ic{\gisto}{\ikno}$}
+  \end{array}
+  \!\!}%
+%\\\\[-6pt]
+%\spec{\!\!\!
+%  \begin{array}{c}
+%  \tkns = \emptyset,  
+%  \hists = \gists \hunion (\res_1 \!+\! 2) \!\hpts\! (\ikn^0, \ikn^1, -), 
+%  \gists' := \hists,\\[2pt] 
+%  \gisto := \histo, 
+%  \ikno := \tkno,
+%  \ikno \hunion \Tomb~\gisto \subseteq \tkno \hunion \Tomb~\histo
+%  \end{array}
+%  \!\!\!}%
+\\\\[-5pt] 
+\res_2 \Asgn \esc{getAndInc();}
+\\[3pt]
+\spec{\!\!\!
+\begin{array}{c}
+  \exists \iknh~z \ldot     
+  % \tkns = \emptyset, \hists = \gists' \hunion (\res_2+2) \mapsto (\iknh, z),\\[2pt]
+  \happrox (\gists' \hunion \gisto)~\res_2~\iknh~z, \ldots
+\end{array}
+\!\!\!}
+\\\\[-5pt]
+\spec{\!\!\!
+\begin{array}{c}
+  \exists \iknh~z \ldot     
+  % \tkns = \emptyset, \hists = \gists' \hunion (\res_2+2) \mapsto (\iknh^0, \iknh^1, z),\\[2pt]
+  \gbm{\iknh \subseteq \tkno \hunion (\Tomb~\histo) \hunion \set{z}},
+  z \notin \ikn,\\[2pt] 
+  \res_1 + 2 < \res_2 + 2 + 2~|\iknh \cap \ikn|
+\end{array}
+\!\!\!}
+\\\\[-5pt]  
+~~~~~~~~~~~~~~~
+\kw{return}~(\res_1, \res_2) ~\comm{=: \res}
+\\\\[-5pt]
+\spec{\!\!\!
+\begin{array}{c}
+  \res.1 < \res.2 + 2 \ |\tkno \hunion \Tomb~\histo| 
+  %
+  %\aand\\[1pt] 
+  % \tkns = \emptyset\aand
+  % \hists = \gists \hunion (\res_1 + 2) \hpts -
+  % \hunion (\res_2 + 2) \hpts -
+  \end{array}
+  \!\!\!} %@\ccon
+\end{array}
+}} 
+\]
+%
+%
+\caption{Proof outline of sequential composition in~\eqref{eq:eqqc}.}
+\label{fig:proof2}
+\end{figure}
+
+We first verify the sequential composition of the two calls
+in~\eqref{eq:eqqc}; the proof outline is in
+Figure~\ref{fig:proof2}. 
+%
+% \ab{Can this proof outline be cut significantly/removed? Can we just
+%   give the overall pre-post specs and go directly to the verification
+%   of $\eqqc$?}
+%
+As previously, we start by instantiating the logical variables
+$\gists$, $\gisto$ and $\ikno$ from spec~\eqref{eq:qc-spec} with
+$\gists$, $\histo$ and $\tkno$, respectively. In the assertion,
+resulting by of the first \esc{getAndInc}, we keep only the clauses
+involving $\tkns$ and $\hists$, dropping the rest.
+%
+To verify the second \esc{getAndInc} call, we instantiate $\gists$,
+$\gisto$ and $\ikno$ with $\gists' = \gists \hunion (\res_1+2) \mapsto
+(\ikn, -)$, current $\histo$ and $\tkno$.
+
+In the postcondition of the second call to \esc{getAndInc}, we focus
+on the $\happrox~(\gists' \hunion \gisto)~\res_2~\iknh~z$ clause,
+where $\iknh$ is the set of tokens snapshot when contributing
+$\res_2+2$.
+%
+Unfolding the definition of $\happrox$ from~\eqref{eq:happrox}, we
+obtain $\iknh \subseteq \tkno \hunion \Tomb~\histo
+\hunion\{z\}$. Also, using $(\res_1 +2)\mapsto (\ikn, -)$ in the
+implication that the unfolding obtains, we get $z \notin \ikn$ and
+\[
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:le0}
+{\small{\res_1 + 2 < \res_2 + 2 + 2~|\iknh \cap \ikn|
+}}
+\]
+%
+Now we use the following trivial fact to simplify.
+%
+\vspace{8pt}
+%
+\begin{lemma}
+\label{lm:intersect2}
+If $z \in \iknh$ and $z \notin \ikn$, then $|\iknh \cap \ikn| \le
+|\iknh| - 1$.
+\end{lemma}
+%
+%
+\vspace{8pt}
+%
+\noindent
+Using the invariant~\ref{cn:ti1}, Lemma~\ref{lm:intersect2}
+derives
+$|\iknh \cap \ikn| \le |\iknh| - 1$
+%
+after which, the inclusion $\iknh \subseteq \tkno
+\hunion \Tomb~\histo \hunion \set{z}$ leads to
+%
+\[
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:le5}
+{\small{
+|\iknh \cap \ikn| \le |\tkno \hunion \Tomb~\histo|}}
+\]
+%
+Combined with~\eqref{eq:le0}, this gives us $\res_1 < \res_2 + 2 \
+|\tkno \hunion \Tomb~\histo|$, as shown in Figure~\ref{fig:proof2}'s
+postcondition. In words, it asserts that the discrepancy between
+$\res.1$ and $\res.2$ is bounded by the size of the tokens, which are
+either held by the interfering threads at the end or are spent.
+%
+% \gad{low-priority right now, but still: the inequality above spreads
+%   across a linebreak, and worse, in the middle of the arguments for an
+%   operator.}
+%
+% \is{won't fix}
+
+\begin{figure}[t]
+  \centering
+\[
+{\small{
+\!\!\!\!\!\!\!\!
+\begin{array}{c}
+  ~~~~~~~~\spec{~
+  \tkns = \emptyset,
+  \hists = \gist_0, \ldots
+~} ~\comm{P}
+\\[2pt]
+  \begin{tabular}{c || c}
+$
+\spec{\!\!\!
+    \begin{array}{c}
+    \tkns = \emptyset,
+    \hists = \gist_0
+  \end{array}\!\!\!}
+$
+&
+$
+\spec{\!\!\!\begin{array}{c}
+    \tkns = \emptyset,
+    \hists = \emptyset
+  \end{array}\!\!\!}
+$
+\\[3pt]
+   $\begin{array}{l}
+      \res_1 \Asgn \esc{getAndInc();}\\[1pt]
+      \res_2 \Asgn \esc{getAndInc();}\\[1pt]
+      \kw{return}~(\res_1, \res_2) ~\comm{ =: \res}\!\!\!
+    \end{array}$
+\!\!\!\!\!\!
+& ${\small{e}}$ 
+\\\\[-5pt] 
+$
+\spec{\!\!\!
+{\small{
+  \begin{array}{c}
+    \res.1 < \res.2 + 2 \ |\tkno \hunion \Tomb~\histo|
+  \end{array}
+}}
+  \!\!\!}\!\!$
+\!\!
+&
+\!\!$\spec{\!\!\!
+{{
+  \begin{array}{c}
+    \exists \gist \ldot 
+    \hists = \gist, 
+    |\gist| = N,
+    \ldots
+  \end{array}
+}}
+\!\!\!}$
+\end{tabular}
+\\\\[-5pt]
+\comm{\res_1 := \res.1.1, \res_2 := \res.1.2}
+\\\\[-6pt]
+\spec{
+\res_1 < \res_2 + 2 \ |\tkno \hunion \Tomb~(\histo \hunion \gist)|
+}
+\\[3pt]
+~~~~~~~~\spec{
+\res_1 < \res_2 + 2 \ |\tkno \hunion \Tomb~\histo| + 2 \ N
+} ~\comm{Q}
+%
+\end{array}
+}}  
+\]
+  \caption{Proof outline for the $\eqqc$ program.}
+  \label{fig:eqqcproof}
+\end{figure}
+
+Figure~\ref{fig:eqqcproof} shows the proof outline for $\eqqc$ via the
+spec from Figure~\ref{fig:proof2}.
+%
+By the parallel composition rule~\eqref{eq:parrule}, the precondition
+splits into two subjective views, where we send the initial history
+$\gist_0$ to the left thread, and the empty history to the right
+thread. The proof from Figure~\ref{fig:proof2} then applies to the
+left thread, and the spec~\eqref{eq:espec} applies to the right
+one. Final $\histo$ of the left thread is the union of $\histo$ from
+the joined thread with $\gist$, since the environment of the left
+thread includes the right thread and of the join. Rewriting by this
+property in the postcondition of the left thread gives us the post of
+the joint thread: $\res_1 < \res_2 +2\ |\tkno \hunion \Tomb~(\histo
+\hunion \gist)|$, which we can next simplify into
+\[
+\res_1 < \res_2 + 2\ |\tkno \hunion \Tomb~\histo| + 2\ N
+\]
+because $\Tomb$ distributes over $\hunion$, and $|\Tomb~\gist| =
+|\gist| = N$. Finally, we restrict the external interference by
+considering $(\hide~\eqqc)$. From the properties of hiding,
+we deduce that $\tkno$ and $\histo$ in $Q$ are empty, hence we can
+simplify into $\res_1 < \res_2 + 2 \ N$, which is the desired
+result~\textbf{R3}.
+%
+%\gad{The same happens here, just before the highlighted math.}

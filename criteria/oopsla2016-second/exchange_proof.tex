@@ -1,0 +1,54 @@
+{
+%\setlength{\belowcaptionskip}{-15pt} 
+\begin{figure}
+\[
+{\footnotesize{
+\begin{array}{rl}
+ \Num{1} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending} \}}
+\\ 
+ \Num{2} & ~~~~ p \Asgn \esc{alloc}~(v, \Unmatched);\\
+ \Num{3} & \specK{\{\heaps = p \mapsto (v; \Unmatched), \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending} \}}\\
+ \Num{4} & ~~~~ b \Asgn \esc{CAS}~(g, \esc{null}, p);\\
+ \Num{5} & ~~~~ \kw{if}~~b~\esc{==}~\esc{null}~~\kw{then}\\
+ \Num{6} & ~~~~ ~~~~ \esc{sleep}~(50);\\
+ \Num{7} & \specK{\{\heaps = \emptyset, \perms = \{p\}, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}, \esc{bounded}\ p\ v\ \gist \}}\\
+ \Num{8} & ~~~~ ~~~~ x \Asgn \esc{CAS}~(p\esc{+}1, \Unmatched, \Retired);\\
+ \Num{9} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending},\hbox{}} \\
+\Num{10} & \specK{\hphantom{\}}x = \Matched w \implies \exists t\ldot \hists = t \mapsto (v, w), \mathsf{last}(\gist) < t, \twin t,}\\
+\Num{11} & \specK{\hphantom{\}}x = \Unmatched \implies \hists = \emptyset \}}\\
+\Num{12} & ~~~~ ~~~~ \kw{if}~~x~~\kw{is}~~\Matched w~~\kw{then}~~\kw{return}~~(\esc{Some}~w)\\
+\Num{13} & ~~~~ ~~~~ \kw{else}~~\kw{return}~~\esc{None}\\
+\Num{14} & ~~~~ \kw{else}\\
+\Num{15} & \specK{\{\heaps = p \mapsto (v; \Unmatched), \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}\}}\\
+\Num{16} & ~~~~ ~~~~ \esc{dealloc}~p;\\
+\Num{17} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}\}}\\
+\Num{18} & ~~~~ ~~~~ cur \Asgn \esc{read}~g;\\
+\Num{19} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending},}\\
+\Num{20} & \specK{\hphantom{\}}cur = \esc{null} \vee cur \mapsto (w; -) \subseteq \heapj\}}\\
+\Num{21} & ~~~~ ~~~~ \kw{if}~~cur~\esc{==}~\esc{null}~~\kw{then}~~\kw{return}~{\esc{None}}\\
+%& \specK{\{ \mbox{obvious} \}}\\
+\Num{22} & ~~~~ ~~~~ \kw{else}\\
+\Num{23} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}, cur \mapsto (w; -) \subseteq \heapj\}}\\
+\Num{24} & ~~~~ ~~~~ ~~~~ x \Asgn \esc{CAS}(cur\esc{+}1, \Unmatched, \Matched v);\\
+\Num{25} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}, cur \mapsto (w; y) \subseteq \heapj,} \\
+\Num{26} & \specK{\hphantom{\}}x = \Unmatched \implies y = \Matched v, \exists t\ldot \hists = t \mapsto (v, w), \mathsf{last}(\gist) < t, \twin t},\\
+\Num{27} & \specK{\hphantom{\}}x \neq \Unmatched \implies \hists = \emptyset, y \neq \Unmatched \}}\\
+\Num{28} & ~~~~ ~~~~ ~~~~ \esc{CAS}~(g, cur, \esc{null});\\
+\Num{29} & \specK{\{\mbox{same as above; the state satisfies (iv) because $y \neq \Unmatched$}\}}\\
+%& \specK{\{\heaps = \emptyset, \perms = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}, 
+%    \exists w hw. cur \mapsto (w, hw) \in \heapj,} \\
+%& \specK{x = \Unmatched, hw = \Matched v, \exists t. \hists = t \mapsto (w, v), last \gist < t, \twin t}\\
+%& \specK{x \neq \Unmatched, \hists = \emptyset, hw \neq \Unmatched \}}\\
+\Num{30} & ~~~~ ~~~~ ~~~~ \kw{if}~~x~\esc{==}~\Unmatched~~\kw{then}~~w\Asgn \esc{read}~cur;\kw{return}~(\esc{Some}\ w)\\
+\Num{31} & \specK{\{ \heaps = \emptyset, \perms = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}, \res=\esc{Some}\ w}, \\
+\Num{32} & \specK{\hphantom{\}}\exists t. \hists = t \mapsto (w, v), \mathsf{last}(\gist) < t, \twin t\}}\\
+\Num{33} & ~~~~ ~~~~ ~~~~ \kw{else}~~\kw{return}~\esc{None}\}\\
+\Num{34} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}, \res=\esc{None}\}} 
+\end{array}
+}}
+\]
+%\vspace{-15pt}  
+\caption{Proof outline for the exchanger.}
+\label{fig:exchanger_proof}
+\end{figure} 
+}

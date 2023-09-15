@@ -1,0 +1,450 @@
+\section{Overview: specifying snapshots with histories}
+\label{sec:overview}
+
+
+In this section, we illustrate history-based specifications by
+applying them to the fine-grained \emph{atomic pair snapshot} data
+structure~\cite{Qadeer-al:TR09,Liang-Feng:PLDI13}.
+%
+This data structure contains a pair of pointers, $x$ and $y$, pointing
+to tuples $(c_x, v_x)$ and $(c_y, v_y)$, respectively. The components
+$c_x$ and $c_y$ of type $A$ represent the accessible contents of $x$
+and $y$, that may be read and updated by the client. The components
+$v_x$ and $v_y$ are $\mathsf{nat}$s, encoding ``version numbers'' for
+$x$ and $y$. They are internal to the structure and not directly
+accessible by the client.
+
+\begin{wrapfigure}[9]{r}[0pt]{0.4\textwidth} 
+\centering 
+%
+\begin{tabular}{l@{\ \ \ }l}
+% 
+\begin{minipage}[l]{4.3cm}
+\small
+\begin{alltt}
+\num{1}  readPair(): \(A {\times} A\)  \{
+\num{2}    (cx, vx) <- \aact{readX}();
+\num{3}    (cy, _)  <- \aact{readY}();
+\num{4}    (_, tx)  <- \aact{readX}();
+\num{5}    \textbf{if} vx == tx 
+\num{6}    \textbf{then return} (cx, cy);
+\num{7}    \textbf{else} readPair();\}
+\end{alltt} 
+\end{minipage}
+&
+%
+\end{tabular}
+%
+\caption{Atomic pair snapshot}
+\label{fig:readpair}
+\end{wrapfigure}
+%
+The data structure interface exports three methods: \code{readPair},
+\code{writeX}, and \code{writeY}. \code{readPair} is the main method,
+and the focus of the section. It returns the \emph{snapshot} of the
+data structure, \ie, the accessible contents of $x$ and $y$ as they
+appear together at the moment of the call. However, while $x$ and $y$
+are being read by \code{readPair}, other threads may change them, by
+invoking \code{writeX} or \code{writeY}. Thus, a na\"{i}ve
+implementation of \code{readPair} which first reads $x$, then $y$, and
+returns the pair $(c_x, c_y)$ does not guarantee that $c_x$ and $c_y$
+ever appeared together in the structure. One may have \code{readPair}
+first lock $x$ and $y$ to ensure exclusive access, but here we
+consider a fine-grained implementation which relies on the version
+numbers to ensure that \code{readPair} returns a valid snapshot.
+
+The idea is that $\eesc{writeX}(\eesc{cx})$ (and symmetrically,
+$\eesc{writeY}(\eesc{cy})$), changes the logical contents of $x$ to
+$\eesc{cx}$, while incrementing the internal version number,
+\emph{simultaneously}. Since the operation involves changes to the
+contents of a single pointer, in this paper we assume that it can be
+performed atomically (\eg, by some kind of read-modify-write
+operation~\cite[\S5.6]{Herlihy-Shavit:08}). We also assume atomic
+operations \code{readX} and \code{readY} for reading from $x$ and $y$
+respectively. Then the implementation of \code{readPair}
+(Figure~\ref{fig:readpair}) reads from $x$ and $y$ in succession, but
+makes a check (line~5) to compare the version numbers for $x$ obtained
+before and after the read of $y$. If $x$'s version has changed, the
+procedure~restarts.
+
+We want to specify and prove that such an implementation of
+\code{readPair} is correct; that is, if it returns a pair $(c_x,
+c_y)$, then $c_x$ and $c_y$ occurred simultaneously in the structure.
+To do so, we use histories as auxiliary state of every method of the
+structure. Histories, ranged over by $\hist$, are finite maps from the
+natural numbers to pairs of elements of some type $S$; \ie, $\Hist{S}\
+{\eqdef}\ \mathsf{nat} \pfun S \times S$.\footnote{Other sets for
+  time-stamping are possible besides $\nat$, as will be mentioned in
+  Section~\ref{sec:related}.} The natural numbers represent the
+moments in time, and the pairs represent the change of state. Thus, a
+singleton history $t \hpts (s_1, s_2)$ encodes an atomic change from
+abstract state $s_1$ to abstract state $s_2$ at the time moment
+$t$. We will only consider \emph{continuous} histories, for which $t
+\hpts (s_1, s_2)$ and $t+1 \hpts (s_3, s_4)$ implies $s_2 = s_3$. We
+use the following abbreviations to work with histories:
+%
+%%\vspace{-3pt}
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:hist-not}
+{\small
+\begin{array}{lcl}
+{\hist}[t] & \eqdef & s,~\text{such that}~\exists s',~\hist(t) = (s', s) \\ 
+\hist \le t & \eqdef & \forall t' \in \dom{\hist}, t' \le t\\
+\hist \pre \hist' & \eqdef & \mbox{$\hist$ is a subset of $\hist'$}
+\end{array}
+}
+\]
+%
+Similarly to heaps, histories form a PCM under the operation $\hunion$
+of disjoint union, with the $\hempty$ history as the unit. The type
+$S$ can be chosen arbitrarily, depending on the application, to
+capture whichever logical aspects of the actual physical state are of
+interest.
+%
+For the snapshot structure, we take $S = A \times A \times \nat$. That
+is, the entries in the histories for pair snapshot will be of the form
+%
+%%\vspace{-3pt}
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:entry}
+\small{
+t \hpts
+(\angled{c_x, c_y, v_x}, \angled{c'_x, c'_y, v'_x}).
+}
+\] 
+%
+The entry encodes that at time moment $t$, the contents of $x$, $y$,
+and the version of $x$ have changed from $(c_x, c_y, v_x)$ to $(c'_x,
+c'_y, v'_x)$. We ignore $v_y$, as it does not factor in the
+implementation of \code{readPair} (even though it is present for the
+sake of symmetry).
+%
+%\an{I think we should just drop vy
+%  from the story completely. That way we do not waste space explaining
+%  it, and then saying it does not matter.}
+%
+%\is{We'd rather not, as it makes the program assymetric and quite
+%  ugly, especially, taking into account that the original program
+%  from~\cite{Liang-Feng:PLDI13} dealt with a pair snapshot over an
+%  arbitrary number of cells (pick any two).}  \an{Well, the whole
+%  thing is already assymetric since the histories do not keep track of
+%  y, and thus the specs for readX and readY are completely
+%  different. But ok, it is not a big deal.}
+%
+
+All the threads working over the pair snapshot structure respect a
+protocol on histories consisting of the following three properties. We
+explain in Section~\ref{sec:background} how these are formally
+specified and enforced, but for now simply assume them. They will be
+important in the proof outline for \code{readPair}.
+%
+\begin{itemize}
+\item [$(i)$] Whenever a thread modifies $x$ or $y$ (\eg, by calling
+  \code{writeX} or \code{writeY}), its history gets augmented by an
+  entry such as (\ref{eq:entry}), where the timestamp $t$ is chosen
+  afresh. Thus, histories only grow, and only by adding valid
+  snapshots (\ie, snapshots corresponding to values of $x$ and $y$,
+  \emph{simultaneously} present in the data structure).
+\item [$(ii)$] Whenever the contents of $x$ is changed in a history,
+  its version number changes too. In contrapositive form, if
+  $\tau[t_1] = \angled{c_1, -, v}$ and $\tau[t_2] = \angled{c_2, -,
+    v}$, then $c_1 = c_2$.
+\item [$(iii)$] Version numbers in a history grow monotonically. That
+  is, if $\tau[t_1] = \angled{-, -, v_1}$ and $\tau[t_2] = \angled{-,
+    -, v_2}$ and $t_1 \le t_2$, then $v_1 \le v_2$.
+\end{itemize}
+%
+\paragraph{Specification.}
+We now describe an FCSL spec for \code{readPair} and explain how it
+captures that its result is a valid snapshot of $x$ and $y$.
+%
+%\vspace{-5pt} 
+%
+\[
+{\small
+\begin{array}{c}
+%%\vspace{-3pt}
+\spec{\exists \histO\ldot \hps \spts \hempty \aand \hps \opts \histO
+  \aand \hist \pre \histO}
+\\
+\Cmd{readPair}{} 
+\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:pair-spec-read}
+\\
+\spec{\begin{array}{l}
+  \exists \histO\ t\ldot \hps \spts \hempty \aand \hps \opts \histO \aand \hist \pre \histO \aand \tau \le t \aand \inat{\angled{\res.1, \res.2, -}}{\histO}{t}
+    \end{array}}
+%\vspace{-3pt}
+\end{array}
+}
+\]
+%
+%
+First, note the label $\hps$, which serves as an ``abstract pointer''
+that differentiates the instance of the pair snapshot structure from
+any other structure that may exist in the program. In particular,
+$\hps$ identifies the histories of concern to \code{readPair}. Each
+thread keeps track of two such histories: the self-history, describing
+the operations that the thread itself has executed, and the
+other-history for the operations executed by all the other threads
+combined. They are captured by the assertions $\hps \spts \tau$ and
+$\hps \opts \tau$,~respectively.
+
+Thus, the precondition in (\ref{eq:pair-spec-read}) requires that
+\code{readPair} starts with the empty self-history, \ie, the calling
+thread has not performed any updates to $x$ or $y$. We show in
+Section~\ref{sec:background} that the frame rule can be used to relax
+the requirement, so that \code{readPair} can be invoked by threads
+with an arbitrary self history.
+%
+The precondition allows an arbitrary initial
+other-history~$\histO$. As $\histO$ is bound locally in the
+precondition, we use the logical variable $\hist$ and a conjunct
+$\hist \pre \histO$ to propagate the information about $\histO$ into
+the postcondition.
+%
+%and we need to relate to it in the postcondition, we use
+%the logical variable $\hist$, and a conjunct $\hist \pre \histO$ to
+%``name'' it. 
+Because $\hist$ and $\histO$ are related by inclusion, the
+precondition is stable under growth of $\histO$ due to interfering
+threads, according to $(i)$.
+%However, we cannot achieve the naming in the usual way, by conjoining
+%$\hist = \histO$ to the precondition. Such an equation is unstable,
+%because the environment threads can augment the history
+%$\histO$. Fortunately, conjoining $\hist \pre \histO$ suffices.
+
+The postcondition states that \code{readPair} does not perform any
+changes to $x$ and $y$; it is a \emph{pure} method, thus its
+self-history remains empty.
+%
+%\an{Should I say that according to our criterion of atomicity from
+%  Section~\ref{sec:intro}, this makes \code{readPair} an atomic
+%  program.}
+%
+The main novelty of the specification is that the postcondition
+directly relates the result of \code{readPair} to the interference of
+the environment, \ie, to the value of $\histO$. This is in contrast to
+the extant logics, which do not keep track of the \emph{other}
+component, and hence cannot specify \code{readPair} as directly. In
+particular, the postcondition says that $\inat{\angled{\res.1, \res.2,
+    -}}{\histO}{t}$, \ie, that the components of the returned pair
+$\res$ appear in the environment history. Since according to the
+property $(i)$ above, the histories only store valid snapshots, the
+resulting pair must be a valid snapshot too. In other words,
+\code{readPair} behaves as if it read $x$ and $y$ atomically, at time
+$t$.
+%
+Moreover, $\tau \le t$, \ie, the read occurred after \code{readPair}
+was invoked.
+
+The specification pattern whereby a logical variable $\tau$ names the
+initial history of the environment is very common, so we streamline it
+by introducing the following notation.
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:histso}
+{\small
+\begin{array}{r@{\ }c@{\ }l}
+\histso{\ell}{\histS, \histO, \hist} \eqdef \ell \spts \histS \aand \ell
+\opts \histO \aand \hist \pre \histS \hunion \histO
+ \end{array}
+}
+\]
+
+\paragraph{Proof outline.}
+Figure~\ref{fig:pair-proof} contains the proof outline for
+\code{readPair}, which we discuss next. The relation $\hist \pre
+\histO$ is folded into the definition of $\histso{\hps}{\hempty,
+  \histO, \hist}$. Lines 1 and 3 abbreviate the precondition in
+(\ref{eq:pair-spec-read}). The \code{readX} method has the following
+spec:
+%
+%
+\[
+%\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:readx-spec}
+{\small
+\hspace{-3.5mm}
+\begin{array}{r@{\ }c@{\ }l}
+\spec{
+  \begin{array}{l}
+    \histso{\hps}{\hempty, -, \hist}
+  \end{array}
+} &\Cmd{readX}{} & 
+\spec{ 
+  \begin{array}{l}
+    \exists \histO\ t\ldot \histso{\hps}{\hempty, \histO, \hist} \aand \hist \le t \aand  \inat{\angled{\res.1, -, \res.2}}{\histO}{t}
+  \end{array}
+}
+\end{array}
+}
+\]
+%
+Since the ``initial'' other-history is bounded by $\hist$ in the
+precondition, and the ``final'' $\histO$ may only grow, we require
+$\hist \le t$ in the postcondition to ensure that we will not get a value
+from the history, which has ``expired'' \emph{before} the call to
+\code{readX}.
+%
+Thus in line~5 of the proof, we infer the existence of the
+history $\hist_1$ and time stamp $t_1 \geq \hist$, such that the
+\code{cx} and \code{vx} appear in $\hist_1$ at the time~$t_1$. 
+%
+Similarly, \code{readY} has the spec:
+%\
+\[
+%\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:ready-spec}
+{\small
+\begin{array}{r@{\ }c@{\ }l}
+\spec{
+  \begin{array}{l}
+    \histso{\hps}{\hempty, -, \hist}
+  \end{array}
+} & \Cmd{readY}{} & 
+\spec{ 
+  \begin{array}{l}
+    \exists \histO\ t\ldot \histso{\hps}{\hempty, \histO, \hist} \aand \hist \le t \aand \inat{\angled{-, \res.1, -}}{\histO}{t}
+  \end{array}
+}
+\end{array}
+}
+\]
+%
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+%\vspace{-7pt}
+\begin{align*}
+{\scriptsize
+\begin{array}{r@{\ \ \ }l@{\ }l}
+ \Num{1} & \spec{~~\histso{\hps}{\hempty, -, \hist}~~} & 
+  \\[1pt]
+  \Num{2} &  ~\esc{readPair():}~ A \times A~\{ & 
+  \\[1pt]
+ \Num{3}  & \spec{~~\histso{\hps}{\hempty, -, \hist}~~} & 
+  \\[1pt]
+ \Num{4} &  ~\esc{(cx, vx) <- \act{readX}();}  & 
+  \\[1pt]
+ \Num{5} & \spec{
+    \begin{array}{l@{\ }l}
+     \histso{\hps}{\hempty, \hist_1, \hist} \aand \hist \le t_1 \aand 
+     \inat{\angled{\esc{cx}, -, \esc{vx}}}{\hist_1}{t_1}
+    \end{array}
+  } &
+  \\[1pt]
+  \Num{6} &  ~\esc{(cy, \_) <- \act{readY}();} & 
+  \\[1.5pt]
+  \Num{7} & \spec{
+    \def\arraystretch{1.2}
+    \begin{array}{l}
+    \histso{\hps}{\hempty, \hist_2, \hist} \aand \hist \le t_1 \le t_2 \aand \esc{vx} \le v \aand \hbox{} \\
+    \inat{\angled{\esc{cx}, -, \esc{vx}}}{\hist_2}{t_1} \aand
+    \inat{\angled{c, \esc{cy}, v}}{\hist_2}{t_2}   
+    \end{array}
+  } & 
+  \\[1.5pt]
+\Num{8} &  ~\esc{(\_, tx) <- \act{readX}();} & 
+  \\[1.5pt]
+  %\vspace{1mm}
+ \Num{9} & \spec{
+    \def\arraystretch{1.2}
+    \begin{array}{l@{\ }l}
+      \histso{\hps}{\hempty, \hist_3, \hist} \aand \hist \le t_1 \le t_2 \le t_3 \aand \esc{vx}\le v \le \esc{tx} \aand \hbox{}\\
+      \inat{\angled{\esc{cx}, -, \esc{vx}}}{\hist_3}{t_1}  \aand
+      \inat{\angled{c, \esc{cy}, v}}{\hist_3}{t_2} \aand \inat{\angled{-, -, \esc{tx}}}{\hist_3}{t_3} \\
+    \end{array}
+  } & 
+  \\[1.5pt]
+  \Num{10} &  ~\esc{\textbf{if} vx == tx} \\
+ \Num{11} & \quad\spec{
+    \begin{array}{l@{\ }l}
+      \histso{\hps}{\hempty, \hist_3, \hist} \aand \hist \le t_2
+      \aand \esc{cx} = c \aand
+      \inat{\angled{\esc{cx}, \esc{cy}, v}}{\hist_3}{t_2}
+    \end{array}
+  } & 
+  \\[1.5pt]
+  \Num{12} &  \quad~\esc{\textbf{then return}~(cx, cy);} 
+  \\[1.5pt]
+  \Num{13} & 
+  \quad \spec{~~ 
+  \exists \histO\ t\ldot \histso{\hps}{\hempty, \histO, \hist} \aand \hist \le t \aand \inat{\angled{\res.1, \res.2, -}}{\histO}{t} ~}
+  &
+ \\[1.5pt]
+  \Num{14} &  ~\esc{\textbf{else} readPair();\}}
+  \\[1.5pt]
+\Num{15} & \spec{~~
+   \exists \histO\ t\ldot \histso{\hps}{\hempty, \histO, \hist} \aand \hist \le t \aand \inat{\angled{\res.1, \res.2, -}}{\histO}{t} ~}
+\end{array}
+}
+\end{align*}
+%\vspace{-7pt}
+\caption{Proof outline for \code{readPair}.}
+\label{fig:pair-proof}
+\end{wrapfigure}
+%
+To obtain line~7, instantiate $\hist$ with $\hist_1$ in the spec of
+\code{readY}. This derives the existence of $\tau_2$, $t_2$, $c$ and
+$v$, such that $\histso{\hps}{\hempty, \hist_2, \hist_1}$, $\hist_1
+\le t_2$, and $\inat{\angled{c, \eesc{cy}, v}}{\hist_2}{t_2}$. Because
+$t_1 \in \mathsf{dom}(\hist_1)$, it must be that $t_1 \le t_2$. Moreover,
+because $\tau \pre \tau_1 \pre \tau_2$, we further obtain
+$\histso{\hps}{\hempty, \hist_2, \hist}$, and $\hist \le t_2$, and
+lifting from line 5, $\inat{\angled{\eesc{cx}, -,
+    \eesc{vx}}}{\hist_2}{t_1}$. Because $t_1, t_2$ appear in the same
+history $\hist_2$, with versions $\eesc{vx}$ and $v$, respectively, by
+property $(iii)$, $\eesc{vx} \le v$. Similarly, instantiating $\hist$
+in the spec of \code{readX} with $\hist_2$, and invoking $(iii)$,
+derives line~9 of the proof outline, and in particular $\eesc{vx} \le v
+\le \eesc{tx}$.
+
+From this property, if $\eesc{vx} = \eesc{tx}$ in the conditional on
+line~10, it must be that $\eesc{vx} = v$, and thus by $(ii)$, $\eesc{cx} =
+c$. Substituting $c$ by $\eesc{cx}$ in line~9 gives us
+$\inat{\angled{\eesc{cx}, \eesc{cy}, v}}{\hist_3}{t_2}$, which, after
+$(\eesc{cx}, \eesc{cy})$ are returned in $\res$, obtains the
+postcondition of \code{readPair}. Otherwise, if $\eesc{vx} \neq
+\eesc{tx}$ in the conditional 10, we perform the recursive call to
+\code{readPair}. The precondition for the call is
+$\histso{\hps}{\hempty, -, \hist}$, which is clearly met in line~9, so
+the postcondition immediately follows.
+
+\paragraph{Monolithic histories.}
+We compare the spec (\ref{eq:pair-spec-read}) with an alternative spec
+where the history is not split into self/other portions, but is kept
+monolithically as a \emph{joint} (or shared) state. We use the
+predicate $\hps \jpts \tau$ to specify such state:
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{eq:readpair-spec2}
+{\small
+\begin{array}{c}
+\spec{\exists \histO\ldot \hps \jpts \histO \aand \hist \pre \histO}~
+\Cmd{readPair}{} 
+~\spec{
+  \begin{array}{c}
+    \exists \histO\ t\ldot \hps \jpts \histO \aand \hist \pre \histO~\aand \hbox{}\\
+     \tau \le t \aand \inat{\angled{\res.1, \res.2,
+         -}}{\histO}{t} 
+  \end{array}
+}
+\end{array}
+}
+\]
+%
+Note that the spec (\ref{eq:readpair-spec2}) imposes no restrictions
+on the growth of $\histO$ (unlike (\ref{eq:pair-spec-read}) which
+keeps the self history $\hempty$). Thus, (\ref{eq:readpair-spec2}) is
+weaker than (\ref{eq:pair-spec-read}), as it allows more behaviors. In
+particular, it can be ascribed to any program which, in addition to
+calling \code{readPair}, also modifies $x$ and $y$. This substantiates
+our claim from Section~\ref{sec:intro} that the self/other dichotomy
+is required to prevent history-based specs from losing precision. We
+provide further evidence for this claim in Section~\ref{sec:examples},
+where we show that subjective specs for \emph{stacks} generalize the
+sequential canonical ones~\eqref{eq:seqstack-spec}. The latter can be
+derived from the former by restricting $\histO$ to be the empty
+history. Such a restriction is not possible if the history is kept
+monolithic.
+
+
+

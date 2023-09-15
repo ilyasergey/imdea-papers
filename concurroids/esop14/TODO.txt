@@ -1,0 +1,13 @@
+A list of TODO's to fix in a camera-ready paper version
+-------------------------------------------
+
+1. A small foot print-ish specifications of Priv actions: read and
+write (see page 9, midle, of the paper). This way, the Framing
+property (safe_zagzig) from Appendix A (Definition 3) doesn't hold.
+
+When this is fixed (by adding administrative heaps to self and other
+parts), we also need to revise the definitions of "machine" actions
+(Definition 2) so they would match the specifications of the "rich"
+actions.
+
+

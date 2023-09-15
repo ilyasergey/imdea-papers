@@ -1,0 +1,101 @@
+\begin{figure*}
+\centering
+{\small{
+\[
+\begin{tabular}{r@{\ \ \ \ \ \ \ \ }c || c}
+\Num{1} & \multicolumn{2}{c}{\specK{\{\hist_{\cal F} = \emptyset,  \hist_{\cal E} = \emptyset\}}}
+\\[3pt]
+\Num{2} & \specK{\{\hist_{\cal F} = [\graybox{\ldots}] \}}
+&
+\specK{\{\hist_{\cal F} = [\graybox{\ldots}] \}}
+\\[2pt]
+\Num{3} & $r_1 := \esc{flip2}~x$ & $r_2 := \esc{flip2}~x$
+\\[2pt]
+\Num{4} & \spec{
+  \begin{array}{c}
+    \exists a~b,
+   \hist_{\cal F} = [\graybox{\ldots}, a, \graybox{\ldots}, b,
+    \graybox{\ldots}], 
+    r_1 := \bar{a} + \bar{b}
+  \end{array}
+}
+&
+\spec{
+  \begin{array}{c}
+    \exists c~d,
+   \hist_{\cal F} = [\graybox{\ldots}, c, \graybox{\ldots}, d,
+    \graybox{\ldots}], 
+    r_2 := \bar{c} + \bar{d}
+  \end{array}
+}
+\\ & \multicolumn{2}{c}{}\\[-5pt]
+\Num{5} & \multicolumn{2}{c}{\spec{\hist_{\cal F} = \text{perm}(a, b, c, d) = [1, 0,
+  1, 0], r_1 = \bar{a} + \bar{b}, r_2 = \bar{c} + \bar{d}}}
+\\[2pt]
+\Num{6} & \multicolumn{2}{c}{\spec{r_1 + r_2 = 2}}
+% End of the first parallel composition
+\\ & \multicolumn{2}{c}{}\\[-5pt]
+%
+%
+\Num{7} &
+\specK{\{\hist_{\cal E} = [\graybox{\ldots}] \}} & 
+\specK{\{\hist_{\cal E} = [\graybox{\ldots}] \}}
+\\[2pt]
+\Num{8} & $s_1 := \esc{exchange}~r_1$ & $s_2 := \esc{exchange}~r_2$
+\\[2pt]
+\Num{9} & 
+  \spec{\!\!
+  \begin{array}{l}
+    \mathsf{if}\ s_1\ \mathsf{is}\ \mathsf{Some}\ v_1\ \mathsf{then}~\\[1pt]
+    \hist_{\cal E} = [\graybox{\ldots}, (r_1, v_1), \graybox{\ldots}]
+    ~\mathsf{else}\ \hist_{\cal E} = [\graybox{\ldots}]
+  \end{array}
+  \!\!}
+&
+  \spec{\!\!
+  \begin{array}{l}
+    \mathsf{if}\ s_2\ \mathsf{is}\ \mathsf{Some}\ v_2\ \mathsf{then}~\\[1pt]
+    \hist_{\cal E} = [\graybox{\ldots}, (r_2, v_2), \graybox{\ldots}]
+    ~\mathsf{else}\ \hist_{\cal E} = [\graybox{\ldots}]
+  \end{array}
+  \!\!}%
+%
+\\ & \multicolumn{2}{c}{}\\[-5pt]
+\Num{10} &
+\multicolumn{2}{c}{
+\spec{s_1 = \mathsf{Some}\ v_2 \wedge s_2 = \mathsf{Some}\ v_2
+  \implies
+\hist_{\cal E} = \text{perm}((r_1, v_1), (r_2, v_2)) = \text{perm}((v_1, r_1),
+  (v_2, r_2))
+}}
+\\[2pt]
+\Num{11} &
+\multicolumn{2}{c}{
+\spec{s_1 = \mathsf{Some}\ v_2 \wedge s_2 = \mathsf{Some}\ v_2
+  \implies
+v_1 = r_2 \wedge v_2 = r_1
+}}
+\\[2pt]
+\Num{12} &
+\multicolumn{2}{l}
+{$\kw{if}~s_1~\kw{is}~\esc{Some}~v_1~\kw{and}~s_2~\kw{is}~\esc{Some}~v_2~\kw{then}$}
+\\[2pt]
+\Num{13} &
+\multicolumn{2}{l}
+{\spec{v_1 = r_2,  v_2 = r_1, r_1 + r_2 = 2}}
+\\[2pt]
+\Num{14} &
+\multicolumn{2}{l}
+{$t := v_1 + v_2$~~~{\spec{t = 2}}~~~$ \kw{else}~t := 2$~~~{\spec{t = 2}}}
+% \\[2pt]
+% \Num{15} & 
+% \multicolumn{2}{l}
+% {$ \kw{else}~t := 2$~~~~~~{\spec{t = 2}}}
+\end{tabular} 
+\]
+}}  
+\caption{Verification of a concurrent client program using
+  \code{exchange} and \code{flip2} in the absence of external
+  interference.}
+\label{fig:verif1}
+\end{figure*}

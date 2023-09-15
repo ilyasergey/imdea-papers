@@ -1,0 +1,214 @@
+===========================================================================
+                            ESOP15 Review #39A
+                    Updated 22 Nov 2014 11:20:06am EST
+---------------------------------------------------------------------------
+   Paper #39: Specifying and Verifying Concurrent Algorithms with Histories
+              and Subjectivity
+---------------------------------------------------------------------------
+
+                      Overall merit: 4. Strong accept -- I will champion
+                                        this paper
+                 Reviewer expertise: 3. Knowledgeable
+
+                      ===== Comments for author =====
+
+This paper presents a verification technique for fine-grained
+concurrency. It builds on a previous result by the authors
+(Fain-Grained Concurrent Separation Logic, FCSL). The key idea
+proposed here is to use histories to specify how a data structure
+evolves over time.  Histories form partial commutative monoids, which
+allows the logic to handle histories analogously to heaps (in
+particular, to support separation and framing). A data structure is
+then specified by giving a concurroid, which specifies internal
+transitions on the data structure as well as external transitions that
+describe how ownership changes. Moreover, the operations of a data
+structure are specified using the current thread's history, the other
+threads' history, and possible a joint history. The paper applies this
+approach to several interesting examples (atomic pair snapshot,
+Treiber stack, flat combining); it specifies and verifies the main
+operations of the data structures as well as client code.
+
+
+Points in favor:
+
+* Verifying fine-grained concurrency is challenging. Existing
+  solutions tend to be very complicated. This paper provides a
+  strategy how to use the existing FCSL logic to specify and verify
+  interesting data structures. This strategy makes it easier to
+  find proofs, and possibly even to automate verification.
+
+* The treatment of histories as partial commutative monoids is elegant
+  and intuitive. I also like that the paper simply instantiates FCSL,
+  without changing the logic.
+
+* A particular strength of the proposed approach is that
+  specifications of fine-grained data structures refine those of
+  coarse-grained data structures, which allows one to hide the
+  internals from clients.
+
+* All proofs have been checked in Coq and are available online.
+
+* The discussion of related work is detailed.
+
+
+Points against:
+
+* The paper is essentially an application of FCSL, which has been
+  published before. So the technical novelty of this work is
+  somewhat limited. However, I think there is a lot of value in
+  developing methodologies how to use logics. So I am not 
+  concerned, even though five pages of the paper are devoted to
+  summarizing FCSL. 
+
+* The overall approach is still rather complex and requires finding
+  various assertions for the specification of the concurroid and the
+  operations. I would have liked to see a discussion how to support
+  automation. For instance, did your Coq proofs make use of tactics?
+
+* I did not fully understand the role of labels. How are they different
+  from object identities in an OO setting? For instance, on page 5,
+  can I think of l and the "this" object?
+
+
+Details:
+
+* p.1: I would change the sentence "In the concurrent setting, the spec
+  (1) is of little use". It is still useful with client-side locking.
+  It's just not useful for racy implementations or server-side locking.
+
+* p.5: "symmety" -> "symmetry"
+
+* p.5: I struggled with the specification of readPair quite a bit.
+  The need for \tau is unclear here, and it only becomes clear later
+  when you introduce the abbreviation at the top of page 6. Maybe say
+  that simpler a spec exists and why you are using the more convoluted
+  one.
+
+===========================================================================
+                            ESOP15 Review #39B
+                     Updated 24 Nov 2014 4:30:41pm EST
+---------------------------------------------------------------------------
+   Paper #39: Specifying and Verifying Concurrent Algorithms with Histories
+              and Subjectivity
+---------------------------------------------------------------------------
+
+                      Overall merit: 3. Accept
+                 Reviewer expertise: 2. Some familiarity
+
+                      ===== Comments for author =====
+
+SUMMARY
+
+The authors presents a Hoare-like method to verify concurrent
+algorithms that use fined-grained concurrent data structures.  The
+method, that builds on FCSL (Fined-grained Concurrent Separation
+Logic, a framework proposed by some of the authors in ESOP'14),
+consists in specifying programs using history-based concurroids
+(histories are maps from timestamps to atomic changes in the states of
+the data-structure).
+
+Authors illustrate the use of this method on example algorithms (a
+Treiber's stack together with a producer/consumer algorithm, and the
+design pattern of helping, as introduced by Hendler et al's flat
+combining algorithm).
+
+Building on the mechanization of FCSL in Coq, authors provide Coq
+scripts that validate all their examples.
+
+EVALUATION
+
+I have very little expertise in the area, in particular, I am not
+familiar with previous methods that have been proposed so far to
+tackle this issue. Therefore, I am not able to evaluate how much this
+work improves on the state-of-the-art.
+
+This work seems to be solid, and the paper reads very well, even for
+the non-expert reader. The introduction motivates the problem, and
+authors provide helpful explanations about the required FCSL
+background. Detailed proof outlines are provided, that are also useful
+to gain intuition on how to use the logic in typical use cases.
+
+The whole meat of the paper seems to be bound to the simple idea that
+timestamps histories constitutes a PCM (partial commutative monoid),
+and therefore integrates perfectly in the FCSL framework. But this
+simple idea seems to tackle the issue of reasoning by granularity
+abstraction quite well, as far as my low expertise allows me to judge.
+
+On the downside, I have been wanting to refer to the online Coq
+development, and I must say that it is difficult to match definitions
+and theorems (at least for the part concerning timestamped histories)
+with the one of the paper (not to say almost impenetrable). To me,
+this makes the claim of simplicity and elegance/conciseness of the
+approach much weaker (obviously, one does not want to check the proofs
+of these programs by hand, but I cannot say that the corresponding Coq
+proof scripts are crystal clear, or match the proofs outlines
+presented in the paper).
+
+MINOR COMMENTS
+
+p1: "of little use": it makes it incorrect to me.
+p1: "expressivity": I think you meant "precision" here
+global: "it's" "it doesn't" "it can't". no contraction is better.
+
+p4: how do you ensure only continuous histories are considered? It
+seems to be baked in the semantics of the concurroid (Section
+3.2). Please add a forward reference.
+
+p6: the precise semantics of "_" in the assertions was unclear to me.
+
+p13: please explain what are BI contexts.
+
+===========================================================================
+                            ESOP15 Review #39C
+                     Updated 30 Nov 2014 2:14:08pm EST
+---------------------------------------------------------------------------
+   Paper #39: Specifying and Verifying Concurrent Algorithms with Histories
+              and Subjectivity
+---------------------------------------------------------------------------
+
+                      Overall merit: 3. Accept
+                 Reviewer expertise: 4. Expert
+
+                      ===== Comments for author =====
+
+The paper presents a new approach to devise specifications of
+fine-grained concurrent objects by means of using histories. It is
+observed that these time-stamped histories share many properties of
+heaps, most importantly forming a partial commutative monoid. This
+results in a natural way to use inference rules (such as the frame
+rule) and other mechanisms from separation logic for these
+histories. The result is the ability to give specifications for
+fine-grained concurrent objects that hide the details of interferences
+similar to the coarse-grained implementations and make reasoning on
+the side of the client code simpler.
+
+The paper is very well written, and easy to follow. It has a clear
+contribution, even though it does not seem revolutionary.  It does
+seem easier to use one's intuition about the heap and write
+specifications over histories, compared to using a relational program
+logic. Although, history/auxiliary variables traditionally have been
+used in lieu of relational program logics, the extensive study of this
+matter in this paper should benefit the community. The fact that
+programming features like helping can be naturally captured naturally
+is rather neat.
+
+I very much appreciated the example in section 2 (which is later
+revisited in section 3). It eases one into the rest of the paper, with
+a good intuition of what is going on. It is also nice to see the
+examples in sections 4 and 5.
+
+
+Questions:
+
+How strict is the requirement of continuity for the histories? Is it a
+true constraint, or has it been assumed for convenience? It seems
+rather strict that one has to have continuous record of every change,
+specially from the environment side.
+
+Can you comment more on the relation between driving stability of
+histories and hindsight?
+
+Quick comment about writing: it will be best if you remove the uses of
+informal phrases such as "it's" and "can't" for the published
+version. Also, you can move the labels closer to the arrows in the
+notation, so that the odd line spacing disappears from the text.

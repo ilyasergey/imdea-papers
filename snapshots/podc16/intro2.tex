@@ -1,0 +1,285 @@
+\section{Introduction}
+\label{sc:intro} 
+   
+Formal verification of concurrent data structures commonly requires
+reasoning about \emph{linearizability}~\cite{Herlihy-Wing:TOPLAS90}. This
+is a standard correctness criterion whereby a concurrent procedure is
+proved equivalent, via a simulation argument, to some sequential
+behavior. It is often established by describing the
+\emph{linearization points} of the program, which are points in time
+where a certain operation takes place, \emph{logically}.  In other
+words, even if the operation physically executes across a whole
+interval, exhibiting its linearization point enables one to
+\emph{pretend}, for reasoning purposes, that the operation occurred
+momentarily, thus simplifying the proof.
+
+%This simplifies the reasoning about client programs, which can treat
+%the physical operation as if it were indivisible, i.e.~\emph{atomic}.
+
+However, reasoning with linearizability, and about linearization
+points, can be tricky. Many times, a linearization point of a
+procedure is not \emph{local}, but may appear in another procedure or
+thread. Worse, their place in time may not be determined statically,
+but may vary based on the past, and even future, \emph{run-time
+  information}. This complicates the simulation arguments, and, in a
+setting of formal logical proofs that we are interested in this paper,
+often requires formal abstractions such as speculation or prophecy
+variables~\cite{Abadi-Lamport:LICS88}, that make proofs unwieldy.
+
+\begin{comment}
+First, one has to decide just how to shrink to
+a single point the whole physical interval in which the operation
+executed. This allows for some leeway. For example, operations that
+execute during overlapping time intervals can be assigned LPs that are
+ordered arbitrarily. An operation A can be ``linearized'' before B,
+despite B beginning before A physically begins, and ending before A
+physically ends, as long as A and B overlapped.
+%
+Worse, the position of a linearization point for a certain procedure
+may not be determined \emph{locally}, but may appear in another
+procedure or thread. Moreover, this position may vary depending on
+past, \emph{or even future}, run-time events. For instance, a
+linearization point of a procedure A, may appear in the procedures B
+or C, depending on some run-time value. We will illustrate this
+possibility in Section~\ref{sc:overview}.
+%% \is{The above is a soooper-vague example. I'd recommend to show
+%%   something concrete here, for instance the simple readPair program,
+%%   outlining the difficulty in reasoning.}  
+%% %
+%% \an{Indeed, I'd like an example. But, readpair may be too complicated
+%%   to put here, no?  Moreover, if I recall correctly, it's
+%%   linearization points were all in the same procedure. Why not just
+%%   put a forward pointer here, and say here that an example will be
+%%   given in Section 2? Alternatively, we introduce readpair here, but
+%%   say that in Section 2 we'll show an example where distribution of
+%%   linearization points is even trickier. However, both algorithms will
+%%   be assignable the same spec.}  
+%% %
+%% \an{Can somebody please type up readpair, so we can see how it looks
+%%   in the intro? We need to make good progress on this paper before we
+%%   skype next.} \gad{I'm on it}
+\end{comment}
+  
+\begin{comment}
+\input{readpair}
+
+Fine-grained {\it memory snapshots}~\cite[Chapter~4.3]{HerlihyS+art08}
+constitute a good example of a concurrent data-structure where the
+linearization points depend on complex, non local, interaction between
+methods. A memory snapshot is a collection of values read from
+independent memory locations, e.g. an array, that co-existed at a
+given point of time.  \gad{I'm not quite sure about how read-pair fits
+  here. Certainly read-pair and jayanti have non-fixed LPs, is this
+  true in general?}
+
+Figure~\ref{fig:readpair} presents the \code{scan} method for the
+\emph{atomic pair snapshot} data
+structure~\cite{QadeerST+tr09,LiangF+pldi13,SergeyNB+esop15}.
+%
+The latter consists of a pair of pointers, $x$ and $y$, pointing to
+tuples $(c_x, v_x)$ and $(c_y, v_y)$, respectively. The components
+$c_x$ and $c_y$ of type $A$ represent the accessible contents of $x$
+and $y$, that may be read and updated by the client. The components
+$v_x$ and $v_y$ are, respectively, the ``version numbers'' for $x$ and
+$y$. They are internal to the structure and not directly accessible by
+its clients.
+
+The data structure interface exports three methods: \code{writeX},
+\code{writeY} and \code{readPair}, which returns the snapshot. The
+latter is the most interesting of the three: it is clear that a {\it
+  na\"{i}ve} implementation which first reads $x$, then $y$, and
+returns the pair $(c_x, c_y)$ does not guarantee that $c_x$ and $c_y$
+ever appeared together in the data-structure. Instead, after having
+read the two components, \code{readPair} performs a second atomic read
+of one of the components, \code{readX} in line~4, only to check in
+line~5 that its version number $tx$ has not changed. If this is the
+case, the pair $(c_x,c_y)$ is still a valid snapshot and hence it is
+returned (line~6) else \code{readPair} loops, re-starting the whole
+process.
+
+\code{ReadPair} has a {\it future-dependent} linearization point: if
+the check at line~5 holds, then the linearization point corresponds to
+the \code{readY} call on line~3. Moreover, it is not a realistic
+snapshot scan operation: the unbounded, interference-dependent loop
+doesn't provide the clients with meaningfull bounds on the algorithm's
+complexity. \gad{Meh. I don't know right now how to sell this better.}
+
+In Section~\ref{sc:overview}, we present Jayanti's {\it optimal}
+snapshot algorithm\cite{Jayanti:STOC05}, whose worst-case time
+complexity is $\mathcal{O}(m)$, with $m$ being the size of the
+object. This algorithm, however, presents a more intricate
+interference pattern, and its LPs will turn out to be not only
+non-fixed but also non-local.
+
+\gad{Should we say here that previous/most approaches to reason with
+  non-fixed linearization point do so with a dedicated
+  meta-theory~\cite{QadeerST+tr09,LiangF+pldi13}?}
+
+ \gad{Also, I don't like how the \code{readPair} fits here so far. We
+   are ignoring the fact that you guys've already verified it in
+   FCSL.}
+
+\end{comment}
+ 
+In this paper, we present a novel specification and verification
+method, whereby we describe the behavior of a concurrent program
+directly, in terms of its relationship to the interfering threads,
+rather than by reducing to a sequential behavior. This avoids the need
+for simulation arguments and future-dependent linearization points,
+and can be carried out in a simple Hoare logic for shared-memory
+concurrency. As a concrete platform for formal proofs, we use
+Fine-grained Concurrent Separation Logic
+(FCSL)~\cite{Sergey-al:PLDI15,Nanevski-al:ESOP14}, off the shelf.
+
+The idea of the method consists of two components. First, we use the
+FCSL-specific notion of auxiliary state to keep the behavior history
+of each thread. This auxiliary state is \emph{subjective}, which means
+that each procedure, in its pre- and post-condition, will have access
+to two \emph{local} variables: the \emph{self} variable $\histS$
+describing the history of the specified thread itself, and
+\emph{other} variable $\histO$ describing the history of the
+interfering threads collectively. Procedures can thus be specified in
+relation to their interfering environment. 
+%
+%The total history of the data structure is the disjoint union $\histS
+%\hunion \histO$.
+%
+Upon forking, the self history of the parent thread is split
+disjointly between the children, in the same way that in separation
+logic the heap of the parent is split disjointly between the
+children~\cite{ohe+rey+yan:csl01, Reynolds02}. This will provide us
+with a uniform treatment of spatial (heap) and temporal (histories)
+aspects of the algorithm~\cite{Sergey-al:ESOP15}.
+
+The second component of the idea, which is our main technical novelty,
+is that in addition to self and other histories that keep the
+real-time ordering of the program events, we also keep an auxiliary
+state that records a custom \emph{logical} ordering between these
+events. Conceptually, this differs from linearizability proofs as
+follows. In linearizability, the logical ordering of events is
+determined by the linearization points, which are given statically
+before the program is run, but then, their description often needs to
+rely on dynamic (i.e., run time) information, as pointed before. In
+contrast, in our approach, we embrace the fact that the logical
+ordering of events is a dynamic entity, \emph{and thus keep it as
+  such} in auxiliary state, allowing it to be modified \emph{in place}
+by auxiliary code.
+
+We find the uniform treatment of space and time afforded by FCSL in
+this setup to be particularly satisfying. Specifically, where
+separation logic provides effective means for reasoning about dynamic
+pointer \emph{linking in space}, in this paper, the same logical
+infrastructure models the dynamic ordering of linearization points of
+a data structure. We think this warrants being called \emph{linking in
+  time}.
+
+%
+\begin{comment}
+In particular, we circumvent linearizability, in favor of Hoare-style
+specifications in a variant of concurrent separation logic,
+FCSL~\cite{LeyWild-Nanevski:POPL13,Nanevski-al:ESOP14}. We will rely
+on two key features of FCSL to solve the problems. First, FCSL's
+notion of auxiliary state will allow us to track the temporal
+positioning of operations (an equivalent of linearization points in
+linearizability reasoning) in a \emph{local} way. We do so by
+utilizing FCSL abstractions that specify not only what the \emph{self}
+thread (i.e., the thread being specified) does, but also what all the
+\emph{other} threads in the system do collectively.
+
+Second, FCSL abstracts over the specifics of how the state, real or
+auxiliary, of the data structure is implemented. Any structure is
+admissible, as long as it satisfies the algebraic axioms of a
+\emph{Partial Commutative Monoid} (PCM). Heaps with the operation of
+disjoint union are a particular PCM, taken as the default notion of
+state in separation logic. But, we can take other PCMs, such as that
+of \emph{histories} to keep track of the position of linearization
+points. 
+
+Thus, where separation logic provides effective means for
+reasoning about pointer linking (and re-linking) in \emph{space}, in
+FCSL, exactly the same logical infrastructure will provide us with
+equally effective means for reasoning about linking (and re-linking)
+in \emph{time}, which is precisely what the ordering (and re-ordering)
+of linearization points of a data structure represents.
+\end{comment}
+
+Working with Hoare logic has a few additional benefits over
+linearizability. First, where linearizability allows one program to be
+\emph{replaced} by another, which can serve as the specification for
+the first, here we use Hoare triples for specifications. This leads to
+a kind of APIs and specifications for abstract data types which is
+standard in sequential programming, but has not really been used in
+concurrency. In particular, in this paper, we make the first proposal
+of what we believe to be an API for concurrent snapshots, which is
+\emph{principal}; that is, can be ascribed to different snapshot
+algorithms, and can be used by clients without any modifications.
+%
+%\ab{At this point we don't know what principal API means.}
+%The API is similar in spirit to the canonical APIs
+%one considers for sequential structures, such as stacks or
+%queues. 
+Second, even if we replace a program by a simpler one in a client, we
+still need to reason about the client. Linearizability offers no
+particular help in this process,
+%\an{E.g., we may need to introduce
+%  auxiliary state into the simpler program, but that may destroy the
+ % connectons with the original program}, 
+%
+whereas our approach does, by providing principal APIs.
+%
+%
+%Lastly, our approach immediately lends itself to reasoning about
+%higher-order programs, whereas scaling linearizability to higher-order
+%programs has been tricky, and has so far been completed only for very
+%specific scenarios (CITE some Gotsman stuff)\gad{Which?}\an{Maybe
+%  remove, as now we're not mentioning higher order stuff anywhere.}
+
+%\an{May need to temper this statement, to not incense CaReSL
+%  guys.}\is{No, we don't have to as they do the refinement reasoning,
+%  which is the subject of the listed above problem with giving
+%  meaningful specs. This can go to related work.}\an{This sentence
+%  would be stronger, if we actually considered some higher-order
+%  client. It shouldn't be hard to concoct one in the section on
+%  clients.}
+
+We illustrate our method by applying it to a snapshot algorithm due to
+Jayanti~\cite{Jayanti:STOC05} (Section 2), whose linearization points
+depend on dynamic information in an intricate way. We show how the
+auxiliary state and code should be designed to verify this algorithm
+(Section 3).
+%We make an
+%interesting parallel with linearizability, as this auxiliary state has
+%to keep track of both beginning and ending times of an operation, for
+%the purposes of the proof, although one of the endpoints can be
+%omitted in the specs, which we present in the abstract form in Section
+%4, along with the commentary of the formal proof. 
+%
+This is the first proof of Jayanti's algorithm in a formal program
+logic. 
+%
+%Moreover, the proof is mechanized in in Coq.
+%
+%\an{Maybe not in Coq.}
+%
+%% In Section 4, we illustrate that the same specs can be ascribed to at
+%% least one more snapshot implementation.
+%
+We discuss the implications of the design to client-side reasoning
+(Section~4) and the related work (Section~5), before concluding
+(Section~6).
+%
+%Following the old adage that a method is a trick which worked at least
+%twice, this lends credence to the claim that our snapshot API is
+%canonical. We illustrate how the specs works in a several simple
+%client program scenarios.
+%
+%\gad{WRT the Coq mechanization: Note that PODC's submission page
+%  expects a .pdf file. Then if we provide code, it will have to be
+%  available on-line. That could save us some time to try to push it
+%  after the deadline but, it would be a risky enterprise. I'd rather
+%  go safe and claim the mechanization is a work in progress. There is
+%  no rebuttal period to argue back that we have finished it either.}
+
+
+
+

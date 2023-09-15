@@ -1,0 +1,325 @@
+\section{Related work and discussion}
+\label{sc:related}
+
+% Early times
+
+\subparagraph*{Program logics for linearizability.}
+
+The proof method for establishing linearizability of concurrent
+objects based on the notion of linearization points has been presented
+in the original paper by Herlihy and
+Wing~\cite{HerlihyW+TOPLAS90}. The first Hoare-style logic, employing
+this method for compositional proofs of linearizability was introduced
+in Vafeiadis' PhD thesis~\cite{VafeiadisHHS+PPoPP06, Vafeiadis+PhD07}.
+However, that logic, while being inspired by the combination of
+Rely-Guarantee reasoning and Concurrent Separation
+logic~\cite{VafeiadisP+CONCUR07} with syntactic treatment of
+linearization points~\cite{VafeiadisHHS+PPoPP06}, did not connect
+reasoning about linearizability to the verification of client programs
+that make use of linearizable objects in a concurrent environment (\cf
+Section~\ref{sc:clients}).
+
+%
+%% However, that logic, while being inspired by the combination of
+%% Rely-Guarantee reasoning and Concurrent Separation
+%% logic~\cite{VafeiadisP+CONCUR07} with syntactic treatment of
+%% linearization points~\cite{VafeiadisHHS+PPoPP06}, did not have a
+%% soundness proof with respect to any program semantics.
+%% %
+%% Furthermore, the work~\cite{Vafeiadis+PhD07} did not connect reasoning
+%% about linearizability to the verification of client programs that make
+%% use of linearizable objects in a concurrent environment (\cf
+%% Section~\ref{sc:clients}).
+
+% Modern logics for linearizability
+
+Both these shortcomings were addressed in more recent works on program
+logics for linearizability~\cite{LiangF+PLDI13,Khyzha-al:FM16}, or,
+equivalently, \emph{observational
+  refinement}~\cite{FilipovicOHRW+TCS10,TuronDB+ICFP13}. These works
+provided semantically sound methodologies for verifying refinement of
+concurrent objects, by encoding atomic commands as resources
+(sometimes encoded via a more general notion of
+\emph{tokens}~\cite{Khyzha-al:FM16}) directly into a Hoare
+logic. Moreover, the logics~\cite{LiangF+PLDI13, TuronDB+ICFP13}
+allowed one to give the objects standard Hoare-style specifications.
+%
+However, in the works~\cite{LiangF+PLDI13,TuronDB+ICFP13}, these two
+properties (\ie,~linearizability of a data structure and validity of
+its Hoare-style spec) are established separately, thus doubling the
+proving effort.
+%
+That is, in those logics, provided a proof of linearizability for a
+concurrent data structure, manifested by a spec that suitably handles
+a \emph{command-as-resource}, one should then devise a declarative
+specification that exhibits temporal and spatial aspects of executions
+(akin to our history-based specs from Figure~\ref{fig:specs}),
+required for verifying the client code.
+
+Importantly, in those logics, determining the linearization order of a
+procedure is tied with that procedure ``running'' the
+command-as-resource within its execution span. This makes it difficult
+to verify programs where the procedure terminates before the order is
+decided on, such as \jywrite~operation in Jayanti's snapshot. The
+problem may be overcome by extending the scope of \emph{prophecy
+  variables}~\cite{AbadiL+lics88} or \emph{speculations} beyond the
+body of the specified procedure. However, to the best of our
+knowledge, this has not been done yet.
+
+% \an{Jung told
+%   German at ICFP that \cite{TuronTABD+POPL13} has an example of a
+%   conditional CAS, which is non-regional. And indeed, they explicitly
+%   say on page 2, first column, that they support reasoning about
+%   temporally-non-local linearization points, which is their word for
+%   non-regional. They say they do it via speculation!!! I was up to now
+%   under the impression that speculations can handle future-dependent
+%   linearization points, but only by the time the procedure
+%   terminates. So, I'm puzzled; I guess different people mean different
+%   things under ``speculation''. That said, this paper is the model
+%   behind CaReSL, not the CaReSL logic itself. Nobody's using CaReSL
+%   now, which says that something is off in it regarding the
+%   interaction between logical refinement (\ie, linearization) and
+%   Hoare stuff. This may explain why IRIS people gave talks at Dagstuhl
+%   saying that speculations are a problem for them.  Also, did I
+%   mischaracterize the prophecy variables business here? In the
+%   previous version, these two logics were not tied to
+%   prophecies. Should they have been?}  \an{At any rate, we may
+%   consider weakening or removing the statement that these people can't
+%   do non-regional. Instead, we may just say that they prove
+%   refinement, but double the proving effort when it comes to combining
+%   that with Hoare logic specs, whereas we just do it all at once,
+%   which has its advantages, as we already discussed a bit in Section
+%   3.}
+
+%
+% No-linearizability
+
+\subparagraph*{Hoare-style specifications as an alternative to
+  linearizability.} 
+
+A series of recent Hoare logics focus on specifying concurrent
+behavior \emph{without} resorting to
+linearizability~\cite{SergeyNB+ESOP15, SergeyNBD+OOPSLA16, SvendsenB+ESOP14,
+  PintoDYG+ECOOP14, JungSSSTBD+POPL15}.
+%
+This paper continues the same line of thinking, building
+on~\cite{SergeyNB+ESOP15}, which explored patterns of assigning
+Hoare-style specifications with self/other auxiliary histories to
+concurrent objects, including \emph{higher-order} ones (e.g., {flat
+  combiner}~\cite{HendlerHIST+SPAA10}), and \emph{non-linearizable}
+ones~\cite{SergeyNBD+OOPSLA16} in FCSL~\cite{NanevskiLSD+ESOP14}, but
+has not considered non-local, future-dependent linearization points,
+as required by Jayanti's algorithm.
+%
+
+% Following the style of specifications, advocated by 
+Alternative logics, such as
+Iris~\cite{JungSSSTBD+POPL15,JungKBD+ICFP16} and
+iCAP~\cite{SvendsenB+ESOP14}, employ the idea of ``ghost
+callbacks''~\cite{Jacobs-Piessens+POPL11}, to identify precisely the
+point in code when the callback should be invoked.  Such a program
+point essentially corresponds to a local linearization
+point. Similarly to the logical linearizability proofs, in the
+presence of future-dependent LPs, this method would require
+speculating about possible future execution of the callback, just as
+commented above, but that requires changes to these logics'
+metatheory, in order to support speculations, that have not been
+carried out yet.
+
+The specification style of TaDA logic~\cite{PintoDYG+ECOOP14} is
+closer to ours in the sense that it employs \emph{atomic tracking
+  resources}, that are reminiscent of our history entries. However,
+the metatheory of TaDA does not support ownership transfer, which is
+crucial for verifying algorithms with non-local linearization
+points. As demonstrated by this paper and also previous
+works~\cite{SergeyNB+ESOP15,SergeyNBD+OOPSLA16}, history entries can
+be subject to ownership transfer, just like any other
+resources.
+
+\todo{Fix reference w.r.t TaDa. R.1: `` It might be better to refine
+  this sentence to, e.g. TaDA does not support helping (ownership
+  transfers of atomic tracking resources)".}
+
+The key novelty of the current work with respect to previous results
+on Hoare logics with histories~\cite{FuLFSZ+CONCUR10, LiangF+PLDI13,
+  GotsmanRY+ESOP13, BellAW+SAS10, SergeyNB+ESOP15, HemedRV+DISC15} is
+the idea of representing logical histories as auxiliary state, thus
+enabling constructive reasoning, by \emph{relinking}, about
+dynamically changing linearization points.
+%
+Since relinking is just a manipulation of otherwise standard auxiliary
+state, we were able to use FCSL \emph{off the shelf}, with no
+extensions to its metatheory. Furthermore, we expect to be able to use
+FCSL's higher-order features to reason about higher-order (\ie,
+parametrized by another data structure) snapshot-based
+constructions~\cite{PetrankT+DISC13}.
+%
+Related to our result, O'Hearn \etal have shown how to employ
+history-based reasoning and Hoare-style logic to
+\emph{non-constructively} prove the existence of linearization points
+for concurrent objects out of the data structure
+invariants~\cite{OHearnRVYY+PODC10}; this result is known as \emph{the
+  Hindsight Lemma}. The reasoning principle presented in this paper
+generalizes that idea, since the Hindsight Lemma is only applicable to
+``pure'' concurrent methods (\eg, a concurrent set's
+\texttt{contains}~\cite{HellerHLMSS+OPODIS05}) that do not influence
+the position of other threads' linearization points. In contrast, our
+history relinking handles such cases, as showcased by Jayanti's
+construction, where the linearization point of \texttt{write} depends
+on the (future) outcome of \texttt{scan}.
+
+%% Aspects Oriented Linearizability and other approeaches to cope with
+%% non-local linearization points.
+
+\subparagraph*{Semantic proofs of linearizability.}
+\label{sec:semant-proofs-line}
+
+There has been a long line of research on establishing linearizability
+using forward-backwards
+simulations~\cite{SchellhornWD+CAV12,ColvinGLM06,ColvinDG05}. These
+proofs usually require a complex simulation argument and are not
+modular, because they require reasoning about the entire data structure
+implementation, with all its methods, as a monolithic
+state-transition system.
+
+Recent works~\cite{HenzingerSV+CONCUR13, ChakrabortyHSV+LMCS15,
+  DoddsHK+POPL15} describe methods for establishing linearizability of
+sophisticated implementations (such as Herlihy-Wing
+queue~\cite{HerlihyW+TOPLAS90} or the time-stamped
+stack~\cite{DoddsHK+POPL15}) in a modular way, via
+\emph{aspect-oriented} proofs.
+%
+This methodology requires devising, for each class of objects (\eg,
+queues or stacks), a set of specification-specific conditions (aka
+aspects) characterizing the observed executions, and then showing that
+establishing such properties implies its linearizability.
+%
+This approach circumvents the challenge of reasoning about
+future-dependent linearization points, at the expense of (a)
+developing suitable aspects for each new data structure class and
+proving the corresponding ``aspect theorem'', and (b) verifying the
+aspects for a specific implementation. 
+%
+% \ab{Very long sentence. Can we break it up?}
+%
+Even though some of the aspects have been mechanized and proved
+adequate~\cite{DoddsHK+POPL15}, 
+%at the moment, aspect-oriented
+%verification of implementations is still a manual effort.
+%
+currently, we are not aware of such aspects for snapshots.
+
+%  establish the linearizability of Herlihy-Wing
+% queue---another algorithm where the linearization order of an event
+% may be determined only after the event terminated---but using
+% automated verification methods. In contrast, we used a logic for
+% modularly establishing full functional specifications, which, while
+% not exactly linearizability, in the case of Jayanti's algorithm
+% achieves the same goals. \an{Somebody please check that I didn't
+%   mischaracterize these papers.}
+
+%... \gad{Complete!!}.  Schellhorn \etal~\cite{SchellhornWD+CAV12},
+%... \gad{Complete!!}
+%
+%\gad{Not sure if this final paragraph belongs here, now}
+%% Jayanti's ``Proof''
+
+Our approach is based on program logics and the use of STSs to describe the
+state-space of concurrent objects. Modular reasoning is achieved by
+means of separately proving properties of specific STS transitions,
+and then establishing specifications of programs, composed out of
+well-defined atomic commands, following the transitions, and respecting
+the STS invariants.
+
+\subparagraph*{Relation to Jayanti's original proof.}
+\label{sec:relat-jayant-orig}
+
+We note that our proof of Jayanti's algorithm seems very different
+from Jayanti's original proof. Jayanti relies on so-called
+\emph{forwarding principles}, as a key property of the proof. For
+example, Jayanti's First Forwarding Principle says (in paraphrase)
+that if {\tt scan} misses the value of a concurrent write through
+lines~\lineScanReadsX--\lineScanReadsY\ of
+Figure~\ref{fig:jayanti-snapshot}, but the write terminates before the
+scanner goes through line~\lineScanUnsetsS\ (the scan's linearization
+point), then the scanner will catch the value in the forwarding
+pointers through lines~\lineScanReadsFX--\lineScanReadsFY.
+%
+Instead of forwarding principles, we rely on colors to algorithmically
+construct the status of each write event as it progresses through
+time, and express our assertions using formal logic. For example,
+though we did not use the First Forwarding Principle, we nevertheless
+can express a similar property, whose proof follows from the auxiliary
+state Invariants introduced in Section~\ref{sc:auxiliaries}:
+%
+\begin{myprop}\label{inv:fwd1}%
+If $\sss = \sOff\ \toff$ and $\sx = \sy = \TT$--- i.e., the scanner is
+in lines~\lineScanReadsFX--\lineScanReadsFY\ and it has unset $\s$ in
+line~\lineScanUnsetsS\ at time $\toff$---then:
+%
+\[\forall t \in
+  \hist\ldot\ t \leq \E(t)< \toff \implies \C(t)= \mathsf{green}\]
+\end{myprop}
+%
+%This proposition is still somewhat different from the forwarding
+%principle, because it states that \emph{all} events, not just the
+%missed ones, that terminated before the scanner goes through
+%line~\lineScanUsetS, are colored green; hence, are ``observed'' by the
+%scanner.
+%
+%Notice that our forwarding principle is a bit stronger than Jayanti's:
+%it states that at the moment the scanner reads from the forwarding
+%pointers on lines~\lineScanReadsFX--\lineScanReadsFY, all write events
+%that finished before \jyscan's line~\lineScanUnsetsS---including those
+%originally missed---are green and thus will not be missed by the
+%current scan.
+%
+%\gad{Better names are welcome! Does this exaplanation helps? In fact,
+%  the statement reads as if we are verifying that we comply with
+%  Jayanti's FFP.}
+
+\subparagraph*{Comparisson with Khyza et.al}
+Kyzha et al. \todo{Add reference} track the ordering of timestamps
+quite differently from us. Where we keep an ``existential'' witness
+for the total ordering of timestamps, at all stages of evaluation,
+they do so ``universially''. Thus, they require proving that all
+possible completions of a partial order into a total order are valid
+for establishing the relation with the linearization program. We
+believe this leads to larger proofs and more complicated proofs than
+necessary.\todo{I'll finish this later. Germ\'an}
+
+\input{readpair}
+
+\subparagraph*{Alternative snapshot implementations and substitution principle.}
+
+We close this section by revisiting the previous verification in FCSL
+of another snapshot algorithm~\cite{SergeyNB+ESOP15}. We present only
+\jyscan\ in Figure~\ref{fig:readpair}, as \jywrite\ is trivial. In
+this example, the snapshot structure consists of pointers $x$ and $y$
+storing tuples $(c_x, v_x)$ and $(c_y, v_y)$, respectively. $c_x$ and
+$c_y$ are the payload of $x$ and $y$, whereas $v_x$ and $v_y$ are
+version numbers, internal to the structure. Writes to $x$ and $y$
+increment the version number, while {\tt scan} reads $x$, $y$ and $x$
+again, in succession. Snapshot inconsistency is avoided by restarting
+if the two version numbers of $x$ differ. In the notation of the
+current paper, the spec we proved is:
+\[
+\esc{scan} : \tsPos{\{\histS = \hempty\}}\
+\tsPos{\{\exists t\ldot \histS' = \hempty \wedge
+  r = \eval\ t\ \histP \wedge \dom{\hist} \subseteq \ideal{\histP}{t}\}}
+\]
+Indeed the spec is very similar to the one from
+Figure~\ref{fig:specs}, but exhibits that the algorithm does not
+require dynamic modification to the event ordering. Thus, by defining
+$\stableorder$ to be the natural numbers ordering on timestamps in the
+global history $\hist$ (so that $\ideal{\stableorderP}{t} =
+\ideal{\histP}{t}$), and taking $\scanned{\stableorder}$ to be the set
+of all timestamps in $\hist$ (so that $t \in \scanned{\stableorder}$
+is trivially true and can be added to the postcondition above), the
+above spec directly weakens into that of Figure~\ref{fig:specs}. As
+FCSL satisfies a substitution principle whereby client proofs are
+developed out of the specs, and not the code of programs, we can
+substitute different implementations of snapshot algorithms in
+clients, without disturbing the client proof. This is similar in
+spirit to the property that programs that linearize to the same
+sequential code are interchangeable in clients.

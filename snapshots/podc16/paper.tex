@@ -1,0 +1,107 @@
+% config from instructions webpage
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[margin=1in]{geometry}
+
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage{latexsym}
+\usepackage{mathabx}
+\usepackage{graphicx}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage[scaled]{helvet}
+\usepackage[noend]{algorithmic}
+\usepackage{mathrsfs}
+\usepackage{mathpartir}
+\usepackage{dsfont}
+\usepackage{stmaryrd}
+\usepackage{url}
+\usepackage{textcomp} 
+\usepackage[colorlinks=true,allcolors=blue,breaklinks,draft=false]{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{alltt}
+\usepackage{bbm}
+\usepackage{alltt}
+\usepackage{verbdef}
+\usepackage{xspace}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage{lipsum}
+\usepackage{caption,subcaption}
+\usepackage{wrapfig}
+\usepackage{authblk}
+\usepackage[usenames,dvipsnames]{xcolor}
+\hypersetup{linkcolor=black,citecolor=black,urlcolor=RubineRed}
+
+\newcounter{tags}
+\usepackage{flushend}
+\usepackage{pgf,tikz}  
+\usepackage{cite}
+% For turned column headers 
+\usepackage{adjustbox} 
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{pifont}
+
+\input{defs}
+
+% Keep footnotes on one page
+\interfootnotelinepenalty=10000 
+
+\setlist[itemize]{leftmargin=*}
+
+\setlength{\parindent}{0.15in}
+\setlength{\topsep}{0cm}
+\setlength{\parskip}{0pt}
+
+\titlespacing*{\section}{0pt}{*1.5}{*1.5} 
+\titlespacing*{\subsection}{0pt}{*0.8}{*0.5}
+\titlespacing*{\subsubsection}{0pt}{*0.8}{*0.5}
+\titlespacing*{\paragraph}{0pt}{*0.5}{*1.2}
+
+% SSReflect listings 
+\input{lstcoq}
+\lstset{style=Coq}
+
+\begin{document}
+
+%\title{Fine-Grained Concurrent Data Structures Linked in Time}
+\title{Concurrent Data Structures Linked in Time}
+
+\author[1]{Germ\'{a}n Andr\'{e}s Delbianco\thanks{Corresponding
+    author,
+    \href{mailto:german.delbianco@imdea.org}{\texttt{german.delbianco@imdea.org}}.}}
+\author[2]{Ilya Sergey} \author[1]{Aleksandar Nanevski}
+\author[1]{Anindya Banerjee} \affil[1]{IMDEA Software Institute,
+  Madrid, Spain} \affil[2]{University College London, UK}
+
+\date{}
+
+\clearpage\maketitle
+\thispagestyle{empty}
+
+%\title{Reasoning About Temporal Linking of Concurrent Structures}
+\input{cover}
+\clearpage
+\setcounter{page}{1}
+\input{intro2}
+\input{overview}
+\input{formal2}
+\input{clients}
+\input{related}
+\input{conclusions}
+
+\bibliographystyle{abbrv}
+\bibliography{references,procs}
+
+\newpage
+\appendix
+\input{appendix}
+
+\end{document}
+
+

@@ -1,0 +1,32 @@
+\begin{figure}[t]
+\[
+\begin{array}[t]{r l}
+  \num{1} & \specK{\{ \histS = \hempty  \wedge
+                      w \subseteq \stableorder \wedge h \subseteq \hist \wedge h_o \subseteq \histO \}} \\
+  \num{2} & \specK{\{ \histS = \hempty \wedge \wpp =\wInit \wedge
+                      w \subseteq \stableorder \wedge h \subseteq \hist \wedge h_o \subseteq \histO \}}\\
+  \num{3} &\lat\,\actwrite{p}{v}; \aux{register}(v) \rat; \\
+  \num{4} & \specK{\{\exists t\, \ldot\,
+                      \histS = \hempty \wedge
+                      \wpp = \wWrite\ t\ v \wedge t\hpts(p,v) \in \histJ \wedge
+                      \dom{h_{\othersub}} \cup \scanned{w}
+                      \subseteq \sideal{\stableorder}{t}\}}\\
+  \num{5} & \lat\, b \tbnd \act{read}(S);\ \aux{check}(p,b) \rat;\\
+  \num{6} & \specK{\{\exists t\ldot \histS = \hempty \wedge\!
+               \wpp =  \textrm{if}\ b\
+               \textrm{then}\ \wDirty\ t\ v\ \textrm{else}\ \wClean\ t\ v \wedge\ t\hpts(p,v) \in \histJ \wedge \hbox{}}\\
+          & \specK{\hphantom{\{\exists t\ldot \hbox{}}
+              \dom{h_{\othersub}} \cup \scanned{w}\!
+                   \subseteq \sideal{\stableorder}{t} 
+               \}}\\
+  \num{7} & \kw{if}\ b\ \kw{then}\ \lat\, \actwrite{\aleksfwdp{p}}{v};\ \aux{forward}(p,v)\rat;\\
+  \num{8} & \specK{\{\exists t\ldot \histS = \hempty \wedge
+                \wpp = \wClean\ t\ v \wedge t\hpts(p, v) \in \histJ \wedge
+                \dom{h_{\othersub}} \cup \scanned{w} \subseteq \sideal{\stableorder}{t} \}}\\
+  \num{9} & \lat\,\aux{finalize}(i,v)\rat \\
+  \num{10} & \specK{\{\exists t\ldot \histS = t \hpts (p,v) \wedge
+              \dom{h_{\othersub}} \cup \scanned{w} \subseteq \sideal{\stableorder}{t} \}}
+\end{array}
+\]
+  \caption{\label{proof:write} Proof outline for $\jywrite$.}
+\end{figure}

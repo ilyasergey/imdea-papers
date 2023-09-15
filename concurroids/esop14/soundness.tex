@@ -1,0 +1,281 @@
+\subsection{Soundness Result}
+\label{sec:soundness}
+
+We culminate this section with the proof of soundness of the
+interpretation. 
+%
+The main soundness theorem (Theorem~\ref{thm:soundness}), which we
+present at the end of this section, is a key result of our formal
+development. It states that \SCST is sound as a logic with respect to
+its translation into CiC (\ie shallow embedding), that is, for any
+judgment $J$, $\Gamma \vdash J$ implies $\mean{\Gamma \vdash J}$. 
+%
+In particular, it means that if a judgment of the form $\Gamma \vdash
+\spec{p}\,c\, \ty \,A\,\spec{q}@U$ is derivable in \SCST, then its
+translation $\mean{\Gamma} \vdashCiC \mean{c} : \ST{p}{A}{q}{U}$ is
+derivable in CiC. 
+%
+Next, let us apply Definition~\ref{def:htypes} of a Hoare type to
+$\ST{p}{A}{q}{U}$ and recall that $\mean{c}$ is just a set of action
+trees, corresponding to the command $c$ (Figure~\ref{fig:den}).
+%
+Therefore, by the derivation under $\vdashCiC$, all action trees from
+$\mean{c}$ will belong to $\ST{p}{A}{q}{U}$, which automatically
+implies that for any state $w$ and each tree from $\mean{c}$, if $w$
+satisfies $p$ and $w \in \coh{U}$, then $\mathsf{after}_U~w~t~q$ also
+holds. The later means (Definition~\ref{def:modpred}) that $t$ is
+$\mathsf{safe}$ and $q~v~w'$ eventually holds if $t$ steps completely
+to $\mathsf{Ret}~v$ in some final configuration $w'$. Since $\mathsf{after}$
+employs the $\mathsf{always}$ predicate, it also implies the progress
+property (Lemma~\ref{thm:progress}) for all action trees from $\mean{c}$.
+
+\subsubsection{Auxiliary modal lemmas}
+\label{sec:auxil-modal-lemm}
+
+The proof of the soundness result will rely on a number of auxiliary
+modal lemmas, which are listed below.
+%
+For lack of space, we omit their proofs. They are relatively
+straightforward, usually by an induction on the schedule $\Paths$
+used by $\mathsf{always}$ predicate.
+%
+We have carried all of proofs for these lemmas in
+Coq~\cite{fcsl-coqscripts}, they usually proceed by an induction on
+the schedule $\Paths$.
+%
+In the statements of the lemmas below, we always assume $U$ to be some
+fixed concurroid, $t$ ranges over action trees and $w$ ranges over
+states.
+
+The Universal lemma states that the modal predicate $\mathsf{always}$
+commutes with universal quantification, which yields to the soundness
+of an infinitary \textsc{Conj}unction rule (Figure~\ref{fig:rules}). %
+The assumption
+$\mathsf{always}_U~w~t~(\lambda~w'~t'\ldot\mathsf{True})$ makes the
+lemma hold when the quantification over $x$ is vacuous.
+
+% Notation alwsafe s p := (always s p (fun _ _ => True)).
+%
+% Lemma alwA A B s (p : tree A) (P : B -> state -> tree A -> Prop) : 
+%         alwsafe s p ->
+%         (always s p (fun s' p' => forall x, P x s' p') <->
+%          forall x, always s p (fun s' p' => P x s' p')).
+
+\begin{lemma}[Universal]
+\label{lm:universal}
+%
+If $\mathsf{always}_U~w~t~(\lambda~w'~t'\ldot\mathsf{True})$, then
+$\mathsf{always}$ commutes with universal quantification:
+%
+\[
+\mathsf{always}_U~w~t~(\lambda w'~t' \ldot \forall x \ldot P~x~w'~t')
+\iff
+\forall x\ldot \mathsf{always}_U~w~t~(\lambda w'~t' \ldot P~x~w'~t')
+\]  
+\end{lemma}
+
+The implication lemma corresponds to weakening the postcondition,
+which is necessary for the proof of \textsc{Conseq} rule.
+
+% Lemma aft_imp A s (p : tree A) (P1 P2 : A -> state -> Prop) : 
+%         (forall v s, s \In coherent -> 
+%                      P1 v s -> P2 v s) -> 
+%         after s p P1 -> after s p P2.
+
+\begin{lemma}[Implication for \textsf{after}]
+\label{lm:aft-imp}
+%
+If $\mathsf{after}_U~w~t~Q_1$ and $Q_1~v~w \implies Q_2~v~w$, for all
+$v$ and $w \in \coh{U}$, then $\mathsf{after}_U~w~t~Q_2$.  
+\end{lemma}
+
+
+Closure under sequential composition justifies the $\mathsf{Seq}$
+rule: $q$ holds at the end of the composed tree if final configuration
+of the prefix $t_1$ can be used as an initial configuration for the
+suffix to show $q$ holds $\mathsf{after}$.
+
+% Lemma aft_bnd A B (p1 : tree A) (p12 : tree B) pp2 s1 P :
+%         p12 \In tcat p1 pp2 -> 
+%         after s1 p1 (fun v s => 
+%           forall p, p \In pp2 v -> after s p P) ->
+%         after s1 p12 P.
+
+\begin{lemma}[Closure under sequential composition]
+\label{lm:aft-bnd}
+%
+For some action tree $t_1 \ty \mathsf{tree}~U~B$ and $K \ty B \to
+\mathcal{P}(\mathsf{tree}~U~A)$, if $t_2 \in \set{\mathsf{Seq}~t_1~k
+  ~|~ \forall x \ldot k~x \in K~x}$ and
+\[
+\mathsf{after}_U~w_1~t_1~(\lambda v~w. ~\forall t \ldot ~(t \in K~v)
+\implies \mathsf{after}_U~w~t~q),
+\]
+then $\mathsf{after}_U~w_1~t_2~q$.
+\end{lemma}
+
+Closure under parallel composition justifies the \textsc{Par}
+rule. 
+%
+Intuitively, it holds because when (an approximation $t_2$ of) $c_2$
+takes a step over its private and shared state, it amounts to
+$\rely{U}$ environment interference on (an approximation $t_1$ of)
+$c_1$, and vice versa. Note that the pattern of rearranging subjective
+\self/\other components recurs at the level of triples $w =
+\state{s}{j}{o}$: the parallel composition uses $\State{s_1 \zip
+  s_2}{j}{o}$ and the left and right child threads use
+$\State{s_1}{j}{o \zip s_2}$ and $\State{s_2}{j}{o \zip s_1}$,
+respectively.
+
+% Lemma aft_par lp1 lp2 sh ep (t1 : tree A1) (t2 : tree A2) P1 P2 :
+%         after ([lp1, sh, ep] \> lp2) t1 P1 ->
+%         after ([lp2, sh, ep] \> lp1) t2 P2 -> 
+%         after [lp1 \* lp2, sh, ep] (Par t1 t2 Ret)
+%           (fun v' s' => 
+%              exists lp1' lp2' sh' ep',
+%                [/\ s' = [lp1' \* lp2', sh', ep'], 
+%                    P1 v'.1 ([lp1', sh', ep'] \> lp2') &
+%                    P2 v'.2 ([lp2', sh', ep'] \> lp1')]).
+
+\begin{lemma}[Closure under parallel composition]
+\label{lm:aft-par}
+If $\mathsf{after}_U~(\state{s_1 \zip s_2}{j}{o})~t_1~Q_1$ and 
+$\mathsf{after}_U~(\state{s_2 \zip s_1}{j}{o})~t_2~Q_2$, then 
+\[
+\begin{array}{rrl}
+\mathsf{after}_U & (\state{s_1 \zip s_2}{j}{o}) &
+(\mathsf{Par}~t_1~t_2~(\lambda x\ldot \mathsf{Ret}~x)) 
+\\ & &
+(\lambda v'~w'\ldot \exists s_1'~s_2'~j'~o' \ldot  
+\begin{array}[t]{ll}
+w' = \state{s_1' \zip s_2'}{j'}{o'} & ~\aand \\ 
+P_1~\pi_1~v'~\State{s_1' }{j'}{o' \zip s_2'} & ~\aand \\ 
+P_2~\pi_2~v'~\State{s_2' }{j'}{o' \zip s_1'} ).
+\end{array}
+
+\end{array}
+\]
+\end{lemma}
+
+Closure under injection is targeted to justify the \textsc{Inject}
+rule. It states that if $\mathsf{after}$ for some predicate $Q$ holds
+on a state $w_U$ from a ``small'' concurroid $V$, it will hold in a
+large concurroid $U = V \opentangle W$ with an additional state,
+reachable by the $\rely{W}$ relation of an addition $W$
+(Definition~\ref{def:bbt}).
+
+% Lemma aft_extend (p : tree V A) (P : A -> state -> Prop) i j :
+%         i \+ j \In Mod.coh W ->
+%         after i p P ->
+%         after (i \+ j) (Extend w p)
+%           (fun v m => exists i' j', 
+%              [/\ m = i' \+ j', i' \In Mod.coh V, 
+%                  menv_steps W2 j j' & P v i']).
+
+
+\begin{lemma}[Closure under injection]
+\label{lm:aft-extend} 
+%
+For the states $w_V$ and $w_0$, such that $U = V \opentangle W$, $w_V
+\in \coh{U}$, $w_0 \in \coh{W}$ and $w_V \hunion w_0 \in \coh{V}$.
+%
+If $\mathsf{after}_V~w_V~t~Q$, then 
+%
+\[
+\begin{array}{rll}
+\mathsf{after}_U~(w_V \hunion w_0)~(\mathsf{Inject}~t) &
+  (\lambda~v'~w'\ldot~ \exists w_V'~w_0'\ldot & 
+  w' = w_V' \hunion w_0' \aand w_V' \in \coh{U} ~\aand \\
+  && (w_0, w_0') \in \rely{W} \aand Q~v'~w_V').
+\end{array}
+\]
+%
+\end{lemma}
+
+Closure under hiding justifies the rule \textsc{Hide}. It is important
+to notice that in the final state $w_V'$ of the refined execution in
+$V$ is related to the final state $w_U'$ of the coarse execution in
+$U$ by the same refinement function $\Ghi$
+(Definition~\ref{def:hid-pred}), but with different auxiliaries $g'$,
+hence the conjunct $\Ghi(g')(w_U', w_V')$.
+
+% In the statement, we assume that the refinement function $\Ghi$ and
+% the hiding function $\Phi$ a related by Lemma~\ref{lm:hiding}.
+
+% Lemma aft_hide (p : tree V A) (P : A -> state -> Prop) i i' gL : 
+%         f gL i i' -> 
+%         after i' p P ->
+%         after i (Hide (Retracts gL f) p) (fun v m =>
+%            exists m' gL', f gL' m m' /\ P v m').
+
+
+\begin{lemma}[Closure under hiding]
+\label{lm:aft-hide}
+%
+If~~$\Ghi(g)(w_U, w_V)$, such that $\mathsf{refines}~U~V~\Ghi$, and 
+$\mathsf{after}_V~w_V~t~Q$, then
+%
+\[
+\mathsf{after}_U~w_U~(\mathsf{Hide}~\Phi~g~t)~
+(\lambda v~w_U'\ldot~ \exists w_V'~g' \ldot \Ghi(g')(w_U', w_V') \aand Q~v~w_V')
+\]
+  
+\end{lemma}
+
+%\is{TODO: frame-lemma}
+
+% Lemma aft_zagzig A s p (t : tree A) Q : 
+%         after (s \> p) t Q ->
+%         after (s \< p) t (fun v s => 
+%           exists s', s = s' \< p /\ Q v (s' \> p)).
+
+
+
+
+Finally, we can formulate and prove the main theorem. The theorem
+essentially states that if a judgment $\Gamma \vdash J$ can be
+derived in \SCST, its translation (Figure~\ref{fig:denj}) can be also derived in CiC.
+
+\begin{theorem}[Soundness]
+\label{thm:soundness}
+If~~$\Gamma \vdash J$, then $\mean{\Gamma \vdash J}$.
+\end{theorem}
+\begin{proof}
+  The proof goes by induction on the derivation of $J$. The proof for
+  pure expression is straightforward, since $\mean{\Gamma \vdash e:
+    A}$ is just $\mean{\Gamma} \vdashCiC e: A$. 
+  % 
+  So let us focus on the judgments of the form $\Gamma \vdash
+  \spec{p}\,c\, \ty \,A\,\spec{q}@U$ that check the specifications of
+  \SCST commands (Figure~\ref{fig:rules}).
+
+  Each basic command (\eg, $\mathsf{return}$, $\mathsf{act}$) is sound
+  because its pre- and postconditions are stable under environment
+  interference, the precondition implies the command is
+  $\mathsf{safe}$ (by Definition~\ref{def:htypes} and through the
+  \textsf{after} predicate), and the resulting configuration satisfies
+  the postcondition.
+  %
+  The \textsc{Seq}, \textsc{Inject} and \textsc{Hide} rules are sound by
+  Lemmas~\ref{lm:aft-bnd},~\ref{lm:aft-extend} and~\ref{lm:aft-hide}.
+  %
+  The \textsc{Par} rule is sound by Lemma~\ref{lm:aft-par}, as the
+  \self/\other exchange in the lemma accounts exactly for the
+  interpretation of the subjective separate conjunction $\ssep$
+  (Figure~\ref{fig:broccoli}), and the rule \textsc{Frame} is just a
+  particular case of \textsc{Par} with $c_2$ being an idle thread
+  (\eg, $\mathsf{return}~();$), hence the stability requirement.
+  % 
+  The $\mathsf{fix}$ rule is sound by the Knaster-Tarski theorem. 
+  % 
+  The \textsc{Conj} rule is sound by Lemma~\ref{lm:universal}, and
+  the \textsc{Conseq} rule by Lemma~\ref{lm:aft-imp}. 
+  %
+  The \textsc{Exist}ential rule and \textsc{If} rules are derivable. 
+  % 
+  Since \SCSL procedures are interpreted as (monadic) CiC functions.
+  the procedure \textsc{App}lication and \textsc{Hyp}othesis rules are
+  sound by the function application and hypothesis rules of CiC.  
+  % 
+  \qed
+\end{proof}

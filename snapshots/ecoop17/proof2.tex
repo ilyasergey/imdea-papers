@@ -1,0 +1,229 @@
+\section{Correctness}
+\label{sc:proof}
+
+% Abrevs.
+\def\botLGY{{\ensuremath{\mathsf{fwdLastGY}}}}
+\def\histLGY{{\ensuremath{\mathsf{lastGYHist}}}}
+\def\greenH{{\ensuremath{\mathsf{green\_prefix}}}}
+\newcommand{\spz}{S_z}
+
+\input{proof-write}
+
+We can now show that \jywrite\ and \jyscan\ satisfy the specifications
+from Figure~\ref{fig:specs}.  As before, we avoid VDM notation in
+proof outlines by using logical variables.
+%
+%Both proofs rely on the following two lemmas.
+%
+%\begin{lemma}\label{lem:invariants}
+%The atomic commands from Figure~\ref{fig:auxcode}) preserve the state
+%space Invariants~\ref{inv:overlap}-\ref{inv:scan-state}.
+%\end{lemma}
+%
+%\begin{lemma}\label{lem:ghost-mono}
+%The atomic commands from Figure~\ref{fig:auxcode}) satisfy the
+%two-step properties from Invariant~\ref{inv:monotonicity}. We
+%additionally have the following two-step invariants for the internal
+%auxiliary state: $\dom{\ordlist} \subset \dom{\ordlistP}$, and $\E
+%\subseteq \EP$.
+%\end{lemma}
+%
+%
+%
+
+
+\subparagraph*{Proof outline for \jywrite}
+%
+The proof outline for \jywrite is presented in
+Figure~\ref{proof:write}.
+%
+Line 1 introduces logical variables $w$, $h$ and $h_o$, which name the
+initial values of $\stableorder$, $\hist$, and $\histO$.
+%
+Line 2 adds the knowledge that the writer for the pointer $p$ is
+turned off ($\wpp = \wInit$). This follows from our implicit
+assumption that there is only one writer in the system, which, in the
+Coq code, we enforce by locks.
+
+Line 3 is the first command of the program, and the most important
+step of the proof. Here $\aux{register}$ allocates a fresh timestamp
+$t$ for the write event, puts $t$ into $\histJ$, coloring it yellow or
+red, and changes $\wpp$ to $\wWrite\ t\ v$, simultaneously with the
+physical update of $p$ with $v$ (see Figure~\ref{fig:auxcode}). The
+importance of the step shows in line 4, where we need to establish
+that $t$ is placed into the logical order after all the other finished
+or scanned events (\ie, $ \dom{h_\othersub} \cup \scanned\,
+\stableorder \subseteq \sideal{\stableorder}{t}$). This information is
+the most difficult part of the proof, but once established, it merely
+propagates through the proof outline.
+
+Why does this inclusion hold? From the definition, we know that
+$\aux{register}$ appends $t$ to the end of the list $\ordlist$ (the
+clause $\ordlistP = \mathsf{snoc}\ {\ordlist}\ t$ in the definition of
+$\aux{register}$ in Figure~\ref{fig:auxcode}). Thus, after the
+execution of line 3, we know that for every other timestamp $s$, $s
+\tle t$. In particular, $s \neq t$, so it suffices to prove
+$s\ {\stableorder}\ t$.
+%
+We consider two cases: $s \in \dom{h_o}$ and $s \in
+\scanned{\stableorder}$.  In the first case, by
+Invariant~\ref{inv:dom-tau}, $s \in \dom{\E}$. By freshness of $t$
+wrt.~global history $h$ (which includes $h_o$), we get $\E(s) < t$,
+and then the desired $s\ {\stableorder}\ t$ follows from the
+definition of $\stableorder$.  In the second case, by definition of
+$\scanned$, $\C(s) = \mathsf{green}$. Since $s \tle t$, the result
+again follows by definition of $\stableorder$.
+
+Still regarding line 4, we note that $t \in \dom{\histJ}$ holds
+despite the interference of other threads. This is ensured by the
+Invariant~\ref{inv:joint-hist}, because no other thread but the writer
+for $p$, can modify $\wpp$. Thus, this property will continue to hold
+in lines 6 and 8.
+
+In line 6, the writer state $\wpp$ is updated following the definition
+of the auxiliary procedure $\aux{check}$. The conjunct on $\dom{h_o}
+\cup \scanned{w} \subseteq \sideal{\stableorder}{t}$ propagates from
+line 4, by monotonicity of $\stableorder$ (Invariant~\ref{inv:mono}).
+%
+Similarly, in line 8, $\wpp$ is changed following the definition of
+$\aux{forward}$, and the the other conjunct
+propagates. $\aux{Forward}$ further colors a number of timestamps
+green, but this is done in order to satisfy the state space invariants
+from Section~\ref{sc:formal}, and is not exposed in the proof of
+\jywrite.
+%
+Finally, in line 10, $\aux{finalize}$ moves $t\mapsto(p, v)$ from
+$\histJ$ to $\histS$, thus completing the proof. 
+
+
+%Internally, $\aux{finalize}$ also changes $\wpp$, as otherwise, moving
+%$t$ will break Invariant~\ref{inv:joint-hist}, but this is not
+%relevant for \jywrite.
+
+%The proof is completed with a switch to the VDM notation, \ie, by
+%priming the Greek symbols in the postconditions, and instantiating
+%$h$, $h_o$ and $\stableorder$ with their initial values from line 1.
+
+%%
+%% Scanner Atomics!
+%%
+%\subsection{Atomic Commands and Proof Outline for \jywrite}
+%\label{sc:atoms-write}
+
+\input{proof-scan}
+
+\subparagraph{Proof outline for \jyscan.}
+%
+Finally, the proof outline for is given in
+Figure~\ref{proof:scan}. Line 1 introduces the logical variable $h$ to
+name the initial $\hist$. Line 2 adds the knowledge that $\sss =
+\sOff\, \_$ and $\sx = \sy = \FF$, \ie, that there are no other
+scanners around, which is enforced by locking in our Coq files.
+
+Line 3 is the first line of the code; it simply sets the scanner bit
+$S$, and the auxiliaries $\sx$ and $\sy$, following the definition of
+$\aux{set}$. The conjunct $h \subseteq \hist$ follows from
+monotonicity by Invariant~\ref{inv:mono}.
+%
+The first important property comes from the lines 5 and 7. In these
+lines, $\aux{clear}$ sets the values of $\sx$ and $\sy$, but,
+importantly, also colors the events from $h$ green, first coloring
+$x$-events, and then $y$-events. This will be important at the end of
+the proof, where the fact that $h$ is all green will enable inferring
+the postcondition. Moreover, because green events are never
+re-colored, we propagate this property to subsequent lines without
+commentary.
+
+The read from $\x$ in line 9, and from $\y$ in line 11, must return
+the last green, or the yellow event of their pointer, if no values are
+forwarded in $\fx$ and $\fy$, respectively. This holds by
+Lemma~\ref{lemma:first-read}, and is reflected by the conjuncts
+$\botLGY\ x\ t_x\ \var{vx}$ and $\botLGY\ x\ t_x\ \var{vy}$ in line
+12, where:
+%
+\[
+ \hfill \botLGY\ p\ t\ v \eqdef \aleksfwdp{p} \hpts \bot
+ \implies \lgVy\ p\ t \wedge t \hpts (p, v) \in \hist \hfill
+\]
+%
+The implication guard $\aleksfwdp{p} \hpts \bot$ will be stripped away
+in the future, if and when the reads of forwarding pointers in lines
+15 and 17 observe that no forwarding values exist.
+
+In line~13, the scanner unsets the bit $\s$ and records the ending
+time of the scanner into the variable $\toff$ in line 14. The
+conjuncts $\botLGY\ x\ t_x\ vx$ and $\botLGY\ y\ t_y\ vy$ from line 12
+transfer to line 14 directly. This is so because $\aux{set}$ does not
+change any colors. Moreover, any writes that may run concurrently with
+this scan cannot invalidate the conjuncts. To see this, assume that we
+had a concurrent \jywrite\ to $\x$ (reasoning is symmetric for $y$).
+Such a \jywrite\ may add a new yellow timestamp $s$, but only if $t_x$
+itself is the last green, in accord with Invariant~\ref{inv:color}. In
+that case, $t_x$ remains the last green timestamp, and
+$\botLGY\ x\ t_x\ vx$ remains valid. The concurrent \jywrite\ may
+change the color of $s$ to green, by invoking $\aux{forward}$
+(Figure~\ref{fig:fcsl-snapshot}, line 5), but then $\fx$ becomes
+non-$\bot$, thus making $\botLGY\ x\ t_x\ vx$ hold trivially.
+
+In lines~15 and~17, \jyscan\ reads from the forwarding pointers $\fx$
+and $\fy$ and stores the obtained values into $ox$ and $oy$,
+respectively.  By Invariant~\ref{inv:readFP}, we know that if $ox \neq
+\bot$, there exists $t'_x$ s.t. $t'_x \hpts (x,ox) \in \hist$, and
+$t'_x$ is the last green or yellow write event of $\hist_x$.  In case
+$ox = \bot$, we know from the $\botLGY$ conjunct preceding the read
+from $\fx$, that such last green or yellow event is exactly $t_x$.
+%
+The consideration for $\fy$ is symmetric, giving us the assertion in
+line 18, where:
+%
+\[
+\hfill\histLGY\ p\ t\ v \eqdef
+\lgVy\ p\ t \wedge t \hpts (p, v) \in \hist\hfill
+\]
+
+Next, line~19 merely names by $rx$ the value of $vx$, if $ox$ equals
+$\bot$, and similarly for $ry$ in line 20, leading to
+line~21. Finally, on line~22, the method finishes by invoking
+$\lat\,\aux{relink}(\var{rx}, \var{ry});\ \kw{return}\ (\var{rx},
+\var{ry})\,\rat$. Thus, it returns the selected snapshot $(r_x,r_y)$
+and relinks the events so that the $\stableorder$ justifies the choice
+of snapshots.
+
+%% Line 19 merely names by $rx$ the value of $vx$, if $ox$ equals $\bot$,
+%% and similarly for $ry$ in line 20, leading to line 21.
+
+%% Finally, line 22 invokes $\lat\,\aux{relink}(\var{rx},
+%% \var{ry});\ \kw{return}\ (\var{rx}, \var{ry})\,\rat$, returning the
+%% selected snapshot $(r_x,r_y)$ and relinking the events so that the
+%% $\stableorder$ justifies the choice of snapshots.
+
+We prove that the final state satisfies the postcondition in line 23,
+by using the main property of $\aux{relink}$
+(Lemma~\ref{lem:relink-prefix}).
+%
+First, we pick $t = \mathsf{max}_{\ordlist}(t'_x, t'_y)$. Then $r =
+\eval\ t\ \stableorder\ \hist$ holds, by the following argument. By
+Lemma~\ref{lem:relink-prefix}.\ref{lem:relink-lgVy}, $rx$ is the value
+of the last green timestamp in $\histx$. By
+Lemma~\ref{lem:relink-prefix}.\ref{lem:relink-green}, all the
+timestamps below $t$ are green, thus $rx$ is the value of the
+\emph{last} timestamp in $\histx$ that is smaller or equal to $t$.  By
+a symmetric argument, the same holds of $ry$. But then, the pair $r =
+(rx, ry)$ is the snapshot at $t$, \ie, equals
+$\eval\ t\ \stableorder\ \hist$.
+
+The conjunct $t \in \scanned{\stableorder}$ is proved as
+follows. Unfolding the definition of $\scanned$, we need to show
+$\ideal{\stableorder}{t} = \ideal{{\tleq}}{t}$, and $\forall s\in
+\ideal{\stableorder}{t}\ldot \C(s) = \mathsf{green}$.  The first
+conjunct follows from Lemma~\ref{lemma:complete-green}. The second
+immediately follows from the first by
+Lemma~\ref{lem:relink-prefix}.\ref{lem:relink-green}.
+
+To establish $\dom{h} \subseteq \ideal{\stableorder}{t}$, we proceed
+as follows. Let $s \in \dom{h}$. From line 21, we know $\C(s) =
+\mathsf{green}$. Because $t'_x$ and $t'_y$ are last green (by
+$\ordlist$) or yellow events, by Invariant~\ref{inv:color} it must be
+$s \tleq t'_x, t'_y$, and thus $s \tleq t$. However, we already showed
+that $\ideal{\stableorder}{t} = \ideal{{\tleq}}{t}$. Thus,
+$s\ {\stableorder}\ t$, finally establishing the postcondition.

@@ -1,0 +1,136 @@
+\documentclass[10pt,nocopyrightspace]{sigplanconf}
+\usepackage[2ndsubmission]{oopsla2016}
+%\usepackage[final]{oopsla2016}
+%\usepackage[final]{oopsla2016}
+
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage{mathtools} 
+\usepackage{latexsym}
+\usepackage{graphicx}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage[scaled]{helvet}
+\usepackage[noend]{algorithmic}
+\usepackage{mathrsfs}
+\usepackage{mathpartir}
+\usepackage{dsfont} 
+\usepackage{stmaryrd}
+\usepackage{url}
+\usepackage{textcomp} 
+\usepackage[colorlinks=true,allcolors=blue,breaklinks,draft=false]{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{alltt} 
+\usepackage{bbm}
+\usepackage{alltt}
+\usepackage{verbdef}
+\usepackage{xspace}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage{lipsum}
+\usepackage{wrapfig}
+\usepackage[usenames,dvipsnames]{xcolor}
+\hypersetup{linkcolor=black,citecolor=black,urlcolor=black}
+\newcounter{tags}
+%\usepackage{flushend}
+
+% \usepackage{natbib}
+% \bibpunct();A{},
+% \let\cite=\citep
+
+% For turned column headers 
+\usepackage{adjustbox} 
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{pifont}
+ 
+\input{defs}
+
+% Keep footnotes on one page
+\interfootnotelinepenalty=10000 
+
+\setlist[itemize]{leftmargin=*}
+
+\setlength{\parindent}{0.15in}
+\setlength{\topsep}{0cm}
+\setlength{\parskip}{0pt}
+
+\titlespacing*{\section}{0pt}{*1.5}{*1.5} 
+\titlespacing*{\subsection}{3pt}{*0.8}{*0.5}
+\titlespacing*{\subsubsection}{0pt}{*0.8}{*0.5}
+\titlespacing*{\paragraph}{0pt}{*0.5}{*1.2}
+
+% SSReflect listings 
+\input{lstcoq}
+\lstset{style=Coq}
+
+% Hyphenation
+\hyphenation{Veri-Fast}
+
+% Bibtgex tweaks
+\setcitestyle{square}
+\defcitealias{Coq-manual}{Coq proof assistant}
+
+\begin{document}
+
+\input{authors}
+
+%\special{papersize=8.5in,11in}
+
+
+% \authorinfo{}{}{}
+
+% \conferenceinfo{OOPSLA~'16} {June 13--17, 2015, Portland, OR, USA}
+% \CopyrightYear{2016}
+% \copyrightdata{TODO}
+% \doi{TODO}
+
+
+%\title{The Power of Subjectivity}
+
+
+\title{
+  Hoare-style Specifications as Correctness Conditions \\
+  for Non-linearizable Concurrent Objects }
+
+\maketitle
+
+\input{abstract}
+\input{intro1}
+\input{overview1}
+\input{background1}
+\input{cal1}
+\input{counting}
+\input{qclients}
+\input{discussion}
+\input{evaluation}
+\input{related}
+\input{conclusion}
+
+% \an{We have a lot of space left. Maybe incorporate the material from
+%   the appendix into the body of the paper?}
+
+
+% \acks
+% \todo{Acknowledgments, if needed.}
+
+%\newpage
+\setlength{\bibsep}{1.8pt} 
+\bibliographystyle{abbrv}
+\softraggedright 
+\bibliography{bibmacros,references,proceedings}
+
+\appendix
+\input{exchanger_outline}
+
+
+%\newpage
+
+
+
+\end{document}
+
+

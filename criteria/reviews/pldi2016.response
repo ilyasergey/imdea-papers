@@ -1,0 +1,86 @@
+We thank the reviewers for their feedback.
+
+Clearly, all three reviewers have doubts about generality of our
+approach and are not impressed with the sizes and the number of
+examples we have chosen for our case studies, considering them "toy",
+"unacceptable" and "not commonly used".
+
+We found it a bit surprising, as it took only one contrived example (a
+queue object) to make a convincing case for linearizability in the
+original paper on [25]. Apparently, nowadays presenting a novel
+uniform machine-assisted method for compositional reasoning,
+demonstrated by five diverse examples (counting the clients),
+including two from java.util.concurrent, none of which were previously
+mechanically verified, is not impressive enough to merit for a PLDI
+publication. We wish the reviewers were more specific about how many
+examples and what kind of client scenarios would make a convincing
+case for generality and utility of our method.
+
+For what it's worth, we respond to the raised technical concerns below.
+
+[Reviewer A]
+
+> "This feels a lot more like we're explicitly reasoning about thread
+  traces."
+
+This concern is, in fact, not valid.  As stated in Section 9 (and
+demonstrated by previous works on FCSL): "any larger program
+incorporating these examples can be verified compositionally in FCSL,
+..., without the need to deal with the concepts, such as histories and
+tokens, specific to particular libraries".
+
+> "The memory leak discussion doesn't seem correct ..."
+
+The language of FCSL has explicit memory management (see [37]), and
+this paper doesn't assume existence of GC either.
+
+We are not sure we understand, which Hoare logic techniques the
+reviewer considers as "more conventional" and how the suggested
+representation of Exchanger would be more suitable for the
+verification of the client (Section 4).
+
+It would be also nice if the reviewer could clarify, which properties of
+distributed counters are considered to be important for the clients,
+so we could capture them in the future work by our specifications in
+the same way we did for QC/QQC.
+
+[Reviewer B]
+
+> Are there classes of structures to which this new kind of reasoning
+  does not work?
+
+So far, _any_ example we tried seemed to "work", in the sense that we
+were able to ascribe _some_ spec to it and verify it in FCSL. However,
+more interesting specifications are, indeed, more difficult to verify
+(which is the case with the examples from this paper, as discussed at
+the end of Section 8).
+
+It would be helpful to know which parts of the description the
+reviewer found confusing and opaque, so we could address it in the
+revision.
+
+[Reviewer C]
+
+We agree that adding explicit types to meta-variables might improve
+the presentation, and we could do so in a revised version of the
+paper. Detailed formal definitions of FCSL's verification components
+have been given before in the papers [33, 37], therefore we decided to
+go with more ad-hoc presentation here.
+
+> What is the type of E. Is it the same as R?
+
+R is a meta-variable for a resource; E is a specific resource
+formalizing Exchanger.
+
+> "correctness criteria depends on a property that is verified by a
+  type checker, without the only mention of the type checker..."
+
+The type checker of Coq ensures that the program satisfies the given
+spec (resource and pre/postcondition), which might require an
+additional proof to be supplied (also checked by Coq). Such specs
+capture the desired correctness conditions, provided by the library
+developer and employed by the clients.
+
+Indeed, the spec of exchange client (Section 4) only holds when both
+programs terminate, which is only possible if the lists have equal
+size. 

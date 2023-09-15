@@ -1,0 +1,90 @@
+%\documentclass[runningheads]{llncs}
+\documentclass[runningheads]{llncs}
+
+ % http://www.ctan.org/pkg/bbold-type1
+ % http://www.tex.ac.uk/tex-archive/help/Catalogue/entries/bbold-type1.html
+ % [copy bbold* files]
+ % [add the following line]
+
+ 
+\usepackage{amssymb,amsmath}
+\usepackage{latexsym}
+\usepackage{stmaryrd} %% for arrows
+\usepackage{txfonts} %% for various points-to symbols. use pxfonts for 5-tip stars
+\usepackage{verbatim} %% for comment environment
+\usepackage{xspace} %% for comment environment
+\usepackage{mathpartir}
+\usepackage{graphicx}
+\usepackage{wasysym}
+\usepackage{mathtools}
+\usepackage[svgnames]{xcolor}
+\usepackage{multirow}
+\usepackage{cancel} % for crossing Owns 
+\usepackage{code}
+% % sorting citation
+\usepackage{cite}
+\usepackage{url}
+\usepackage{float} 
+\usepackage{framed}
+\usepackage{hyperref} 
+
+\floatstyle{ruled} 
+\restylefloat{figure}  
+
+\titlerunning{Communicating State Transition Systems for Fine-Grained
+  Concurrent Resources}
+\authorrunning{A. Nanevski, R. Ley-Wild, I. Sergey, and G. A. Delbianco}
+
+\input{defs}
+\input{fig-sem} 
+\newcounter{tags}
+
+
+\renewcommand{\rmdefault}{ptm} %narrower fonts
+
+
+\begin{document}
+
+\title{Communicating State Transition Systems \\
+for Fine-Grained Concurrent Resources}
+
+%\subtitle{Extended Version}
+
+%\authorinfo{Aleks, Ruy, Ilya, German}
+
+\author{Aleksandar Nanevski\inst{1} \and
+        Ruy Ley-Wild\inst{2} \and
+        Ilya Sergey\inst{1} \and
+        Germ\'{a}n Andr\'{e}s Delbianco\inst{1}}
+
+
+\institute{IMDEA Software Institute, Spain\\ 
+\email{\{aleks.nanevski, ilya.sergey, german.delbianco\}@imdea.org} \and
+           LogicBlox, USA \\ \email{ruy.leywild@logicblox.com}}
+
+\maketitle
+
+\input{abstract}
+
+\input{intro4}
+\input{overview3}
+\input{related}
+\input{conclusion}
+
+\bibliographystyle{abbrv}
+\bibliography{references,proceedings-short}
+
+% \clearpage
+% \appendix
+% \input{actionsx}
+% \input{ticketed}
+% \input{semantics2}
+% \input{model}
+% \input{soundness}
+
+\end{document} 
+
+%%% Local Variables: 
+%%% fill-column: 70
+%%% mode: latex
+%%% End: 

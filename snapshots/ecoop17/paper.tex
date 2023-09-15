@@ -1,0 +1,147 @@
+% config from Lipics
+\documentclass[a4paper,UKenglish]{lipics-v2016}
+
+\usepackage{microtype}%if unwanted, comment out or use option "draft"
+
+%\graphicspath{{./graphics/}}%helpful if your graphic files are in another directory
+
+\bibliographystyle{plainurl}% the recommended bibstyle
+
+\usepackage{latexsym}
+\usepackage{mathabx}
+\usepackage{float}
+\usepackage[scaled]{helvet}
+%% \usepackage[noend]{algorithmic}
+%% \usepackage{mathrsfs}
+%% \usepackage{mathpartir}
+%% \usepackage{dsfont}
+\usepackage{stmaryrd}
+%% \usepackage{textcomp}
+%% \usepackage{titlesec}
+%% \usepackage{parskip}
+\usepackage{alltt}
+%% \usepackage{bbm}
+%% \usepackage{verbdef}
+\usepackage{xspace}
+\usepackage{verbatim}
+% Enumiten is blacklisted by the .CLS manual
+%\usepackage{enumitem}
+%\usepackage{lipsum}
+\usepackage{wrapfig}
+\usepackage[usenames,dvipsnames]{xcolor}
+\hypersetup{linkcolor=black,citecolor=black,urlcolor=RubineRed}
+
+\newcounter{tags}
+\usepackage{pgf,tikz}  
+\usepackage{cite}
+% For turned column headers 
+%\usepackage{adjustbox} 
+%\usepackage{booktabs}
+%\usepackage{pifont}
+\input{flags}
+\input{defs}
+
+% Keep footnotes on one page
+%\interfootnotelinepenalty=10000 
+
+%% \setlist[itemize]{leftmargin=*}
+
+%% \setlength{\parindent}{0.15in}
+%% \setlength{\topsep}{0cm}
+%% \setlength{\parskip}{0pt}
+
+%% \titlespacing*{\section}{0pt}{*1.5}{*1.5} 
+%% \titlespacing*{\subsection}{0pt}{*0.8}{*0.5}
+%% \titlespacing*{\subsubsection}{0pt}{*0.8}{*0.5}
+%% \titlespacing*{\paragraph}{0pt}{*0.5}{*1.2}
+
+
+% Keep footnotes on one page
+\interfootnotelinepenalty=10000 
+
+%\setlist[itemize]{leftmargin=*}
+
+%% \setlength{\parindent}{0.15in}
+%% \setlength{\topsep}{0cm}
+%% \setlength{\parskip}{0pt}
+
+%% \titlespacing*{\section}{0pt}{*2.0}{*1.5} 
+%% \titlespacing*{\subsection}{0pt}{*0.8}{*0.5}
+%% \titlespacing*{\subsubsection}{0pt}{*0.8}{*0.5}
+%% \titlespacing*{\paragraph}{0pt}{*0.5}{*1.2}
+
+
+%% I want the same Counter for Invariants/Lemmas/Thms
+%%\spnewtheorem{invariant}[theorem]{Invariant}{\bfseries}{\itshape}
+% \let\lemma\relax%
+%\spnewtheorem{lemma}[theorem]{Lemma}{\bfseries}{\itshape}
+%%\spnewtheorem*{myprop}{Proposition}{\bfseries}{\itshape}
+
+\title{Concurrent Data Structures Linked in Time}
+\ifdefined\extflag {\subtitle{Extended Version}}\fi
+
+\author{Authors Omitted for Double-Blind Submission}
+%% Authors redacted for Double-Blind submission.
+%% \author[1,3]{G.\, A. Delbianco}
+%% \author[2]{I.\, Sergey}
+%% \author[1]{A.\, Nanevski}
+%% \author[1]{A.\, Banerjee}
+
+%\gad{I'm not sure it is kosher to shorten the names as in the
+%ahuthor-running label, but whattheheck}
+
+%% \affil[1]{IMDEA Software Institute,  Madrid, Spain\\
+%%           {\texttt{\{german.delbianco,aleks.nanevski,anindya.banerjee\}@imdea.org}}}
+
+%% \affil[2]{University College London, UK\\
+%%   {\texttt{i.sergey@ucl.ac.uk}}}
+
+%% \affil[3]{Universidad Polit\'{e}cnica de Madrid, Spain}
+
+
+%% \authorrunning{G.\,A. Delbianco and I. Sergey and A. Nanevski and
+%%   A. Banerjee}
+
+%% \Copyright{Germ\'{a}n Andr\'{e}s Delbianco and Ilya Sergey and %
+%% Aleksandar Nanevski and Anindya Banerjee}
+
+\Copyright{The authors}
+
+%% \keywords{Separation logic, Linearization Points, Snapshot
+%%   Algorithms, FCSL}
+
+\theoremstyle{definition}
+\newtheorem{myprop}[theorem]{Proposition}
+\newtheorem{invariant}[theorem]{Invariant}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\input{abstract}
+\end{abstract}
+
+\input{intro3}
+\input{overview}
+\input{specification2}
+\input{clients}
+\input{formal3}
+\input{auxiliary}
+\input{proof2}
+\input{discussion2}
+\input{related2}
+\input{conclusions}
+
+%\ifdefined\subflag {\newpage} \else {}\fi
+%\newpage
+
+\bibliography{references,procs}
+\newpage   
+\appendix
+\section*{Optional Appendices}
+\input{appendix-fcsl}
+\input{appendix-auxiliaries}
+%\input{appendix-stability}
+%\input{appendix-clients}
+
+\end{document}

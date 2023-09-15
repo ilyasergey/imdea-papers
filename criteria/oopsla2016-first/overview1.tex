@@ -1,0 +1,391 @@
+\section{Main Ideas and Overview}
+\label{sec:overview}
+
+Our method for specifying and verifying custom non-linea-rizable
+concurrent objects and their clients boils down to the following three
+systematic steps.
+
+\paragraph{Step 1:} 
+
+\emph{Define object-specific auxiliary state, histories, and their
+  invariants}.
+%
+First, the concurrent object implementor should define the shape and
+key invariants of the object's auxiliary state, in particular, of its
+(auxiliary) execution histories.
+%
+In order to account for the variety of object-specific correctness
+conditions, we don't fix a specific shape of histories (\eg,
+restricting them to be linearizable, concurrency-aware \etc) and allow
+the programmer to choose which properties to capture. The only
+requirement FCSL imposes to auxiliary histories is to form a PCM
+instance~\cite{Sergey-al:ESOP15}.
+
+\paragraph{Step 2:} 
+
+\emph{Formulate Hoare-style specifications, parametrized by
+  interference, and verify them}.
+%
+The next step is to provide a suitable ``interface'' for the
+concurrent object, so its clients could reason out of it without
+knowing the details of the implementation. 
+%
+Naturally, the interface can refer to the auxiliary state and
+histories defined in the previous step.
+%
+When dealing with non-linearizable objects in FCSL, it is customary to
+formulate the spec in a subjective (\ie, \emph{thread-local}) way, so
+it is \emph{parametrized} by the effects of the interfering calls to
+the same object, and can be later instantiated with more specific
+information about the contributions of concurrent threads, once they
+are made specific.
+
+\paragraph{Step 3:} 
+
+\emph{Restrict the interference when using established object specs
+  for verification of clients}.
+%
+Eventually, thread-local knowledge about effects of individual
+concurrent client programs, manipulating with the specified object,
+should be combined into a global knowledge about the cumulative
+threads' contribution to the object's state.
+%
+To measure this contribution, one usually considers the object in a
+\emph{quiescent} (interference-free) moment~\cite{Rinard:RACES}.
+%
+%\ab{Not clear what quiescent means. Also provide a citation?} 
+%
+To model this situation, FCSL provides a logical construction for
+\emph{fixing} interference (which is a parameter of the object's
+specification), allowing one to prove properties of clients in a
+quiescent state.
+%
+% \ab{What's closed-world properties of clients? We don't use the term
+% again in the rest of the document. Is there a connection between
+% quiescent and closed-world? If so, why don't we just use quiescent
+% here?}
+%
+% \is{Okay, I rephrased it.}
+
+
+%   First, we explain the auxiliary state needed for expressing the
+%   object's state invariants and allowed state changes. 
+
+% \item Second, we describe the specifications and the main ideas of
+%   their proofs for the object's methods.
+
+% \item Third, we show how to use the spec to verify client properties,
+%   typically, considering the client in quiescent moments.
+
+We now illustrate the first two steps of our method via an example:
+concurrent exchanger from $\mathtt{java.util.concurrent}$
+\cite{Scherer-al:SCOOL05,ExchangerClass}. This example previously
+motivated the introduction of the correctness condition
+CAL~\cite{Hemed-Rinetzky:PODC14}. The exchanger is not linearizable to
+a set of sequential histories, as its behavior crucially depends on
+interaction with interfering threads.
+%
+CAL works around this problem by employing new
+\emph{concurrency-aware} (CA) histories as a specification set.
+
+% We sketch here a Hoare spec of the exchanger that relies on
+% subjectivity to describe the interaction with the interfering
+% environment, and compare the spec to that of
+% CAL~\cite{Hemed-al:DISC15} in Section~\ref{sec:related}.  Our
+% presentation uses the following order, which is also the order used by
+% FCSL verifications in general~\cite{Sergey-al:PLDI15}: 
+
+\subsection{Exchanger program} 
+\label{sec:exchanger}
+
+\newcommand{\Unmatched}{{\mathsf{U}}}
+\newcommand{\Matched}[1]{{\mathsf{M}\ #1}}
+\newcommand{\Retired}{{\mathsf{R}}}
+
+
+{
+%\setlength{\belowcaptionskip}{-10pt} 
+\begin{figure}
+\centering
+\[
+{\small{
+\begin{array}{rl}
+ \Num{1} & \esc{exchange}~(v : A) : \esc{option}~A~=~\{ 
+\\ 
+ \Num{2} & ~~~~ p \Asgn \esc{alloc}~(v, \Unmatched);\\
+ \Num{3} & ~~~~ b \Asgn \esc{CAS}~(g, \esc{null}, p);\\
+ \Num{4} & ~~~~ \kw{if}~~b~\esc{==}~\esc{null}~~\kw{then}\\
+ \Num{5} & ~~~~ ~~~~ \esc{sleep}~(50);\\
+ \Num{6} & ~~~~ ~~~~ x \Asgn \esc{CAS}~(p\esc{+}1, \Unmatched, \Retired);\\
+ \Num{7} & ~~~~ ~~~~ \kw{if}~~x~~\kw{is}~~\Matched w~~\kw{then}~~\kw{return}~~(\esc{Some}~w)\\
+ \Num{8} & ~~~~ ~~~~ \kw{else}~~\kw{return}~~\esc{None}\\
+ \Num{9} & ~~~~ \kw{else}\\
+\Num{10} & ~~~~ ~~~~ \esc{dealloc}~p;\\
+\Num{11} & ~~~~ ~~~~ cur \Asgn \esc{read}~g;\\
+\Num{12} & ~~~~ ~~~~ \kw{if}~~cur~\esc{==}~\esc{null}~~\kw{then}~~\kw{return}~{\esc{None}}\\
+\Num{13} & ~~~~ ~~~~ \kw{else}\\
+\Num{14} & ~~~~ ~~~~ ~~~~ x \Asgn \esc{CAS}~(cur\esc{+}1, \Unmatched, \Matched v);\\
+\Num{15} & ~~~~ ~~~~ ~~~~ \esc{CAS}~(g, cur, \esc{null});\\
+\Num{16} & ~~~~ ~~~~ ~~~~ \kw{if}~~x~~\kw{is}~~\Unmatched~~\kw{then}~~w\Asgn \esc{read}~cur;\kw{return}~(\esc{Some}\ w)\\
+\Num{17} & ~~~~ ~~~~ ~~~~ \kw{else}~~\kw{return}~\esc{None}\}
+\end{array}
+}}
+\]
+%\vspace{-5pt}  
+\caption{Elimination-based exchanger procedure.}
+\label{fig:exchanger}
+%\vspace{-10pt}   
+\end{figure} 
+}
+
+The exchanger program is presented in ML-style pseudo-code in
+Figure~\ref{fig:exchanger}. It takes a value $v\,{:}\,A$ and creates
+an \emph{offer} from it (line 2). An offer is a pointer $p$ to two
+consecutive locations in the heap.\footnote{In our mechanization, we
+  simplify a bit by making $p$ point to a pair instead.}
+%\footnote{In our mechanization, we
+%  use a pointer to a pair, but for presentation here adopt a more
+%  common style of consecutive heap locations.} 
+%
+The first location stores $v$, and the second is a ``hole'' which the
+interfering thread tries to fill with a matching value. The hole is
+drawn from the type
+$\esc{hole}\,{=}\,\Unmatched\,{\mid}\,\Retired\,{\mid}\,\Matched
+w$. Constructor $\Unmatched$ signals that the offer is unmatched;
+$\Retired$ that the exchanger retired (\ie, withdrew) the offer, and
+does not expect any matches on it; and $\Matched w$ that the offer has
+been matched with a value $w$.
+
+The global pointer $g$ stores the latest offer proposed for
+matching. The exchanger proposes $p$ for matching by making $g$ point
+to $p$ via \code{CAS} (line 3). We assume that \code{CAS} returns the
+value read, which can be used to determine if it failed or
+succeeded. If \code{CAS} succeeds, exchanger waits a bit, then checks
+if the offer has been matched by some $w$ (lines 6, 7). If so,
+$\esc{Some}\ w$ is returned (line 7). Otherwise, the offer is retired
+by storing $\Retired$ into its hole (line 6). Retired offers remain
+allocated (thus, exchanger has a memory leak) in order to avoid the
+ABA problem, as usual in many concurrent
+structures~\cite{Herlihy-Shavit:08,Treiber:TR}.
+%
+If the exchanger fails to link $p$ into $g$ in line 3, it deallocates
+the offer $p$ (line 10), and instead tries to match the offer $cur$
+that is current in $g$. If no offer is current, perhaps because
+another thread already matched the offer that made the \code{CAS} in
+line 3 fail, the exchanger returns $\mathsf{None}$ (line
+12). Otherwise, the exchanger tries to make a match, by changing the
+hole of $cur$ into $\Matched v$ (line 14). If successful (line 16), it
+reads the value $w$ stored in $cur$ that was initially proposed for
+matching, and returns it. In any case, it unlinks $cur$ from $g$ (line
+15) to make space for other offers.
+
+\subsection{Step 1: defining auxiliary state and invariants}
+
+To specify the exchanger, we first decorate it with auxiliary
+state. The state is \emph{subjective}; that is, it keeps thread-local
+auxiliary variables that name the thread's private state
+(aka.~\emph{self}), but also the private state of all other threads
+combined (aka.~\emph{other}).  The subjective division will be
+essential for client reasoning in Section~\ref{sec:cal}.
+%
+%The subjective division suffices to specify the exchanger in Hoare
+%logic, and will be essential for client reasoning in
+%Section~\ref{sec:cal}.
+%
+%In Section~\ref{sec:counting}, we show how the approach directly
+%scales to naturally specify programs that have heretofore only been
+%addressed using quiescent and quantitative quiescent consistency.
+
+The subjective state for each thread in this example consists of three
+groups of two components: (1) thread-private heap $\heaps$ of the
+thread, and of the environment $\heapo$, (2) a set of outstanding
+offers $\perms$ created by the thread, and by the environment
+$\permo$, and (3) a time-stamped history of values $\hists$ that the
+thread exchanged so far, and dually $\histo$ for the environment.
+This is thread-private state; we also need shared (aka.~\emph{joint})
+state consisting of two components: a heap $\heapj$ of made offers,
+and a map $\pending$ of ``matched offers''.
+
+Heaps, sets and histories are all PCMs under the operation of disjoint
+union, with empty heap/set/history as a unit. We overload the notation
+and write $x\,{\mapsto}\,v$ for a singleton heap with a pointer $x$
+storing value $v$, and $t\,{\mapsto}\,a$ for a singleton
+history. Similarly, we apply disjoint union $\hunion$ and subset
+$\subseteq$, to all three types uniformly.
+
+We next describe how the exchanger manipulates the above variables.
+%for maps, and write $x \mapsto y$ for a singleton map, no matter
+%its type. For example, in the case of time-stamped histories, $t
+%\mapsto b$ denotes that at time-stamp $t$, some abstract behavior $b$
+%took place. In the case of heaps, $x \mapsto v$ for a singleton heap
+%with a pointer $x$ storing value $v$. We also overload the operator
+%$\hunion$ for disjoint union, and apply it to histories, heaps, and
+%set of offers, uniformly. Thus, each history or heap will be a
+%disjoint union of a number of singleton entries, and we use $x
+%\subseteq y$ to say that the map $x$ is a submap (or subheap, or
+%subhistory) of $y$.
+First, $\heapj$ is a heap that serves as the ``staging'' area for the
+offers. It includes the global pointer $g$. Whenever a thread wants to
+make an offer, it allocates a pointer $p$ in $\heaps$, and then tries
+to move $p$ from $\heaps$ into $\heapj$, simultaneously linking $g$ to
+$p$.
+
+Second, $\perms$ and $\permo$ are sets of offers (hence, sets of
+pointers) that determine offer ownership. A thread that has the offer
+$p \in \perms$ is the one that created it, and thus has the
+\emph{sole} right to retire $p$, or to collect the value that $p$ was
+matched with. Upon collection or retirement, $p$ is removed from
+$\perms$.
+
+%To ensure that only one thread has such a right, one of the important
+%state invariants of the exchanger is that $\perms$ and $\permo$ are
+%disjoint sets.
+
+Third, $\hists$ and $\histo$ are histories, each mapping a time-stamp
+(isomorphic to nats), to a pair of exchanged values. A singleton
+history $t \mapsto (v, w)$ symbolizes that a thread having this
+singleton as a subcomponent of $\hists$, has exchanged $v$ for $w$ at
+time $t$.
+%
+%Histories have been used in FCSL before~\cite{Sergey-al:ESOP15}, but
+%only on linearizable examples, where each time-stamp $t$ ``stored'' an
+%atomic operation performed at time $t$. In the exchanger example,
+%which is not linearizable, a time-stamp $t$ stores only a \emph{half}
+%of an atomic operation, \ie, a pair $(v, w)$ signaling that a thread
+%exchanged $v$ for $w$. 
+%
+As we describe below, the most important invariant of the exchanger is
+that each such singleton is matched by a ``symmetric'' one to capture
+that another thread has \emph{simultaneously} exchanged $w$ for
+$v$. Classical linearizability cannot express this simultaneous
+behavior, making the exchanger non-linearizable.
+
+Fourth, $\pending$ is a map storing the offers that were matched, but
+not yet collected. Thus, $\mathsf{dom}\ \pending = \perms \hunion
+\permo$. A singleton entry in $\pending$ has the form $p \mapsto (t,
+v, w)$ and denotes that offer $p$, initially storing $v$, was matched
+at time $t$ with $w$. A singleton entry is entered into $\pending$
+when a thread on the one end of matching, matches $v$ with $w$. Such a
+thread also places the \emph{twin} entry $\twin{t} \mapsto (w, v)$,
+with inverted order of $v$ and $w$, into its own private history
+$\hists$, where:
+
+\[
+\begin{array}{c}
+\vspace{-5pt}
+\twin{t} = \left\{%
+\begin{array}{ll}
+t+1 & \mbox{if $t$ is odd}\\
+t-1 & \mbox{if $t > 0$ and $t$ is even}
+\end{array}\right.  
+\end{array}
+\]
+
+For technical reasons, $0$ is not a valid time-stamp, and has no
+distinct twin. The pending entry for $p$ resides in $\pending$ until
+the thread that created the offer $p$ decides to ``collect'' it. It
+removes $p$ from $\pending$, and simultaneously adds the entry $t
+\mapsto (v, w)$ into its own $\hists$, thereby logically completing
+the exchange. Since twin time-stamps are consecutive integers, a
+history cannot contain entries \emph{between} twins.
+
+Thus, two twin entries in the combined history including $\hists$,
+$\histo$ and $\pending$, jointly represent a single exchange, as if it
+occurred \emph{atomically}. CA-histories~\cite{Hemed-Rinetzky:PODC14}
+capture this by making the ends of an exchange occur as simultaneous
+events. We capture it via twin time-stamps. More formally, consider
+$\hist = \hists \hunion \histo \hunion \mygather{\pending}$. Then, the
+exchanger's main invariant is that $\hist$ always contains matching
+twin entries:
+%
+\vspace{-5pt}
+\[
+\vspace{-5pt}
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:exchanging} 
+t \mapsto (v, w) \subseteq \hist \iff \twin t \mapsto (w, v) \subseteq \hist
+\]
+%
+Here $\mygather{\pending}$ is the collection of all the entries in
+$\pending$. That is, $\mygather{\emptyset} = \emptyset$, and
+$\mygather {p \mapsto (t, v, w) \hunion \pending'} = t \mapsto (v, w)
+\hunion \mygather{\pending'}$.
+
+%One consequence of this property is that the history $\hist$ always
+%has an even number of entries. Thus, if $t$ is the smallest unused
+%time-stamp in $\hist$ (not counting $0$), then $t$ must be odd, and
+%hence $t < \twin t = t + 1$.
+
+\subsection{Step 2: Hoare-style specification of Exchanger}
+
+We can now give the desired Hoare spec. 
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:exchangespec} 
+{\small{
+\begin{array}{c}
+\specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}\}}\\
+\esc{exchange}\ v\\
+  \spec{\!\!
+  \begin{array}{c}
+\heaps = \emptyset, \perms = \emptyset, \gist \subseteq
+  \histo \hunion \mygather{\pending}, \hbox{}\\[1pt]
+\mathsf{if}\ \res\ \mathsf{is}\ \mathsf{Some}\ w\ \mathsf{then}~\\[1pt]
+\exists t\ldot \hists = t \mapsto (v, w), \mathsf{last} (\gist) < t, \twin{t}
+~\mathsf{else}\ \hists = \emptyset 
+  \end{array}
+  \!\!}
+\end{array}
+}}
+\]
+%
+The precondition says that the exchanger starts with the empty private
+heap $\heaps$, set of offers $\perms$ and history $\hists$; hence by
+framing, it can start with any value for these
+components.\footnote{Framing in FCSL is similar to that of separation
+  logic, allowing extensions to the initial state that remain
+  invariant by program execution. In FCSL, however, framing applies to
+  any PCM-valued state component (\eg, heaps, histories, \etc.),
+  whereas in separation logic, it applies just to heaps.} The logical
+variable $\gist$ names the initial history of all threads, $\histo
+\hunion \mygather{\pending}$. We use subset instead of equality to
+make the precondition stable under other threads adding history
+entries to $\histo$ or $\pending$.
+
+In the postcondition, the self heap $\heaps$ and the set of offers
+$\perms$ didn't change. Hence, if $\mathtt{exchange}$ made an offer
+during its execution, it also collected or retired it by the end.
+%
+The history $\gist$ is still a subset of the ending value for $\histo
+\hunion \mygather{\pending}$, signifying that the environment history
+only grows by interference. We will make a crucial use of this part of
+the spec when verifying a client of the exchanger in
+Section~\ref{sec:cal}.
+
+If the exchange fails (\ie, $\mathsf{res}$ is $\mathsf{None}$), then
+$\hists$ remains empty.  If it succeeds (either in line 7 or line 16
+in Figure~\ref{fig:exchanger}), \ie, if the result $\mathsf{res}$ is
+$\mathsf{Some}\ w$, then there exists a time-stamp $t$, such that
+self-history $\hists$ contains the entry $t \mapsto (v, w)$,
+symbolizing that $v$ and $w$ were exchanged at time $t$.
+
+Importantly, the postcondition implies, by
+invariant~(\ref{tag:exchanging}), that in the success case, the twin
+entry $\twin t \mapsto (w, v)$ must belong to $\histo \hunion
+\mygather{\pending}$, \ie, \emph{another} thread matched the exchange.
+Moreover, the exchange occurred \emph{after} the call to
+$\mathsf{exchange}$: whichever $\gist$ we chose in the pre-state, both
+$t$ and $\twin t$ are larger than the last time-stamp in $\gist$.
+
+The proof outline for the exchanger, together with detailed
+commentary, is available in Appendix~\ref{app:exch}.
+
+In Section~\ref{sec:cal}, after introducing necessary FCSL background,
+we will illustrate \textbf{\emph{Step 3}} of our method and show how
+to employ the subjective Hoare spec~\eqref{tag:exchangespec} for
+modular verification of a concurrent client.
+
+% \is{Where is the discussed ``general pattern'', which we wanted to
+%   summarize around this moment of the paper (Anindya also suggests it
+%   in his very first comment)? I believe, this is a good place to put
+%   it.}
+% \an{It's in the second paragraph of Section 2.}

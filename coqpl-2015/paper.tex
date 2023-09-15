@@ -1,0 +1,310 @@
+\documentclass[blockstyle,preprint,nocopyrightspace]{sigplanconf}
+
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage{latexsym}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{listings}
+\usepackage{float}
+\usepackage[scaled=.90]{helvet}
+\usepackage[noend]{algorithmic}
+\usepackage{mathrsfs}
+\usepackage{mathpartir}
+\usepackage{dsfont}
+\usepackage{stmaryrd}
+\usepackage{url}
+\usepackage{textcomp} 
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{alltt}
+\usepackage{xspace}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage{lipsum}
+
+%\usepackage{natbib}
+% \bibpunct();A{},
+% \let\cite=\citep
+ 
+\input{defs}
+
+% Keep footnotes on one page
+\interfootnotelinepenalty=10000 
+
+\setlength{\parindent}{0.15in}
+\setlength{\topsep}{0cm}
+\setlength{\parskip}{0pt}
+\titlespacing*{\section}{0pt}{*1}{*1}
+\titlespacing*{\subsection}{0pt}{*1.0}{*0.5}
+\titlespacing*{\subsubsection}{0pt}{*1.0}{*0.5}
+\titlespacing*{\paragraph}{0pt}{*0.5}{*0.5}
+
+% SSReflect listings 
+\input{lstcoq}
+\lstset{style=Coq}
+
+
+\begin{document}
+
+\special{papersize=8.5in,11in}
+\setlength{\pdfpageheight}{\paperheight}
+\setlength{\pdfpagewidth}{\paperwidth}
+
+
+\authorinfo{Ilya Sergey}
+           {IMDEA Software Institute}
+           {ilya.sergey@imdea.org}
+%
+\authorinfo{Aleksandar Nanevski}
+           {IMDEA Software Institute}
+           {aleks.nanevski@imdea.org}
+
+\authorinfo{Anindya Banerjee}
+           {IMDEA Software Institute}
+           {anindya.banerjee@imdea.org}
+
+\title{
+Towards Structured Mechanized Verification\\
+of Fine-Grained Concurrent Programs 
+}
+
+\subtitle{Extended Abstract}
+
+\maketitle
+ 
+It has been long recognized that efficient parallelization is of
+crucial importance for high-performant software. Unfortunately,
+reasoning about correctness of concurrent programs, in which several
+computations can be executed in parallel and, thus, overlap in time,
+is challenging due to the large number of possible interactions
+between concurrent processes/threads on shared data structures.
+
+One way to deal with the complexity of verifying concurrent code is to
+employ the mechanisms of so-called \emph{coarse-grained} concurrency,
+\ie, \emph{locks}. By making use of locks in his code, the programmer
+ensures \emph{mutually-exclusive} access to critical resources, so
+that at most one thread will be accessing the shared data structure at
+the same moment of time, therefore, reducing the proof of correctness
+of the concurrent code to the proof of correctness of the
+\emph{sequential} code. While sound, this approach to concurrency
+prevents one from taking full advantage of parallel computations. An
+alternative is to implement shared data structures in a
+\emph{lock-free} (\ie, \emph{fine-grained}) manner, so the threads
+manipulating such structures would be reaching a consensus through the
+active use of non-blocking read-modify-write operations (\eg, CAS)
+instead of locks.
+
+Despite the clear practical advantages of the fine-grained approach to
+the implementation of concurrent data structures, it requires a
+significant expertise to devise such structures and establish their
+correctness with respect to standard criteria, such as
+\emph{linearizability}~\cite{Herlihy-Wing:TOPLAS90,Burckhardt-al:PLDI10}.
+%
+Even worse, in the presence of the advanced programming features, such
+as higher-order functions, pointer aliasing, and internal parallelism,
+linearizability by itself might not be strong enough as a criteria to
+ensure the full functional correctness of a concurrent program, and
+generalizations of linearizability to match these programming features
+are a topic of an ongoing active
+research~\cite{Cerone-al:ICALP14,Gotsman-Yang:CONCUR12}.
+
+An alternative approach to specify the behaviour of imperative, and,
+in particular, concurrent programs as well as to verify them is to
+make use of \emph{program logics}. In such logical frameworks, program
+specifications are represented by means of \emph{Hoare triples}
+$\spec{P}~c~\spec{Q}$, where $c$ is a program being specified, $P$ is
+a \emph{precondition}, \ie, a predicate that describes a state, in
+which the program should be run, and $Q$ is a \emph{postcondition},
+which describes a state upon the program's termination.
+%
+The logic-based approach has a number of appealing characteristics.
+First, checking the program correctness in a Hoare-style program logic
+can be done \emph{structurally}, \ie, by means of systematically
+applying syntax-directed inference rules, until its specification is
+derived.
+%
+Second, verification via a program logic is \emph{compositional}: once
+a library procedure is verified against a suitable specification in
+terms of pre- and postconditions, its code is not required to be
+re-examined ever again: all reasoning about the client code that makes
+use of that procedure can be carried out solely out of the procedure's
+specification, which is coherent with good practices of code
+encapsulation.
+%
+Finally, modern program logics are sufficiently \emph{expressive} in
+the sense that they can give specifications to the programs that
+operate with first-class executable code, locally-spawned threads and
+other features inherent for modern programming languages.
+
+Since the process of structural program verification in a Hoare-style
+logic is largely mechanical, there has been a number of research
+projects recently, targeting to mechanize and automate it for
+\emph{sequential} and \emph{coarse-grained concurrent} programs by
+means embedding it into a general-purpose proof assistant, \eg,
+Coq~\cite{Chlipala:PLDI11,Nanevski-al:POPL10}, or implementing a
+standalone verification tool~\cite{Jacobs-al:NFM11}.
+
+The situation is different with the logic-based verification of
+\emph{fine-grained} concurrency, which requires reasoning about a
+number of concepts, that don't have direct analogues in the sequential
+or coarse-grained concurrent programming:
+
+\begin{itemize}[leftmargin=*]
+
+\item \textbf{Custom resource protocols.} Each data structure (\ie,
+  \emph{resource}), which can be used by several threads concurrently,
+  needs to be supplied with a specific definition of an ``evolution
+  protocol'', in order to enforce the preservation the structure's
+  internal consistency. In contrast with the coarse-grained case,
+  where the protocol is fixed and corresponds to locking/unlocking,
+  fine-grained data structures require defining custom protocols with
+  multiple states and transitions.
+  
+\item \textbf{Interference and stability.} For the sake of local
+  reasoning about the shared data structure's state from a single
+  thread's perspective, one should formalize what are the admissible
+  changes that can be made by other threads, \emph{interfering} with
+  the current one. That is, every thread-local assertion about the
+  structure's state should be \emph{stable}, \ie, invariant under
+  possible concurrent modifications.
+
+\item \textbf{Work stealing} is a common concurrent pattern, appearing
+  in fine-grained programs due to relaxing the \emph{mutual exclusion}
+  policy, so several threads can simultaneously operate with a single
+  shared resource. The ``stealing'' happens when a thread is scheduled
+  for a particular task involving the resource, but the task is then
+  is accomplished by \emph{another} thread; however, the
+  ``contribution'' is nevertheless ascribed to the initially assigned
+  thread.
+
+\end{itemize}
+%
+\noindent
+%
+In addition, Hoare-style reasoning about coarse- or fine-grained
+concurrency requires a form of \textbf{auxiliary state} in order to
+partially expose the internal threads' behavior and relate local
+program assertions to global invariants, accounting for specific
+threads' contributions into a resource.
+%
+
+These four aspects, paramount for Hoare-style verification of
+fine-grained concurrent programs, have been recognized and formalized
+in one form or another in a series of recently published works by
+various
+authors~\cite{LeyWild-Nanevski:POPL13,Svendsen-al:ESOP13,Svendsen-Birkedal:ESOP14,Turon-al:ICFP13,Vafeiadis-Parkinson:CONCUR07,DinsdaleYoung-al:ECOOP10,ArrozPincho-al:ECOOP14,Jacobs-Piessens:POPL11,Feng-al:ESOP07,Feng:POPL09},
+providing logics of increasing expressivity and compositionality.
+% 
+However, in the formal proofs for concurrent libraries, performed in
+all these logical systems, most of the complexity comes \emph{not}
+from the libraries' size in terms of lines of code, but from the
+intricacy of the corresponding data structure invariant and the
+presence of thread interference and work stealing. In particular, the
+later fact, in contrast with proofs about sequential and
+coarse-grained concurrent programs, requires one to establish
+stability of \emph{every} intermediate assertion in the program
+verified.
+%
+Needless to say that in such setting paper-and-pencil verification of
+fine-grained concurrent programs becomes a highly challenging and
+error-prone task, as it's too easy for a human prover to overlook a
+piece of resource-specific invariant or an assertion, unstable under
+interference, hence, rendering the whole reasoning unsound.
+
+In this work, we present a framework for \emph{mechanized}
+specification and verification of fine-grained concurrent programs
+based on the recently proposed \emph{Fine-grained Concurrent
+  Separation Logic} (FCSL) by Nanevski
+\etal~\cite{Nanevski-al:ESOP14}.\footnote{Hereinafter, we will be
+  using the acronym FCSL to refer both to the Nanevski \etal's logical
+  framework and to our implementation of it.}
+% 
+FCSL is implemented as a library and an embedded domain-specific
+language (DSL) in the dependently-typed language of the Coq proof
+assistant~\cite{Coq-manual}.
+%
+Due to its design and the choice of a logical foundation, FCSL, as a
+verification tool for fine-grained concurrency, is:
+
+\begin{itemize}[leftmargin=*]
+
+\item \textbf{Uniform:} FCSL's specification model is based on two
+  basic constructions from computer science: \emph{state-transition
+    systems} (STSs) and \emph{partial commutative monoids} (PCMs). The
+  former ones are used for describing concurrent protocols and thread
+  interference, whereas the later ones provide a generic treatment of
+  shared resources and thread contributions, making it possible to
+  encode, in particular, the work stealing pattern. In the talk, we
+  will demonstrate how these two components are sufficient to specify
+  a large spectrum of concurrent algorithms as well as to make the
+  proofs of verification obligations to be uniform.
+
+\item \textbf{Expressive}: FCSL's \emph{specification} fragment is
+  based on the propositional fragment of Calculus of Inductive
+  Constructions (CIC), which makes it capable of expressing a large
+  variety of mathematical theories (\eg, graphs, arrays, event traces,
+  \etc) as well as to encode a number of algebraic structures, all
+  occurring in the program specifications in one way or another.
+
+\item \textbf{Realistic:} In addition to the ability inherited from
+  CIC to employ higher-order predicates in the specifications, the
+  \emph{programming} fragment of FCSL features a complete toolset of
+  modern programming abstractions, including user-specified algebraic
+  datatypes, higher-order functions and pattern matching, since
+  \emph{any} Coq program is also an FCSL program.
+  % 
+  The monadic nature of FCSL's embedding into Coq makes it possible to
+  encode a number of computational effects, such as thread spawning
+  and general recursion. All this makes writing programs in FCSL to be
+  very similar to programming in a higher-order language, such as ML
+  or Haskell.
+
+\item \textbf{Foundational:} The soundness of FCSL as a logic has been
+  proven in Coq with respect to a version of denotational semantics
+  for concurrent programs in the spirit of
+  Brookes~\cite{Brookes:TCS07}. Moreover, thanks to the design choice
+  of representing FCSL specifications as mere Coq types, the soundness
+  result scales to the \emph{whole} language of Coq, not just a toy
+  ``core'' calculus, therefore, ensuring the absence of bugs in the
+  whole verification tool and, as a consequence, in any program, which
+  is verified in it.
+
+\end{itemize}
+
+\section*{Structure of the talk}
+\label{sec:structure-talk}
+
+In the proposed talk, we will introduce the FCSL verification
+framework by example, specifying and verifying full functional
+correctness of a characteristic fine-grained program---concurrent
+graph-manipulating algorithm.
+%
+Starting from the basic intuition behind the formalization of the
+algorithm and its specification, we will demonstrate the common stages
+and patterns of structuring program verification in FCSL.
+%
+While doing so, we will show how the verification process, while not
+fully automated at this stage, nevertheless does not put a lot of
+proof burden to the human prover, thanks to the fact that, as an
+embedded DSL, FCSL inherits a number of features from the common
+infrastructure of Coq, enhanced by Gonthier \etal's Ssreflect
+extension~\cite{Gonthier-al:TR}: dependent records, boolean reflection
+and canonical structures.
+%
+We will next elaborate on some important design choices made in the
+implementation of FCSL with respect to encoding of concurrent
+protocols and program specifications.
+%
+We will then report on our experience of verifying in FCSL a number of
+benchmark concurrent programs and data structures: locks, simple
+memory allocator, concurrent stack and its client programs, atomic
+snapshot, non-blocking universal constructions, and graph-manipulating
+algorithms.
+
+\bibliographystyle{abbrv}
+\bibliography{bibmacros,references,proceedings-short}
+ 
+\end{document}
+
+

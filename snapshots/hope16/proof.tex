@@ -1,0 +1,352 @@
+
+\def\tleqP{\mathrel{\leq_{\ordlist'}}}
+\def\tleP{\mathrel{<_{\ordlist'}}}
+\def\jleqP{\mathrel{\sqsubseteq_{\ordlist'}}}
+%% \paragraph*{Correctness of write and scan's specifications}%
+
+We devote the rest of the section to illustrating the structure of our
+proofs of {\tt write} and {\tt scan}, including aspects of
+mechanization in FCSL/Coq. For lack of space, we cannot present the
+full theory, but just focus on the structure and a few characteristic
+properties.
+
+The first stage of proof (and the mechanization) involves defining the
+state space of the algorithm; that is, the definitions of the
+auxiliaries, and the invariants that relate them. We presented
+selected invariants in Section~\ref{sc:formal}. There is a number of
+properties that need to be established under the state space, e.g.,
+that it is closed under exchanging history entries between $\histS$
+and $\histO$. The latter facilitates dynamic thread creation, because
+it allows the reasoning to focus on individual threads in a large
+parallel composition.
+%
+The second stage involves defining the auxiliary code, as in
+Figure~\ref{fig:auxcode}, and proving a number of its properties. In
+addition to correctness, the properties involve \emph{erasure} (i.e.,
+auxiliary code only mutates auxiliary state, but not the real
+one), \emph{framing} (i.e., if auxiliary code is executable in some
+input heap and input history, then executing it in an extended heap
+and history leads to the same results, and the extensions remain
+invariant), preservation of invariants (from Section~\ref{sc:formal}),
+and \emph{termination}. The correctness aspect of auxiliary code
+involves proving that the code preserves the state-space invariants,
+and that the precondition and postcondition hold. For example, the
+correctness proof of $\aux{relink}$, relies on the following two
+helper lemmas.
+
+%The first lemma asserts that $\aux{inspect}$ correctly determines the
+%``offending'' timestamp; the second lemma asserts that $\aux{push}$
+%modifies the logical ordering in a way that makes the pair $(r_x,
+%r_y)$ a valid snapshot.
+
+\begin{lemma}[Correctness of $\aux{inspect}$]\label{lem:inspect}
+If $t_x$, $t_y$ are timestamps for write events of $r_x$, $r_y$, then
+$\aux{inspect}\ t_x\ t_y\ \ordlist\ \C$ correctly determines that
+$(r_x, r_y)$ is a valid snapshot under ordering $\tleq$ and coloring
+$C$, or otherwise, returns an ``offending'' timestamp. More formally,
+if $\sss = \sOff\ \toff, \sx =\TT, \sy =\TT$, and for each
+$p \in \{x,y\}$, $ t_p \hpts (p, r_p) \in \hist$ and $(t_p
+= \aux{last\_green}\ \histp \vee \C(t_p) = \mathsf{yellow})$, the
+following are exhaustive possibilities.
+% if $\aux{inspect}\
+%t_x\ t_y\ \ordlist\ \C = \mathsf{No}$ then $(r_x,r_y)$ is a valid
+%snapshot. Else, if $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C
+%= \mathsf{Yes}\ p\ t'$ then $(r_x,r_y)$ is not a valid snapshot and
+%moreover $t'$ is the offending timestamp in $\histp$. Furthermore, by
+%exhausting the hypotheses about $t_x$ and $t_y$ we can infer that:
+\begin{enumerate}
+ \item If $t_x \tle t_y$ and $ \C(t_x) = {\sf yellow}$, then
+      $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C
+      = \mathsf{No}$. Symmetrically for $t_y \tle t_x$.
+
+ \item If $ t_x \tle t_y $, $ t_x = \aux{last\_green}\ \histx$, and
+       $\forall t' \in \histx\ldot\ t_x \tle t'\,{\implies}\,t_y \tle
+       t'$, then \\ $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C
+       = \mathsf{No}$. Symmetrically for $t_y \tle t_x$.
+
+ \item If $ t_x <_{\ordlist} t_y $, $ t_x = \aux{last\_green}\ \histx
+      $, $t' \in \histx$, and $t_x \tle t' \tle t_y$, then
+      $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = \mathsf{Yes}\ \x\ t'$
+      and $\C(t') = {\sf yellow}$.  Symmetrically for $t_y \tle t_x$.
+\end{enumerate}
+\end{lemma}
+
+\begin{lemma}[Correctness of $\aux{push}$]\label{lem:push}
+If $\sss = \sOff\ \toff, \sx =\TT, \sy =\TT$, and for $p \in \{x,y\}$,
+we have $t_p \hpts (p, r_p) \in \hist$ and $(t_p
+= \aux{last\_green}\ \histp \vee \C(t_p) = \mathsf{yellow})$, and
+$\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = {\sf Yes}\ p\ t'$, then:
+\begin{enumerate}
+ \item If $p = x$, then $(r_x, r_y)$ is a valid snapshot under
+ $\leq_{\aux{push}\ t'\ t_y\ \ordlist}$. Symmetrically for $p = y$.
+\item If $p = x$, then $\ordlist' = \aux{push}\ t'\ t_y\ \ordlist$ and 
+$\C' = \C[t_x, t_y \hpts \mathsf{green}]$ satisfy the state space
+ invariants
+ (Propositions~\ref{inv:overlap}-\ref{inv:redzone}). Symmetrically for
+ $p = y$.
+\end{enumerate}
+\end{lemma}
+
+\begin{comment}
+%
+%One then has to prove that the state space remains valid under
+%exhcanging of history entries between $\histS$ and $\histO$. Such
+%exchanging is important because it govens the behavior of auxiliary
+%state when threads fork and join, as follows. Let the parent thread be
+%$e_1 \parallel e_2$, with \emph{self} history $\histS$
+%and \emph{other} history $\histO$.  Upon forking, $\histS$ will be
+%split non-deterministically as $\histS = \histS_1 \hunion \histS_2$,
+%with $\histS_1$ assigned as a self history of $e_1$, and dually for
+%$e_2$. On the other hand, the \emph{other} history of $e_1$ becomes
+%$\histO \hunion \histS_2$, to reflect that upon forking $e_2$ becomes
+%environment for $e_1$ (and symmetrically for $e_2$).
+
+\paragraph*{Correctness And Mechanization}%
+We finish this section highlighting the most interesting details of
+the mechanization of the snapshot data structure in FCSL. Our aim is to
+give a general feel of the process of proving a concurrent data
+structure correct in the logic, from the definition of the {\it
+concurrent resource} for Jayanti's snapshot construction and its
+invariants, to the final proof of correctness of the specification of
+{\tt write} and {\tt scan} methods from Figure~\ref{fig:specs}. We
+will focus mostly on properties of, and assertions about,
+$\aux{relink}$ and we refer the reader to Appendix~\ref{sc:coq-code}
+and the Coq mechanization~\cite{FCSL:Project} for further detail.
+
+%% \gad{
+%% What does an FCSL proof involve:
+%% \begin{itemize}
+%% \item building the concurrent resource, proving FCSl's meta-theoretic requirements.
+%% \item Proving auxiliary code satisfies the invariants i.e. different
+%% propositions given before.
+%% \item Proving stability of the assertions
+%% \item Proving the specs. for the methods
+%% \end{itemize}
+%% }
+
+% First, build theory for re-linkable histories, auxiliary state,
+% invariants and lemmas.
+
+%\gad {Actually, shouldn't we be saying that the proof starts in the
+%whitebord?}
+
+The first stage of the mechanization involved building the meta-theory
+for re-linkable histories/orders together with the specific auxiliary
+state for the snapshot algorithm described above, its properties and
+invariants, and several lemmas for reasoning about them. Second, we
+implemented the auxiliary code and proved each of them correct,
+wrt. to the invariants of the auxiliary code. This entails proving
+that each of them satisfies Propositions~\ref{inv:color} --
+~\ref{inv:redzone}, among others. We first highlight an intermediate
+result about $\aux{inspect}$:
+
+\begin{lemma}[Inspect]\label{lem:inspect}
+$\aux{inspect}\ t_x\ t_y\ \ordlist\ \C$ determines if $(r_x, r_y)$ is
+a valid snapshot, else finds the \emph{offending} timestamp. More
+formally, if $\sss = \sOff\ \toff, \sx =\TT, \sy =\TT$, given $r_x$
+and $r_y$ such that for $p \in \{x,y\}$ if $ t_p \hpts (p,
+r_p) \in \hist$ and $(t_p = \aux{last\_green}\ \histp \vee \C(t_p)
+= \mathsf{yellow}$), then if $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C
+= \mathsf{No}$ then $(r_x,r_y)$ is a valid snapshot. Else, if
+$\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = \mathsf{Yes}\ p\ t'$ then
+$(r_x,r_y)$ is not a valid snapshot and moreover $t'$ is the offending
+timestamp in $\histp$. Furthermore, by exhausting the hypotheses about
+$t_x$ and $t_y$ we can infer that:
+\begin{enumerate}
+ \item If $t_x \tle t_y$ and $ \C(t_x) = {\sf yellow}$ then
+      $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = \mathsf{No}$. {\it
+      Idem} for $t_x \tle t_y$ and $ \C(t_x) = {\sf yellow})$.
+
+ \item If $ t_x \tle t_y $ and $ t_x = \aux{last\_green}\ \histx $ and
+      any timestamp $t'$ that appears after $t_x$ in $\histx $, \ie
+      $t_x \tle t' $, also appears after $t_y$ in $\tle$, \ie $
+      t_y \tle t' $, then $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C
+      = \mathsf{No}$. The same for $ t_y \tle t_x$\ldots, {\it mutatis
+      mutandis}.
+
+ \item If $ t_x <_{\ordlist} t_y $ and $ t_x
+      = \aux{last\_green}\ \histx $ and there exists a timestamp $t'$
+      in $\histx$ such that it appears in $\tleq$ in between $t_x$ and
+      $t_y$, \ie $ t_x \tleq t' \tleq t_y $ then $\aux{inspect}\ t_x\
+      t_y\ \ordlist\ \C = \mathsf{Yes}\ \x\ t'$. The same for $
+      t_y \tle t_x$ \ldots, {\it mutatis mutandis}.
+\end{enumerate}
+\end{lemma}
+
+%% \begin{lemma}[Inspect]\label{lem:inspect}
+%% If $\sss = \sOff\ \toff, \sx =\TT, \sy =\TT$, given $r_x$ and $r_y$
+%% such that for $p \in \{x,y\}$ if $ t_p \hpts (p, r_p) \in \hist$ and
+%% $(t_p = \aux{last\_green}\ \histp \vee \C(t_p) = \mathsf{yellow}$),
+%% then:
+%% \begin{enumerate}
+%% \item If $(t_x <_{\ordlist} t_y \wedge \C(t_x) = {\sf yellow}) \vee
+%%       (t_y <_{\ordlist} t_x \wedge \C(t_y) = {\sf yellow})$ then
+%%       $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = \mathsf{No}$.
+
+%% \item If $ t_x <_{\ordlist} t_y $ and $ t_x
+%%       = \aux{last\_green}\ \histx $ and $ \forall\
+%%       t' \in \histx\ldot t_x <_{\ordlist} t' \implies t_y <_{\ordlist} t'
+%%       $ then $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C
+%%       = \mathsf{No}$. Conversely, when $ t_y <_{\ordlist} t_x \ldots
+%%       $, {\it mutatis mutandis}.
+
+%% \item If $ t_x <_{\ordlist} t_y $ and $ t_x
+%%       = \aux{last\_green}\ \histx $ and $ \exists\ t' \in \histx\ldot
+%%       t_x <_{\ordlist} t' <_{\ordlist} t_y $ then $\aux{inspect}\ t_x\
+%%       t_y\ \ordlist\ \C = \mathsf{Yes}\ \x\ t'$. Conversely, when $
+%%       t_y <_{\ordlist} t_x \ldots $, {\it mutatis mutandis}.
+%% \end{enumerate}
+%% Moreover, if $\aux{inspect}\ t_x\ t_y\ \ordlist \C = \mathsf{No}$ then
+%% $(r_x,r_y)$ is a valid snapshot.
+%% \end{lemma}
+
+The lemma above states that $\aux{inspect}$ asserts whether the
+timestamps $t_x$ and $t_y$, pointing to the return values $r_x$ and
+$r_y$, define a snapshot or not, and in the later case determines the
+``offending'' timestamp that needs to be reordered. We consider cases
+where $t_x <_{\ordlist} t_y$, as the others are defined conversely. In
+the first case, if $t_x <_{\ordlist} t_y$ and $\C(t_x) = {\sf
+yellow}$, it follows from $t_y$ being the last green or yellow
+timestamp of $\histy$ and Proposition~\ref{inv:redzone} that any
+$t' \in \histx$ s.t. $ t_x <_{\ordlist} t'$ will be {\sf red} and
+hence $ t_y <_{\ordlist} t'$. Then, $\aux{inspect}\ t_x\
+t_y\ \ordlist\ \C = \mathsf{No}$ and $(r_x,r_y)$ will be a valid
+snapshot. In the second case, $t_x$ is the last green timestamp of
+$\histx$ and, if there is a yellow timestamp $t' \in \histx$ and $ t_y
+<_{\ordlist} t'$, then $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C
+= \mathsf{No}$, and clearly, $(r_x, r_y)$ is a valid snapshot. In the
+last case, there exists a yellow timestamp $t'$ s.t. $ t' <_{\ordlist}
+t_y$, so $t'$ invalidates $(r_x, r_y)$ as a snapshot and consequently
+$\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = {\sf Yes}\ \x\ t'$, denoting
+that $t'$ has to be reordered in $\tle$.
+%
+%% We refer the reader to the {\tt Coq} mechanization for the formalities
+%% of Lemma~\ref{lem:inspect}.
+We next prove that, in the later case,
+%
+%% We next prove that when $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = {\sf
+%% Yes}\ p\ t'$,
+the result of $\aux{pushl}\ t'\ t_y\ \ordlist$ fixes the order $\tleq$
+such that $(r_x, r_y)$ is a valid snapshot in $\leq_{(\aux{push}\ t'\
+t_y\ \ordlist)}$:
+
+\begin{lemma}[Push]\label{lem:push} $\aux{push}\ t'\ t_p$ fixes $\tleq$
+so that $(r_x,t_y)$ is a correct snapshot in $\leq_{\aux{push}\ t'\
+t_{p}\ \ordlist}$. More formally, if $\sss = \sOff\ \toff, \sx
+=\TT, \sy =\TT$, given $r_x$ and $r_y$ such that for $p \in \{x,y\}$
+if $ t_p \hpts (p, r_p) \in \hist$ and $(t_p
+= \aux{last\_green}\ \histp \vee \C(t_p) = \mathsf{yellow}$) then:
+\begin{enumerate}
+
+\item If $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = {\sf Yes}\ x\ t'$
+then $\aux{push}\ t'\ t_{y}\ \ordlist$ makes $(r_x, r_y)$ a valid
+snapshot under $\leq_{\aux{push}\ t'\ t_{x}\ \ordlist}$. The same for
+${\sf Yes}\ y\ t'$, {\it mutatis mutandis}.
+
+ \item The auxiliary state as specified by the postcondition of
+$\aux{relink}$ in Figure~\ref{fig:scanauxcode}, with $\ordlist'
+= \aux{push}\ t'\ t_{p}\ \ordlist$ and $ \C' = \C[t_x,
+t_y \hpts \mathsf{green}]$ satisfies the invariants of the concurrent
+resource from Propositions~\ref{inv:overlap} to~\ref{inv:redzone}.
+\end{enumerate}
+\end{lemma}
+
+%% \begin{lemma}[Push]\label{lem:push}
+%% If $\sss = \sOff\ \toff, \sx =\TT, \sy =\TT$, given $r_x$ and $r_y$
+%% such that for $p \in \{x,y\}$ if $ t_p \hpts (p, r_p) \in \hist$ and
+%% $(t_p = \aux{last\_green}\ \histp \vee \C(t_p) = \mathsf{yellow}$)
+%% then, if $\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = {\sf Yes}\ p\ t'$
+%% then:
+%% \begin{enumerate}
+%%  \item $\aux{push}\ t'\ t_{z}\ \ordlist$, with $z = y$ if $p = x$ and,
+%%  conversely, $z = y$ if $p = y$, makes $(r_x, r_y)$ a valid snapshot
+%%  under $\leq_{\aux{push}\ t'\ t_{z}\ \ordlist}$.
+%% \item The resulting auxiliary state in the post-condition of relink
+%%  above, with $\ordlist' = \aux{push}\ t'\ t_{z}\ \ordlist$ and $ \C'
+%%  = \C[t_x, t_y \hpts \mathsf{green}]$ satisfies the invariants of the
+%%  concurrent resource from Propositions~\ref{inv:overlap}
+%%  to~\ref{inv:redzone}.
+%% \end{enumerate}
+%% \end{lemma}
+
+We consider the first item: by Lemma~\ref{lem:inspect}, if
+$\aux{inspect}\ t_x\ t_y\ \ordlist\ \C = {\sf Yes}\ x\ t'$ then $t'$
+is the yellow timestamp of $\histx$. Then, all elements $t$ in the
+chain $t' \tle t \tleq t_y$ belong to $\histy$, by virtue of $t_y$
+being yellow or the last green in $\histy$ and
+Invariants~\ref{inv:color} and~\ref{inv:redzone}. Thus, in $\ordlist'
+= \aux{push}\ t'\ t_y\ \ordlist$, $\forall\ t' \in t_x \tleP t' \tleP
+t_y\ldot. t' \in {\histy'}$, hence $(r_x,r_y)$ is a valid snapshot by
+$\tleqP$. As for the second item, the proof of the preservation of
+most invariants is quite straightforwards, the crux of the matter
+being the observation that all $t$ in the chain $t' \tle t
+\tle t_y$ are {\it overlapping} and, as a result, changing the linking
+of $t'$ in the logical order does not contradict
+Proposition~\ref{inv:overlap}.
+\end{comment}
+
+% Stability.
+%We refer the reader to the {\tt Coq} source for the formal details
+%about Lemmas~\ref{lem:inspect} and~\ref{lem:push}. 
+
+We now have the following main correctness result.
+%%
+%% Final Correctness of the methods
+\begin{theorem}[Correctness of {\tt write} and {\tt scan}]\label{thm:specs}
+The implementations for {\tt scan} and {\tt write} in
+Figure~\ref{fig:fcsl-snapshot} can be ascribed the specification given
+in Figure~\ref{fig:specs}.
+\end{theorem}
+%
+The theorem is proved following a customary style of Floyd-Hoare
+symbolic evaluation using the inference rules of
+FCSL~\cite{Nanevski-al:ESOP14}, a variant of Hoare logic. We have
+mechanized this proof in FCSL/Coq, including all the properties from
+the first two stages described above. The proof is subject to the
+following helper stability properties that we have not yet mechanized,
+but have proved manually, and their proofs are in
+Appendix~\ref{sc:coq-code}.
+
+%The stability proofs are carried out by induction on the number of
+%steps that the environment takes.  The permitted steps of the
+%environment are precisely the auxiliary procedures
+%from~\ref{fig:fcsl-snapshot}, except that \emph{self} and \emph{other}
+%variables are interchanged to capture that it is the environment doing
+%the stepping. 
+
+%% Out of the assertions presented in Figure~\ref{fig:specs}, we
+%% highlight the proof of monotonicity of the {\it stable} dynamic order
+%% $\jleq{\ordlist}$:
+
+\begin{lemma}[Stability of Assertions]\label{lem:menvs}
+If by environment stepping $L$ evolves to $L'$, then:
+\begin{enumerate}
+ \item\label{lem:menvs:jleq} $ \jleq{\ordlist} \subseteq\ \jleqP$ \ie the
+ logical ordering is monotone.
+
+ \item \label{lem:menvs:drs} $H^{\hbox{}\sqsubseteq_\ordlist
+ t} \subseteq H^{\hbox{}\sqsubseteq_{\ordlist'} t}$. 
+%
+% \ie the restriction of $\hist$ to the elements in the $\jleq{\ordlist}$ up to
+% $t$ grows monotonically. 
+Similarly for $\sqsubsetneq$.
+ 
+ \item \label{lem:menvs:chain} If $\mathsf{chain}\
+ H^{\hbox{}\sqsubseteq_\ordlist t}$ then $\mathsf{chain}\
+ H^{\hbox{}\sqsubseteq_{\ordlist'} t}$.
+
+ \item \label{lem:menvs:eval} If $\mathsf{eval}\
+ H^{\hbox{}\sqsubseteq_\ordlist t}$ then $\mathsf{eval}\
+ H^{\hbox{}\sqsubseteq_{\ordlist'} t}$.
+\end{enumerate}
+\end{lemma}
+%
+%The proof of Lemma~\ref{lem:menvs}, items~\ref{lem:menvs:jleq}
+%and~\ref{lem:menvs:drs} have been mechanized. The (manual) proofs of
+%items \ref{lem:menvs:chain} and~\ref{lem:menvs:eval} are given in the
+%Appendix~\ref{sc:coq-code}, but are not yet mechanized. 
+%
+%Finally, we have the main correctness result, mechanized relative to
+%the proofs of Lemma~\ref{lem:menvs}.\ref{lem:menvs:chain}
+%and~\ref{lem:menvs}.\ref{lem:menvs:eval}. 
+

@@ -1,0 +1,131 @@
+%% Spec predicates
+\def\chain{\mathsf{chain}}
+\def\eval{\mathsf{eval}}
+\def\static{\mathsf{static}}
+
+%\newcommand{\ideal}[2]{\mathrel{( #1 \downarrow\! #2)}}
+\newcommand\myddarrow{\mathrel{\rotatebox[origin=c]{270}{$\twoheadrightarrow$}}}
+%\newcommand{\sideal}[2]{\mathrel{( #1 \myddarrow\! #2)}}
+
+\newcommand{\sideal}[2]{#1\,{\myddarrow}\,#2}
+\newcommand{\ideal}[2]{#1\,{\downarrow}\,#2}
+
+\begin{comment}
+\begin{figure}[t]
+%
+\centering
+\[
+\begin{array}{l}
+\mathtt{write}\ (p : \mathtt{ptr}, n : \mathtt{int}) : \\
+\qquad
+\logvar{h,w}\
+\!\!\begin{array}[t]{l}
+{\tsPre{\{\, \histS = \hempty \wedge h \subseteq \histO
+           \wedge w \subseteq \stableorder \}}}\ \\[3pt]
+\tsPos{\{\, \exists t\ldot\, \histS = t \mapsto (p, n) \wedge
+        h \subseteq \histO \wedge w \subseteq \stableorder \wedge \dom h \subseteq \sideal{\stableorder}{t}\}}
+\end{array}\\[5pt]
+\mathtt{scan} :\logvar{h,w}\
+\!\!\!\begin{array}[t]{l}
+{\tsPre{\{\, \histS = \hempty \wedge\, h \subseteq \hist \wedge
+          w \subseteq \stableorder \}}}\ \\[3pt]
+\tsPos{\{\, r\ldot\, \exists t \ldot\, \histS = \hempty \wedge\!
+           h \subseteq \hist \wedge\!
+           w \subseteq \stableorder \wedge\!
+           h \subseteq \ideal{\stableorder}{t}\! \wedge}\\
+\tsPos{\phantom{\{\, r\ldot\, \exists t \ldot\,}
+           \static\ \prefix{t} \wedge
+           \chain\ \prefix{t} \ideal{\stableorder}{t} \wedge
+           r = \eval\ \ideal{\stableorder}{t} \chi\}}
+       \end{array}
+\end{array}
+\]
+\caption{\label{fig:specs} Specification of \jywrite~and
+  \jyscan. $\prefix{t}$ is a linear order over timestaps in the
+  history $\hist$, and $\stableorder$ is its stable partial suborder.}
+%\gad{ $w$ and $\omega$ symbols are not really that different in {\tt
+%    math-mode}. We should either, (i) change $\omega$ for another
+%  greek letter, (ii) use greek capital $\Omega$ or (iii) change $w$
+%  for another latin letter. I'm fond of $\omega$, but liked $\Omega$
+%  better.}
+\end{figure}
+\end{comment}
+
+
+\begin{comment}
+\begin{figure}[t]
+%
+\centering
+\[
+\begin{array}{l}
+\mathtt{write}\ (p : \mathtt{ptr}, n : \mathtt{int}) : 
+\begin{array}[t]{l}
+\tsPre{\{\histS = \hempty\}}\
+\tsPos{\{\exists t\ldot \histS = t \mapsto (p, n) \wedge \dom {\histO'} \subseteq \sideal{\stableorder}{t} \wedge \hbox{}}\\
+\tsPos{\hphantom{\tsPre{\{\histS = \hempty\}}\ \{\exists t\ldot}
+       \histO' \subseteq \histO \wedge \hist' \subseteq \hist \wedge \stableorder' \subseteq \stableorder\}}
+\end{array}\\[5pt]
+\mathtt{scan}\ : 
+\begin{array}[t]{l}
+\tsPre{\{\histS = \hempty\}}\
+\tsPos{\{r\ldot \exists t\ldot \histS = \hempty \wedge r = \eval\ t\ \sigma\ \hist \wedge \dom{\hist'} \subseteq \ideal{\stableorder}{t} \wedge \hbox{}}\\
+\tsPos{\hphantom{\{\histS = \hempty\}\ \{r\ldot\hbox{}}
+        \chain\ t \wedge \static\ t \wedge \histO' \subseteq \histO \wedge \hist' \subseteq \hist \wedge \stableorder' \subseteq \stableorder\}}
+       \end{array}
+\end{array}
+\]
+\caption{\label{fig:specs} Specification of \jywrite~and
+  \jyscan. $\tleq$ is a linear order over timestaps in the history
+  $\hist$, and $\stableorder$ is its stable partial suborder.}
+%\gad{ $w$ and $\omega$ symbols are not really that different in {\tt
+%    math-mode}. We should either, (i) change $\omega$ for another
+%  greek letter, (ii) use greek capital $\Omega$ or (iii) change $w$
+%  for another latin letter. I'm fond of $\omega$, but liked $\Omega$
+%  better.}
+\end{figure}
+\end{comment}
+
+
+\begin{figure}[t]
+%
+\centering
+\[
+\begin{array}{l}
+\mathtt{write}\ (p, v) : % : \mathtt{ptr}, n : \mathtt{int}) : %\hbox{}\\
+%\quad
+\begin{array}[t]{l}
+\tsPre{\{\histS = \hempty\}}\
+\tsPos{\{\exists t\ldot \histS' = t \mapsto (p, v) \wedge
+    \dom {\histO} \cup \scanned\, \stableorder
+       \subseteq \sideal{\stableorderP}{t}\}} @ C % \wedge \hbox{}}\\
+%\tsPos{\hphantom{\tsPre{\{\histSP = \hempty\}}\ \{\exists t\ldot}
+%       \hist \subseteq \histP \wedge
+%       \stableorder \subseteq \stableorderP \wedge 
+%       \forall s \in \scanned{\stableorder}\ldot
+%         \ideal{\stableorder}{s} = \ideal{\stableorderP}{s}\}}
+\end{array}\\[5pt]
+%
+\mathtt{scan} : 
+\tsPre{\{\histS = \hempty\}}\ 
+\!\!\begin{array}[t]{l}
+\tsPos{\{r\ldot \exists t\ldot \histSP = \hempty\! \wedge\!
+   r =\! \eval\ t\, {\stableorderP}\, {\histP} \wedge\!
+  \dom{\hist}\! \subseteq \ideal{\stableorderP}{t}\! \wedge\!
+  t \in \scanned{\stableorderP}\}} @ C % \wedge \hbox{}}\\
+%\tsPos{\hphantom{\{r\ldot \exists t\ldot \hbox{}}
+%        \hist \subseteq \histP \wedge
+%        \stableorder \subseteq \stableorderP \wedge 
+%        \forall s \in \scanned{\stableorder}\ldot 
+%          \ideal{\stableorder}{s} = \ideal{\stableorderP}{s}\}}
+\end{array}
+\end{array}
+\]
+\caption{\label{fig:specs} Snapshot method specification. 
+%$\hist$ is
+%  the history of write events, and $\stableorder$ is a stable partial
+%  order of event timestamps.
+}
+\end{figure}
+
+
+

@@ -1,0 +1,27 @@
+\begin{wrapfigure}[9]{r}[0pt]{0.4\textwidth} 
+%% \begin{figure}
+%
+\centering  
+\begin{tabular}{l}
+% 
+\begin{minipage}[l]{5cm}
+\begin{alltt}
+\num{1}  scan(): \(A {\times} A\)  \{
+\num{2}    (cx, vx) \tbnd \act{read}(x);
+\num{3}    (cy, _)  \tbnd \act{read}(y);
+\num{4}    (_, tx)  \tbnd \act{read}(x);
+\num{5}    if vx == tx 
+\num{6}    then return (cx, cy)
+\num{7}    else scan (); \}
+\end{alltt} 
+\end{minipage}
+%
+\end{tabular}
+%
+\caption{{\tt Scan} using version numbers.}
+\label{fig:readpair}
+%\end{figure}
+\end{wrapfigure}
+
+% \gad{\textbf seems to have no efect whatsoever on alttt}
+% \gad{unified action-names not to leave spaces before arguments}

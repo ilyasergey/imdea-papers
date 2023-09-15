@@ -1,0 +1,62 @@
+------------------------------------------------
+Deadline
+------------------------------------------------
+
+Submission: February 12, 2016 23:59 (HAST - Hawai Time)
+ 
+HAST                       Friday,   12 February 2016, 23:59:00 HAST UTC-10 hours 
+Madrid (Spain)             Saturday, 13 February 2016, 10:59:00 CET  UTC+1 hour   
+London (UK)                Saturday, 13 February 2016, 09:59:00 GMT  UTC     
+Washington DC (EST)        Saturday, 13 February 2016, 04:59:00 EST  UTC-5 hours  
+Corresponding UTC (GMT)    Saturday, 13 February 2016, 09:59:00     
+
+------------------------------------------------
+Instructions to Authors from PODC'16 website
+------------------------------------------------
+
+Submission
+
+Papers are to be submitted electronically through easychair at
+https://easychair.org/conferences/?conf=podc2016 following the
+guidelines available on the conference web page www.podc.org. All
+submissions must be in English, in pdf format. Note that the deadline
+is firm.
+
+A submission for a regular presentation must report original
+research. Papers submitted for regular presentations must contain
+results that have not previously appeared, and have not been
+concurrently submitted to a journal or conference with published
+proceedings. Any partial overlap with any such published or
+concurrently submitted paper must be clearly indicated. Papers for
+regular presentation must include:
+
+- A cover page, stating the title of the paper, the authors’ names
+    and affiliations, the corresponding author’s e-mail, an abstract,
+    and an indication of whether the paper should be considered for
+    the best student paper award, and if so the name(s) of the
+    student(s) recommended for the award
+
+- an extended abstract of up to 10 pages (excluding the cover page and
+    references)
+
+- references.
+
+Additional details may be included in a clearly marked appendix, which
+will be read at the discretion of the program committee. This appendix
+may simply be the complete paper. A regular submission that is not
+selected for regular presentation may be invited for a brief
+announcement.
+
+A submission for a brief announcement must be no longer than 3
+single-column pages on letter-size paper, including title, authors’
+names and affiliations, and references. Such submissions may describe
+work in progress or work presented elsewhere. The title of a brief
+announcement must begin with the words “Brief Announcement:”
+
+Formatting for both regular submissions and brief announcements:
+letter-size (8 1/2 x 11 inch) paper, single-column format, using at
+least 1 inch margins, 11-point font. Submissions deviating from these
+guidelines risk rejection without consideration of their merits.
+
+
+

@@ -1,0 +1,1072 @@
+\section{Main Ideas and Overview}
+\label{sec:overview}
+
+We begin by outlining the high-level intuition of our specification
+approach, and summarize the main formalization steps.
+%
+As the first motivating example, we consider the concurrent exchanger
+structure from $\mathtt{java.util.concurrent}$
+\cite{Scherer-al:SCOOL05,ExchangerClass}. The main purpose of the
+exchanger is to allow two threads to efficiently swap values in a
+non-blocking way via a globally shared channel. The exchange might
+fail, if a thread trying to swap a value does not encounter a peer to
+do that in a predefined period of time.
+%
+% In the case of a successful outcome, two ``colliding'' threads
+% simultaneously exchange values, otherwise a thread with no matching
+% exchange proposal fails.
+
+For instance, the result of the two-thread program
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:ex1} 
+\begin{array}{c@{\ }c@{\ }c} 
+  \boxed{T_1} & & \boxed{T_2}
+  \\[5pt] 
+   r_1 := \esc{exchange}~1 & || & r_2 := \esc{exchange}~2
+\end{array}
+\]
+%
+can be described by the following assertion:\footnote{We
+  use ML-style \texttt{option} data type with two constructors,
+  \texttt{Some} and \texttt{None} to indicate success and failure of
+  an operation, correspondingly.}
+
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:exsp} 
+r_1 = r_2 = \esc{None} \oor r_1 = \esc{Some}~2 \wedge r_2 =
+\esc{Some}~1
+\]
+
+\noindent
+That is, $r_1$ and $r_2$ store the results of the execution of
+subthreads $T_1$ and $T_2$ correspondingly, and both threads either
+succeed, exchanging the values, or fail. The ascribed outcome is only
+correct under the assumption that no other threads besides $T_1$ and
+$T_2$ attempt to use the very same exchange channel concurrently.
+
+Why is the exchanger not a linearizable data structure? To see that,
+recall that linearizability reduces the concurrent behavior to a
+sequential one~\cite{Herlihy-Wing:TOPLAS90}. If the exchanger were
+linearizable, all possible outcomes of the program~\eqref{tag:ex1}
+would be captured by the following two sequential programs, modelling
+selected interleavings of the threads $T_1$ and $T_2$:
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:ex2} 
+\begin{array}{c}
+r_1 := \esc{exchange}~1;~r_2 := \esc{exchange}~2;
+\\[3pt]
+\text{and}
+\\[3pt]
+r_2 := \esc{exchange}~2;~r_1 := \esc{exchange}~1;  
+\end{array}
+\]
+%
+However, both programs~\eqref{tag:ex2} will \emph{always} result in
+$r_1 = r_2 = \esc{None}$, as, in order to succeed, a call to the
+exchanger needs another thread, running concurrently, with which to
+exchange values.
+%
+% \ab{Check rewording.}
+% \is{Looks good}
+%
+This observation demonstrates that linearizability with respect to a
+sequential specification is too weak a correctness criterion to
+capture the \code{exchanger}'s behavior observed in a truly concurrent
+context~\cite{Hemed-Rinetzky:PODC14}: an adequate notion of
+correctness for \code{exchange} must mention the effect
+of {interference}.
+%
+% \ab{Check rewording.}
+% \is{Looks good}
+
+Consider another structure, whose concurrent behavior cannot be
+related to sequential executions via linearizability:
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:flip} 
+\begin{array}{l}
+\esc{flip2}~(x : \esc{ptr~nat})~:~\esc{nat}~=~\{ \\[2pt]
+~~ a := \esc{flip}~x; \\[2pt]
+~~ b := \esc{flip}~x;\\[2pt]
+~~\kw{return}~a + b ~~\}  
+\end{array}
+\]
+%
+The procedure \code{flip2} takes a pointer $x$, whose value is
+either~0 or~1 and changes its value to the opposite, twice, via the
+\emph{atomic} operation \code{flip}, returning the sum of the previous
+values. Assuming that $x$ is being modified only by the calls to
+\code{flip2}, what is the outcome $r$ of the following program?
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:flip2} 
+r := \esc{flip2}~x;
+\]
+%
+The answer depends on the presence or absence of interfering threads
+that invoke \code{flip2} concurrently with the
+program~\eqref{tag:flip2}. Indeed, in the absence of interference,
+\code{flip2} will flip the value of $x$ twice, returning the sum of 0
+and 1, \ie,~1. However, in the presence of other threads calling
+\code{flip2} in parallel, the value of $r$ may vary from 0 to 2.
+%
+% depending on the concurrent calls to \code{flip}, changing the value
+% of~$x$.
+
+What are the intrinsic properties of \code{flip2} to be specified?
+%
+Since the effect of \code{flip2} is distributed between two internal
+calls to \code{flip}, both subject to interference, the specification
+should capture that the variation in \code{flip2}'s result is
+subject to interference.
+%
+% \an{The above paragraph promises to say what an adequate spec for
+% flip2 is, but doesn't do it. It just says what such a spec should
+% enable infering. Either weaken the first sentence to set up the
+% right expectations, or strenghten the rest, to deliver the right
+% spec.}
+%
+% \is{Done}
+%
+% \ab{Shortened.}
+%
+Furthermore, the specification should be expressive enough to allow
+reasoning under bounded interference. For example, in the absence of
+interference from any other threads besides $T_1$ and $T_2$ that
+invoke \code{flip2} concurrently, the program below will always result
+in~$r = 2$:
+%
+% \ab{Rephrased.}
+% \is{Looks good}
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:flip3} 
+\begin{array}{c@{\ }c@{\ }c@{\ }l@{\ }l} 
+  \boxed{T_1} & & \boxed{T_2}
+  \\[5pt] 
+  r_1 := \esc{flip2}~x & || & r_2 := \esc{flip2}~x; \\[3pt]
+  \multicolumn{3}{c}{r :=  r_1 + r_2}
+\end{array}
+\]
+
+\subsection{Abstract Histories of Non-linearizable Objects}
+\label{sec:hist}
+
+Execution histories capture the traces of a concurrent object's
+interaction with various threads, and are a central notion for
+specifying concurrent data structures.
+%
+For example, linearizability specifies the behavior of an object by
+mapping the object's global history of method invocations and returns
+to a sequence of operations that can be observed when the object is
+used sequentially~\cite{Herlihy-Wing:TOPLAS90}. However, as we have
+shown, neither \code{exchange} nor \code{flip2} can be understood in
+terms of sequential executions.
+
+We propose to specify the behavior and outcome of such objects in
+terms of \emph{abstract concurrent histories}, as follows. Instead of
+tracking method invocations and returns, our histories track the
+``interesting'' changes to the object's state. What is ``interesting''
+is determined by the user, depending on the intended clients of
+the concurrent object.
+%
+% \ab{What's interesting state?}  
+%
+% \is{Hmm... Do we really have to be more formal here? I tried to
+% clarify}
+%
+%to particular threads. 
+%
+Moreover, our specifications are subjective (\ie, thread-relative) in
+the following sense. Our histories do not identify threads by their
+thread IDs. Instead, each method is specified by relating two
+different history variables: the history of the invoking thread
+(aka.~\emph{self}-history), and the history of its concurrent
+environment (aka.~\emph{other}-history). In each thread, these two
+variables have different values.
+%
+%This subjective view will allow us to easily specify programs with
+%dynamically-changing number of threads.
+
+%This will also allow us to relate the results of concurrent calls of
+%object's methods to the history contributions, made by a thread and
+%its interference, correspondingly.
+%
+% \ab{I am finding it difficult to parse this sentence.}
+%
+% \is{Rephrased}
+
+For example, in the case of the exchanger, the interesting changes to
+the object's state are the exchanges themselves. Thus, the global
+history $\hist_{\cal E}$ tracks the successful exchanges in the form
+of pairs of values, as shown in below:
+%
+\[
+%\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:hist1} 
+\!\!\!\begin{array}{r@{\ }c@{}c@{\ }c@{\ }c@{\ }c@{\ }c@{\ }c@{\ }c@{}l}
+  & & \boxed{T_1} & \graybox{\boxed{T_2}} & \graybox{\boxed{T_2}} & \graybox{\boxed{T_3}} & \graybox{\boxed{T_2}}
+  & \boxed{T_1} 
+  \\[5pt]  
+  \hist_{\cal E} \!=\! \text{[} &\!\!...,~& (1, 2), & \graybox{(2, 1)}, & 
+                                 \graybox{(4, 5)}, & \graybox{(5, 4)}, &  \graybox{(9, 8)}, & (8, 9), &
+                                                                          ...
+                     &
+                       \text{]}   
+\\[-5pt]   
+&& \multicolumn{2}{l}{\underbracket{\phantom{aaaaaaaaa}}_{\mathtt{exchange~ok}}} & \multicolumn{2}{c}{\underbracket{\phantom{aaaaaaaaa}}_{\mathtt{exchange~ok}}} & \multicolumn{2}{c}{\underbracket{\phantom{aaaaaaaaa}}_{\mathtt{exchange~ok}}}
+                  & & 
+\end{array}
+\]
+%
+%
+The diagram presents the history from the viewpoint of thread
+$T_1$. The exchanges made by $T_1$ are colored white, determining the
+\emph{self}-history of $T_1$. The gray parts are the exchanges made by
+the other threads (e.g., $T_2$, $T_3$, \etc.), and determine the
+\emph{other}-history for $T_1$. 
+
+% \an{We need here a diagram that colors the same total history, but
+%   from the point of view of $T_2$.}
+
+% \is{No, I think, we don't...}
+
+The subjective division between \emph{self} and \emph{other} histories
+emphasizes that a successful exchange is actually represented by
+\emph{two} pairs of numbers $(x, y)$ and $(y, x)$, that appear
+consecutively in $\hist_{\cal E}$, and encode the two ends of an
+exchange from the viewpoint of the exchanging threads. We call such
+pairs \emph{twins}.
+%
+%and will show in Section~\ref{sec:exchanger} how to encode that two
+%pairs are twins.
+As an illustration, the white entry $(2, 1)$ from the self-history of
+$T_1$, is matched by a twin gray entry $(1, 2)$ from the other-history
+of $T_1$, encoding that $T_1$ exchanging $2$ for $1$ corresponds to
+$T_1$'s environment exchanging $1$ for $2$.
+
+The subjective division is important, because it will enable us to
+specify threads \emph{locally}, \ie, without referring to the code of
+other threads. For example, in the case of program~(\ref{tag:ex1}), we
+will specify that $T_1$, in the case of a successful exchange, adds a
+pair $(1, r_1)$ to its self history, where $\esc{Some}~r_1$ is $T_1$'s
+return value. Similarly, $T_2$ adds a pair $(2, r_2)$ to
+its self history, where $\esc{Some}~r_2$ is $T_2$'s return value.
+%
+% \an{Fix the option values above please.}
+
+On the other hand, it is an important invariant of the exchanger
+object---but not of any individual thread---that twin entries are
+symmetric pairs encoding different viewpoints of the one-and-the-same
+exchange. This object invariant will allow us to reason about clients
+containing combinations of exchanging threads. Taking
+program~(\ref{tag:ex1}) as an example again, the object invariant will
+imply of the individual specifications of $T_1$ and $T_2$, that $r_1$
+must equal $2$, and $r_2$ must equal $1$, if no threads interfered
+with $T_1$ and $T_2$.
+
+%We emphasize here that the object invariants are, as the name
+%suggests, object-specific. Our Hoare-style approach will allow the
+%user to declare the above invariant in the case of the exchanger, but
+%will not mandate it for examples for which it is not relevant. This is
+%in contrast to the specification by correctness conditions, which are
+%typically not parametrizable by user-defined properties, and are thus
+%less flexible (\eg, linearizability does not allow users to declare
+%history invariants on a per-object basis).
+%\an{Is the above paragraph too strong?}
+
+%This invariant is what makes possible the verification of the
+%example~\eqref{tag:ex1} with respect to the
+%assertion~\eqref{tag:exsp}.
+
+%Indeed, in the case of a successful exchange, each of the threads
+%$T_1$ and $T_2$, can now attribute to itself an entry $(x, r)$ in the
+%total exchanger history $\hist_{\cal E}$, where $x$ is a
+%\emph{self}-contributed value and $r$ is a thread-specific result of
+%calling \code{exchange}, corresponding to a value contributed by some
+%\emph{other} thread.
+%%
+%Furthermore, the ``closed-world'' assumption, stating the absence of
+%external interference, allows us to deduce that, in the case of
+%success, the \emph{overall} interaction history of the exchanger for
+%the time span of the program~\eqref{tag:ex1}, consists only of the two
+%``twin'' entries, $(1, 2)$ and $(2, 1)$, which correspond to a single
+%exchange transaction. Hence, by the history invariant,
+%$r_1 = \esc{Some}~2$ and $r_2 = \esc{Some}~1$.
+
+We can similarly employ abstract histories to specify
+\code{flip2}. One way to do it is to notice that the value of the
+shared counter $x$ will be changing as $0, 1, 0, 1, \ldots$, and
+exactly \emph{two} of these values will be contributed by each call to
+\code{flip2} made by some thread. We can depict a particular total
+history $\hist_{\cal F}$ of the \code{flip2} structure as follows:
+%
+\[
+%\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:hist2}
+%
+\!\!\!\!\!\!\!\!
+%
+\begin{array}{r@{\ }c@{\ }c@{\ }c@{\ }c@{\ }c@{\ }c@{\ }c@{\ }c@{\ }l@{\ }}
+  & & \boxed{T_1} & \graybox{\boxed{T_2}} & {\boxed{T_1}} & \graybox{\boxed{T_2}} & \graybox{\boxed{T_3}}
+  & \graybox{\boxed{T_3}} 
+  \\[5pt] 
+  \hist_{\cal F} = \text{[} & ..., & 1, & \graybox{0}, & 
+                                 1, & \graybox{0}, &  \graybox{1}, & \graybox{0}, &
+                                                                          \ldots
+                     &
+                       \text{]}   
+\\[-5pt] 
+&& \multicolumn{3}{l}{{\underbracket{\phantom{aaaaaa}}_{T_1.\mathtt{flip2}}}}
+\end{array}
+\]
+%
+The two ``white'' contributions are made by thread $T_1$'s call to
+\code{flip2}, while the rest (gray) are contributions by $T_1$'s
+environment. Since the atomic \code{flip} operation returns the
+\emph{complementary} (\ie, previous) value of the counter, the overall
+result of $T_1$'s call in this case is $\bar{1} + \bar{1} = 0 + 0
+=~0$.
+
+The invariant for the \code{flip2} structure postulates the
+interleaving 0/1-shape of the history and also ensures that the last
+history entry is $x$'s current value. This will allow us to reason
+about clients of \code{flip2}, such as~\eqref{tag:flip3}.
+%
+% \an{We're not specifying this shortly, so better say here what the
+%   invariant is, and how it helps with deducing anything in the absence
+%   of interference.}
+%
+In the absence of interference, we can deduce that the two parallel
+calls to \code{flip2} have contributed four \emph{consecutive} entries
+to the history $\hist_{\cal F}$, with each thread contributing
+precisely two of them. For each of the two calls, the result equals
+the sum of the two complementary values for what the corresponding
+thread has contributed to the history, hence, the overall sum
+$r_1 + r_2$ is $2$.
+
+% \paragraph{Histories as subjective auxiliary state}
+
+\subsection{Hoare-style Specifications for \texttt{exchange} and
+  \texttt{flip2}}
+\label{sec:hoare}
+
+The above examples illustrate that subjectivity and object invariants
+are two sides of the same coin. In tandem, they allow us to specify
+threads individually, but also reason about thread combinations. We
+emphasize that in our approach, the invariants are
+\emph{object-specific} and \emph{provided by the user}. For example,
+we can associate the invariant about twin entries with the exchanger
+structure, but our method will not mandate the same invariant for
+other structures for which it is not relevant. This is in contrast to
+using a fixed correctness condition, such as linearizability, QC, or
+CAL, which cannot be parametrized by user-defined
+properties.\footnote{For example, linearizability does not allow users
+  to declare history invariants on a per-object basis. The exchanger
+  example motivated the introduction of the correctness condition
+  CAL~\cite{Hemed-Rinetzky:PODC14}, which relaxes linearizability, and
+  makes it somewhat more general in this respect, but still falls
+  short of admitting user-defined invariants. \texttt{flip2} can be
+  specified using a variation of QC~\cite{Jagadeesan-Riely:ICALP14},
+  but we show that a similar property can be expressed via
+  subjectivity and a user-defined invariant.}
+
+%suggests, object-specific. Our Hoare-style approach will allow the
+%user to declare the above invariant in the case of the exchanger, but
+%will not mandate it for examples for which it is not relevant. This is
+%in contrast to the specification by correctness conditions, which are
+%typically not parametrizable by user-defined properties, and are thus
+%less flexible (\eg, linearizability does not allow users to declare
+%history invariants on a per-object basis).
+%\an{Is the above paragraph too strong?}
+
+
+%main idea demonstrated by the two examples above is to specify the
+%effects of a thread's interaction with a concurrent object via its
+%contributions to the abstract history, subject to a
+%\emph{object-specific} invariant, instead of using a fixed correctness
+%condition, such as linearizability, QC or CAL.
+%\footnote{The exchanger
+%  example motivated the introduction of the correctness condition
+%  CAL~\cite{Hemed-Rinetzky:PODC14}, strengthening the classical notion
+%  of linearizability, and \texttt{flip2} can be specified using a
+%  variation of QC~\cite{Jagadeesan-Riely:ICALP14}.}
+
+Subjective histories can be encoded in our approach as \emph{auxiliary
+  state}~\cite{Sergey-al:ESOP15,Owicki-Gries:CACM76}. Our Hoare
+triples will specify how programs modify their histories, while the
+invariants are declared as properties of a chunk of shared state
+(\eg,~resource invariants of~\cite{Owicki-Gries:CACM76}). With the two
+components, we will be able to describe the effects and results of
+programs \emph{declaratively}, \ie, without exposing program
+implementations.
+
+%possible to specify the behavior quantify over history components in Hoare triples, and
+%ascribed to the corresponding programs.
+%%
+%Therefore, treating the (auxiliary) histories as a part of the program
+%state, we can provide FCSL-style subjective (\ie, {thread-local})
+%Hoare-style specifications to our example programs. By doing so, we
+%manage to describe the programs' effects and results
+%\emph{declaratively}, \ie, without exposing their actual
+%implementations.
+
+
+% Recent work on Hoare-style specification of concurrent data
+% structures~\cite{Sergey-al:ESOP15} has demonstrated how to encode
+% observable execution histories as a form of auxiliary
+% state~\cite{Owicki-Gries:CACM76} and constrain their object-specific
+% invariants. As the work~\cite{Sergey-al:ESOP15} focused solely on
+% linearizable objects, it did not consider the objects, whose behavior,
+% observed by a thread, inherently depends on the effects of the
+% thread's \emph{environment}. We will now show how the very same
+% specification approach can be employed to give concurrent Hoare-style
+% specification to our non-linearizable examples.
+
+% The typical pattern in specifying concurrent programs with auxiliary
+% histories is to take \emph{subjective}~\cite{LeyWild-Nanevski:POPL13}
+% (\ie, thread-local) point of view and consider the object-specific
+% history $\hist$ as a disjoint union $\hist = \hists \hunion \histo$,
+% where $\hists$ is a part of the history contributed by the thread
+% being executed (dubbed \emph{self}-history, white parts of
+% histories~\eqref{tag:hist1} and~\eqref{tag:hist2}) and $\histo$ is a
+% cumulative contribution of its environment (\emph{other}-history, gray
+% parts of histories~\eqref{tag:hist1} and~\eqref{tag:hist2}). The
+% self/other dichotomy allows to make the resoning independed of the
+% shape of thread-forking pattern, avoid using explicit thread IDs in
+% the specifications, and also provides a uniform way to restrict the
+% interference when reasoning about the clients.
+
+% We can now specify the exchange procedure 
+
+
+% We now give the simplified specifications to \code{exchange} and
+% \code{flip2}, describing their contributions to the corresponding
+% abstract histories
+
+\input{client_fig}
+
+A semi-formal and partial spec of \code{exchange} looks as follows,
+with the white/gray parts denoting \emph{self}/\emph{other}
+contributions to history, from the point of view of the thread being
+specified (we postpone the full presentation until
+Section~\ref{sec:exchanger}):
+%
+% \an{Remove the twin $(w, v)$ from the equation below.}
+%
+{\small{
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:exsimpl} 
+{\small{
+\begin{array}{c}
+\specK{\{\hist_{\cal E} = [\graybox{\ldots}] \}}\\[2pt]
+\esc{exchange}\ v\\[2pt]
+  \spec{\!\!
+  \begin{array}{c}
+    \mathsf{if}\ \res\ \mathsf{is}\ \mathsf{Some}\ w\ \mathsf{then}~\\[1pt]
+    \hist_{\cal E} = [\graybox{\ldots}, (v, w), \graybox{\ldots}]
+    ~\mathsf{else}\ \hist_{\cal E} = [\graybox{\ldots}]
+  \end{array}
+  \!\!}
+\end{array}
+}}
+\]
+}}
+%
+\hspace{-5pt}
+%
+The ellipsis ($\ldots$) stands for an existentially-quantified chunk
+of the history.
+%
+%
+%By employing the coloring scheme to indicate the \emph{disjoint}
+%contributions made by this thread (\emph{self}) and by its environment
+%(\emph{other}), we avoid using thread IDs in the spec, making it
+%agnostic to the shape of the concurrent context with dynamic forking.
+%
+%
+%
+The spec~\eqref{tag:exsimpl} says that a successful exchange adds an
+entry $(v, w)$ to the \emph{self}-history (hence, the entry is
+white). In the case of failed exchange, no entry is added. In the
+complete and formal specification in Section~\ref{sec:exchanger}, we
+will have to add a timing aspect, and say that the new entry appears
+\emph{after} all the history entries from the precondition. We will
+also have to say that no entries are removed from the \emph{other}
+history (\ie, the exchanger cannot erase the behavior of other
+threads), but we elide those details here.
+
+
+%the call to \code{exchange} result
+%in the case of succesff $\res$ of calling \code{exchange} to the
+%self-contribution made to the final history $\hist_{\cal E}$ by this
+%thread. The spec also \emph{explicitly} mentions the environment's
+%contribution $\graybox{$(w, v)$}$ in the successful branch of the
+%postcondition and accounts for possible effects of the interference by
+%adding trailing $\graybox{\ldots}$ to $\hist_{\cal E}$.
+
+%
+%The spec~\eqref{tag:exsimpl} relates the result $\res$ of calling
+%\code{exchange} to the self-contribution made to the final history
+%$\hist_{\cal E}$ by this thread. The spec also \emph{explicitly} mentions the
+%environment's contribution $\graybox{$(w, v)$}$ in the successful
+%branch of the postcondition and accounts for possible effects of the
+%interference by adding trailing $\graybox{\ldots}$ to $\hist_{\cal E}$.
+%%
+%For simplicity of presentation, we omit the imposed invariant on the
+%history $\hist_{\cal E}$ from the spec, and consider equal histories
+%$\hist_{\cal E}$ that are isomorphic up to permutations of subsequent
+%``twin'' contributions $(v, w), (w, v)$.\footnote{There will be no
+%  such ambiguity in a more rigorous encoding of history entries via
+%  timestamps, which we present in Section~\ref{sec:exchanger}.}
+%
+
+The spec of \code{flip2} is defined with respect to history
+$\hist_{\cal F}$:
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:flipsimpl} 
+{\small{
+\begin{array}{c}
+\specK{\{\hist_{\cal F} = [\graybox{\ldots}] \}}\\[2pt]
+\esc{flip2}\ x\\[2pt]
+  \spec{\!\!
+  \begin{array}{c}
+   \exists a~b, \hist_{\cal F} = [\graybox{\ldots}, a, \graybox{\ldots}, b,
+    \graybox{\ldots}], \res = \bar{a} + \bar{b}
+  \end{array}
+  \!\!}
+\end{array}
+}}
+\]
+%
+It says that the return value $\res$ is equal to the sum of binary
+complements $\bar{a} + \bar{b}$ for the thread's two separate
+\emph{self}-contributions to the history. Due to the effects of the
+interference, the history entries $a$ and $b$ may be separated in the
+overall history by the contributions of the environment, as indicated
+by \graybox{\ldots} between them.
+
+\subsection{Using Subjective Specifications in the Client Code}
+\label{sec:clients}
+
+The immediate benefit of using Hoare logic is that one can easily
+reason about programs whose components use different object
+invariants, whereas there is not much one can say about programs whose
+components require different correctness conditions.
+%
+For example, Figure~\ref{fig:verif1} shows a proof sketch for a toy
+program that uses both \code{exchange} and \code{flip2}.  As each of
+these methods requires its own auxiliary history variable
+($\hist_{\cal E}$ for the exchanger, and $\hist_{\cal F}$ for
+\code{flip2}), the combined program uses both, but the proof simply
+ignores those histories that are not relevant for any specific method
+(\ie, we can ``frame'' the specs~\eqref{tag:exsimpl}
+and~\eqref{tag:flipsimpl} wrt.~the histories of the objects that they
+do not depend upon).
+
+%
+%To give an example of compositional reasoning with our Hoare-style
+%specs, we focus on verification of a concurrent program, using both
+%\code{exchange} and \code{flip2}. The program code and the proof
+%outline are presented in Figure~\ref{fig:verif1}.
+
+The program first forks two instances of \code{flip2}, storing the
+results in $r_1$ and $r_2$ (line~4). Next, two new threads are forked,
+trying to exchange $r_1$ and $r_2$ (line~8). The conditional (line~12)
+checks if the exchange was successful, and if so, assigns the sum of
+exchanged values to $t$ (line~14); otherwise $t$ gets assigned 2. We
+want to prove via the specs~\eqref{tag:exsimpl}
+and~\eqref{tag:flipsimpl}, that in the absence of external
+interference on the \code{flip2}'s pointer $x$ and the exchanger, the
+outcome is always $t = 2$.
+
+\paragraph{Explaining the verification}
+
+In addition to the absence of external interference, we assume that
+the initial value of $x$ is $0$, and the initial \emph{self}-histories
+for both \code{flip2} and \code{exchange} are empty (line~1).
+%
+% \an{There was a footnote here about framing, but I think it's too
+%   detailed for being here. Moreover, that framing may be confused with
+%   the framing of concurroids, which we called injection in previous
+%   work. Let's see if shephard calls for an explanation.}
+%
+%\footnote{These restrictions
+%  can be lifted via the FCSL framing
+%  rule~\cite{Nanevski-al:ESOP14}.}
+%
+%Therefore, both initial histories $\hist_{\cal F}$ and $\hist_{\cal F}$ are empty
+%(line~1).
+%
+%
+Once the \code{flip2} threads are forked, we employ
+spec~\eqref{tag:flipsimpl} for each of them, simply ignoring (i.e.,
+framing out) $\hist_{\cal E}$, as this history variable does not apply
+to them \code{flip2}. Upon finishing, the postconditions of
+\code{flip2} in line~4 capture the relationship between the
+contributions to the history $\hist_{\cal F}$ and the results $r_1$
+and $r_2$ of the two calls.
+
+Both postconditions in line~4 talk about the very same history
+$\hist_{\cal F}$, just using different colors to express that the
+contributions of the two threads are \emph{disjoint}: $a$ and $b$
+being white in the left thread, implies that $a$ and $b$ are history
+entries added by the left thread. Thus, they \emph{must} be gray in
+the right thread, as they cannot overlap with the entries contributed
+by the right thread. The right thread cannot explicitly specify in its
+postcondition that $a$ and $b$ are gray, since the right thread is
+unaware of the specific contributions of the left thread.
+%
+% \is{This is redundant}
+% But, such inference will be enabled by the FCSL rule for
+% parallel composition, as we explain in Section~\ref{sec:background}.
+
+Dually, $c$ and $d$ being white in the right thread in line~4, implies
+that they must be gray on the left. Thus, overall, in line~5, we know
+that $\hist_{\cal F}$ contains all four entries in some permutation,
+and in the absence of intereference, it contains no other entries but
+these four. From the object invariant on $\hist_{\cal F}$ it then
+follows that the entries are some permutation of $[1,0,1,0]$, which
+makes their sum total $r_1 + r_2 = 2$. 
+%
+% \an{Make a reference to this object invariant, once it is added in the
+%   previous section.}
+
+%threads, the subjective assertions in line~4 of the proof outline
+%constrain, in fact, the \emph{very same} history $\hist_{\cal F}$,
+%specifying its disjoint subparts.
+%%
+%Upon joining the first pair of threads, we reconcile two thread-local
+%views to $\hist_{\cal F}$ (line~5), inferring that $\hist_{\cal F}$ is a permutation
+%of $(0, 1, 0, 1)$, where each of the four components correspond to one
+%of the contributions made in parallel.
+%%
+%The assumption about absence of external interference is crucial, as
+%it makes it possible to ensure that the \emph{entire} history
+%$\hist_{\cal F}$ consists only of the two thread's contributions.
+%%
+%Therefore, the sum $r_1 + r_2$ is the sum of complements to the
+%history entries, \ie,~$2$.
+
+Similarly, we ignore $\hist_{\cal F}$ while reasoning about calls to
+\code{exchange} via spec~\eqref{tag:exsimpl} (lines~7 and 9). As
+before, we know that the entry $(r_1, v_1)$, which is white in the
+left postcondition in line~9, must be gray on the right, and dually
+for $(r_2, v_2)$. In total, the history $\hist_{\cal E}$ must contain
+both of the entries, but, by the invariant, it must also contain their
+twins. In the absence of any other interference, it therefore must be
+that $(r_1, v_1)$ is a twin for $(r_2, v_2)$, \ie, $r_1 = v_2$ and
+$r_2 = v_1$, as line~11 expresses for the case of a succesful
+exchange.
+%
+% \an{It seems to me that the figure should say this by using
+%   $\hist_{\cal E} = perm ((r_1, v_1), (r_2, v_2)) = perm ((v_1, r_1),
+%   (v_2, r_2))$, rather than the current $\hist_{\cal E} = perm ((r_2,
+%   v_2), (v_2, r_2)) = perm ((r_1, v_1), (v_1, r_1))$.}  
+%
+The rest of the proof is then trivial.
+
+The sketch relied on several important aspects of program verification
+in FCSL: \emph{(i)} the invariants constraining $\hist_{\cal F}$ and
+$\hist_{\cal E}$ were preserved by the methods, \emph{(ii)} upon
+joining the threads, we can rely on the disjointness of history
+contributions of the two threads, in order to combine the thread-local
+views into a specification of the parent thread, and, \emph{(iii)} we
+could guarantee the absence of the external interference.
+
+The aspect \emph{(i)} is a significant component of what it means to
+specify and verify a concurrent object. As we will show in
+Sections~\ref{sec:exchanger} and~\ref{sec:counting}, defining a
+sufficiently strong object invariant, and then proving that it is
+indeed an invariant, \ie, that it is preserved by the implementation
+of the program, is a major part of the verification challenge.
+%
+We will explain FCSL rules for \emph{parallel composition} and
+\emph{hiding} in Section~\ref{sec:background}, justifying the
+reasoning principles~\emph{(ii)} and \emph{(iii)}.
+
+\subsection{Specifying Non-linearizable Objects in Three Steps}
+\label{sec:three-steps-reas}
+
+As shown by Sections~\ref{sec:hist}--\ref{sec:clients}, our method for
+specifying and verifying non-linearizable concurrent objects and their
+clients boils down to the following three systematic steps.
+
+\paragraph{Step 1 (\S\ref{sec:hist}):} 
+
+\emph{Define object-specific auxiliary state and its invariants. The
+  auxiliary state will typically include a specific notion of abstract
+  histories, recording whatever behavior is perceived as essential by
+  the implementor of the object}.
+%
+%The concurrent object implementor should first define the shape and
+%key invariants of the object's auxiliary state, in particular, of its
+%histories.
+%
+To account for the variety of object-specific correctness conditions,
+we do not fix a specific shape for the histories. We do not restrict
+them to always record pairs of numbers (as in the exchanger), or
+record single numbers (as in \code{flip2}). The only requirement that
+we impose on auxiliary state in general, and on histories in
+particular, is that the chosen type of auxiliary state is an instance
+of the PCM algebraic structure~\cite{Sergey-al:ESOP15}, thus providing
+an abstract, and user-defined, notion of \emph{disjointness} between
+\emph{self}/\emph{other} contributions.
+
+\paragraph{Step 2 (\S\ref{sec:hoare}):} 
+
+\emph{Formulate Hoare-style specifications, para-metrized by
+  interference, and verify them}.
+%
+This step provides a suitable ``interface'' for the methods of the
+concurrent object, which the clients use to reason, without
+knowing the details of the object and method implementations.
+%
+Naturally, the interface can refer to the auxiliary state and
+histories defined in the previous step.
+%
+When dealing with non-linearizable objects in FCSL, it is customary to
+formulate the spec in a subjective way (\ie, using
+\emph{self}/\emph{other}, dually white/gray division between history
+entries) so that the specification has a way to refer to the effects
+of the interfering calls to the same object. 
+%
+The amount of interference can be later instantiated with more
+specific information, once we know more about the context of
+concurrent threads in which the specified program is being run.
+
+\paragraph{Step 3 (\S\ref{sec:clients}):} 
+
+\emph{Restrict the interference when using object specs for
+  verification of clients}.
+%
+Eventually, thread-local knowledge about effects of individual clients
+of one and the same object, should be combined into a cumulative
+knowledge about the effect of the composition.
+%
+To measure this effect, one usually considers the object in a
+\emph{quiescent} (interference-free) moment~\cite{Rinard:RACES}.
+%
+%\ab{Not clear what quiescent means. Also provide a citation?} 
+%
+To model quiescent situations, FCSL provides a program-level
+constructor for \emph{hiding}. In particular, $\esc{hide}\ e$ executes
+$e$, but statically prevents other threads from interfering with $e$,
+by making $e$'s auxiliary history invisible. Program $e$'s
+\emph{other} contribution is fixed to be empty, thus modeling
+quiescence.
+
+\section{Verifying the Exchanger Implementation}
+\label{sec:exchanger}
+
+We now proceed with more rigorous development of the invariants and
+specification for the exchanger data structure, necessary to verify
+its real-world implementation~\cite{ExchangerClass}, which was so far
+elided from the overview of the approach.
+
+% This example previously motivated the introduction of the correctness
+% condition CAL~\cite{Hemed-Rinetzky:PODC14}. The exchanger is not
+% linearizable to a set of sequential histories, as its behavior
+% crucially depends on interaction with interfering threads.
+% %
+% CAL works around this problem by employing new
+% \emph{concurrency-aware} (CA) histories as a specification set.
+
+
+\newcommand{\Unmatched}{{\mathsf{U}}}
+\newcommand{\Matched}[1]{{\mathsf{M}\ #1}}
+\newcommand{\Retired}{{\mathsf{R}}}
+
+
+The exchanger implementation is presented in ML-style pseudo-code in
+Figure~\ref{fig:exchanger}. It takes a value $v\,{:}\,A$ and creates
+an \emph{offer} from it (line 2). An offer is a pointer $p$ to two
+consecutive locations in the heap.\footnote{In our mechanization, we
+  simplify a bit by making $p$ point to a pair instead.}
+%\footnote{In our mechanization, we
+%  use a pointer to a pair, but for presentation here adopt a more
+%  common style of consecutive heap locations.} 
+%
+The first location stores $v$, and the second is a ``hole'' which the
+interfering thread tries to fill with a matching value. The hole is
+drawn from the type
+$\esc{hole}\,{=}\,\Unmatched\,{\mid}\,\Retired\,{\mid}\,\Matched
+w$. Constructor $\Unmatched$ signals that the offer is unmatched;
+$\Retired$ that the exchanger retired (\ie, withdrew) the offer, and
+does not expect any matches on it; and $\Matched w$ that the offer has
+been matched with a value $w$.
+
+The global pointer $g$ stores the latest offer proposed for
+matching. The exchanger proposes $p$ for matching by making $g$ point
+to $p$ via the atomic compare-and-set instruction \code{CAS} (line
+3). We assume that \code{CAS} returns the value read, which can be
+used to determine if it failed or succeeded. If \code{CAS} succeeds,
+exchanger waits a bit, then checks if the offer has been matched by
+some $w$ (lines 6, 7). If so, $\esc{Some}\ w$ is returned (line
+7). Otherwise, the offer is retired by storing $\Retired$ into its
+hole (line 6). Retired offers remain allocated (thus, exchanger has a
+memory leak) in order to avoid the ABA problem, as usual in many
+concurrent structures~\cite{Herlihy-Shavit:08,Treiber:TR}.
+%
+If the exchanger fails to link $p$ into $g$ in line 3, it deallocates
+the offer $p$ (line 10), and instead tries to match the offer $cur$
+that is current in $g$. If no offer is current, perhaps because
+another thread already matched the offer that made the \code{CAS} in
+line 3 fail, the exchanger returns $\mathsf{None}$ (line
+12). Otherwise, the exchanger tries to make a match, by changing the
+hole of $cur$ into $\Matched v$ (line 14). If successful (line 16), it
+reads the value $w$ stored in $cur$ that was initially proposed for
+matching, and returns it. In any case, it unlinks $cur$ from $g$ (line
+15) to make space for other offers.
+
+\input{exchange_code}
+
+
+
+\subsection{Step 1: Defining Auxiliary State and Invariants}
+
+%
+%The subjective division suffices to specify the exchanger in Hoare
+%logic, and will be essential for client reasoning in
+%Section~\ref{sec:cal}.
+%
+%In Section~\ref{sec:counting}, we show how the approach directly
+%scales to naturally specify programs that have heretofore only been
+%addressed using quiescent and quantitative quiescent consistency.
+
+To formally specify the exchanger, we decorate it with auxiliary
+state. 
+%
+In addition to histories, necessary for specifying the observable
+behavior, the auxiliary state is used for capturing the coherence
+constraints of the actual implementation, \eg, with respect to memory
+allocation and management of outstanding offers.
+%
+The state is subjective as described in Section~\ref{sec:overview}: it
+keeps thread-local auxiliary variables that name the thread's private
+state (\emph{self}), but also the private state of all other threads
+combined (\emph{other}).
+%
+% The subjective division will be essential for client reasoning in
+% Section~\ref{sec:cal}.
+
+The subjective state of the exchanger for each thread in this example
+consists of three groups of two components: (1) thread-private heap
+$\heaps$ of the thread, and of the environment $\heapo$, (2) a set of
+outstanding offers $\perms$ created by the thread, and by the
+environment $\permo$, and (3) a time-stamped history of values
+$\hists$ that the thread exchanged so far, and dually $\histo$ for the
+environment. In Section~\ref{sec:overview}, we illustrated
+subjectivity by means of histories, white we used white and gray
+entries, respectively, to describe what here we name $\hists$ and
+$\histo$, respectively. Now we see that the dichotomy extends beyond
+histories, and this example requires the dichotomy applied to heaps,
+and to sets of offers as well. In addition to \emph{self}/\emph{other}
+components of heaps, permissions and histories, we also need shared
+(aka.~\emph{joint}) state consisting of two components: a heap
+$\heapj$ of storing the offers that have been made, and a map
+$\pending$ of offers that have been matched, but not yet collected by
+the thread that made them.
+
+Heaps, sets and histories are all PCMs under the operation of disjoint
+union, with empty heap/set/history as a unit. We overload the notation
+and write $x\,{\mapsto}\,v$ for a singleton heap with a pointer $x$
+storing value $v$, and $t\,{\mapsto}\,a$ for a singleton
+history. Similarly, we apply disjoint union $\hunion$ and subset
+$\subseteq$, to all three types uniformly.
+
+We next describe how the exchanger manipulates the above variables.
+%for maps, and write $x \mapsto y$ for a singleton map, no matter
+%its type. For example, in the case of time-stamped histories, $t
+%\mapsto b$ denotes that at time-stamp $t$, some abstract behavior $b$
+%took place. In the case of heaps, $x \mapsto v$ for a singleton heap
+%with a pointer $x$ storing value $v$. We also overload the operator
+%$\hunion$ for disjoint union, and apply it to histories, heaps, and
+%set of offers, uniformly. Thus, each history or heap will be a
+%disjoint union of a number of singleton entries, and we use $x
+%\subseteq y$ to say that the map $x$ is a submap (or subheap, or
+%subhistory) of $y$.
+First, $\heapj$ is a heap that serves as the ``staging'' area for the
+offers. It includes the global pointer $g$. Whenever a thread wants to
+make an offer, it allocates a pointer $p$ in $\heaps$, and then tries
+to move $p$ from $\heaps$ into $\heapj$, simultaneously linking $g$ to
+$p$, via the \code{CAS} in line~3 of Figure~\ref{fig:exchanger}.
+
+Second, $\perms$ and $\permo$ are sets of offers (hence, sets of
+pointers) that determine offer ownership. A thread that has the offer
+$p \in \perms$ is the one that created it, and thus has the
+\emph{sole} right to retire $p$, or to collect the value that $p$ was
+matched with. Upon collection or retirement, $p$ is removed from
+$\perms$.
+
+%To ensure that only one thread has such a right, one of the important
+%state invariants of the exchanger is that $\perms$ and $\permo$ are
+%disjoint sets.
+
+Third, $\hists$ and $\histo$ are exchanger-specific histories, each
+mapping a time-stamp (isomorphic to nats), to a pair of exchanged
+values. A singleton history $t \mapsto (v, w)$ symbolizes that a
+thread having this singleton as a subcomponent of $\hists$, has
+exchanged $v$ for $w$ at time $t$.
+%
+%Histories have been used in FCSL before~\cite{Sergey-al:ESOP15}, but
+%only on linearizable examples, where each time-stamp $t$ ``stored'' an
+%atomic operation performed at time $t$. In the exchanger example,
+%which is not linearizable, a time-stamp $t$ stores only a \emph{half}
+%of an atomic operation, \ie, a pair $(v, w)$ signaling that a thread
+%exchanged $v$ for $w$. 
+%
+As we describe below, the most important invariant of the exchanger is
+that each such singleton is matched by a ``symmetric'' one to capture
+that another thread has \emph{simultaneously} exchanged $w$ for
+$v$. Classical linearizability cannot express this simultaneous
+behavior, making the exchanger non-linearizable.
+
+Fourth, $\pending$ is a map storing the offers that were matched, but
+not yet acknowledged and collected. Thus,
+$\mathsf{dom}\ \pending = \perms \hunion \permo$. A singleton entry in
+$\pending$ has the form $p \mapsto (t, v, w)$ and denotes that offer
+$p$, initially storing $v$, was matched at time $t$ with $w$. A
+singleton entry is entered into $\pending$ when a thread on the one
+end of matching, matches $v$ with $w$. Such a thread also places the
+\emph{twin} entry $\twin{t} \mapsto (w, v)$, with inverted order of
+$v$ and $w$, into its own private history $\hists$, where:
+%
+\[
+\begin{array}{c}
+%\vspace{-5pt}
+\twin{t} = \left\{%
+\begin{array}{ll}
+t+1 & \mbox{if $t$ is odd}\\
+t-1 & \mbox{if $t > 0$ and $t$ is even}
+\end{array}\right.  
+\end{array}
+\]
+%
+For technical reasons, $0$ is not a valid time-stamp, and has no
+distinct twin. The pending entry for $p$ resides in $\pending$ until
+the thread that created the offer $p$ decides to ``collect'' it. It
+removes $p$ from $\pending$, and simultaneously adds the entry $t
+\mapsto (v, w)$ into its own $\hists$, thereby logically completing
+the exchange. Since twin time-stamps are consecutive integers, a
+history cannot contain entries \emph{between} twins.
+
+Thus, two twin entries in the combined history including $\hists$,
+$\histo$ and $\pending$, jointly represent a single exchange, as if it
+occurred \emph{atomically}. 
+%
+For example, the entries $1 \mapsto (v_1, w_1)$ and
+$2 \mapsto (w_1, v_1)$ will encode the end-points of the first
+exchange; the entries $3 \mapsto (v_2, w_2)$ and
+$4 \mapsto (w_2, v_2)$ will encode the end-points of the second
+exchange, etc., the entries at timestamps $t$ and $t+1$, for odd $t$,
+will encode the end-points of the $\frac{t+1}{2}$-th exchange.
+%
+\emph{Concurrency-aware}
+histories~\cite{Hemed-Rinetzky:PODC14} capture this by making the ends
+of an exchange occur as simultaneous events. We capture it via twin
+time-stamps. More formally, consider
+$\hist = \hists \hunion \histo \hunion \mygather{\pending}$. Then, the
+exchanger's main invariant is that $\hist$ always contains matching
+twin entries:
+%
+%\vspace{-5pt}
+\[
+%\vspace{-5pt}
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:exchanging} 
+t \mapsto (v, w) \subseteq \hist \iff \twin t \mapsto (w, v) \subseteq \hist
+\]
+%
+Here $\mygather{\pending}$ is the collection of all the entries in
+$\pending$. That is, $\mygather{\emptyset} = \emptyset$, and
+$\mygather {p \mapsto (t, v, w) \hunion \pending'} = t \mapsto (v, w)
+\hunion \mygather{\pending'}$.
+
+In our implementation, we prove that atomic actions, such as
+\code{CAS}, preserve the invariant, therefore, the whole program,
+being just a composition of actions, doesn't violate~it.
+
+%One consequence of this property is that the history $\hist$ always
+%has an even number of entries. Thus, if $t$ is the smallest unused
+%time-stamp in $\hist$ (not counting $0$), then $t$ must be odd, and
+%hence $t < \twin t = t + 1$.
+
+\subsection{Step 2: Hoare-style Specification of Exchanger}
+
+We can now give the desired formal Hoare-style spec.
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:exchangespec} 
+{\small{
+\begin{array}{c}
+\specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}\}}\\
+\esc{exchange}\ v\\
+  \spec{\!\!
+  \begin{array}{c}
+\heaps = \emptyset, \perms = \emptyset, \gist \subseteq
+  \histo \hunion \mygather{\pending}, \hbox{}\\[1pt]
+\mathsf{if}\ \res\ \mathsf{is}\ \mathsf{Some}\ w\ \mathsf{then}~\\[1pt]
+\exists t\ldot \hists = t \mapsto (v, w), \mathsf{last} (\gist) < t, \twin{t}
+~\mathsf{else}\ \hists = \emptyset 
+  \end{array}
+  \!\!}
+\end{array}
+}}
+\]
+%
+The precondition says that the exchanger starts with the empty private
+heap $\heaps$, set of offers $\perms$ and history $\hists$; hence by
+framing, it can start with any value for these
+components.\footnote{Framing in FCSL is similar to that of separation
+  logic, allowing extensions to the initial state that remain
+  invariant by program execution. In FCSL, however, framing applies to
+  any PCM-valued state component (\eg, heaps, histories, \etc.),
+  whereas in separation logic, it applies just to heaps.} The logical
+variable $\gist$ names the initial history of all threads,
+$\histo \hunion \mygather{\pending}$, which may grow during the call,
+thus, we use subset instead of equality to make the precondition
+stable under other threads adding
+ entries to $\histo$ or $\pending$.
+
+In the postcondition, the self heap $\heaps$ and the set of offers
+$\perms$ didn't change. Hence, if $\mathtt{exchange}$ made an offer
+during its execution, it also collected or retired it by the end.
+%
+The history $\gist$ is still a subset of the ending value for $\histo
+\hunion \mygather{\pending}$, signifying that the environment history
+only grows by interference. We will make a crucial use of this part of
+the spec when verifying a client of the exchanger in
+Section~\ref{sec:cal}.
+
+If the exchange fails (\ie, $\mathsf{res}$ is $\mathsf{None}$), then
+$\hists$ remains empty.  If it succeeds (either in line 7 or line 16
+in Figure~\ref{fig:exchanger}), \ie, if the result $\mathsf{res}$ is
+$\mathsf{Some}\ w$, then there exists a time-stamp $t$, such that
+self-history $\hists$ contains the entry $t \mapsto (v, w)$,
+symbolizing that $v$ and $w$ were exchanged at time $t$.
+
+Importantly, the postcondition implies, by
+invariant~(\ref{tag:exchanging}), that in the success case, the twin
+entry $\twin t \mapsto (w, v)$ must belong to $\histo \hunion
+\mygather{\pending}$, \ie, \emph{another} thread matched the exchange
+(this was made explicit by the spec~\eqref{tag:exsimpl}).
+Moreover, the exchange occurred \emph{after} the call to
+$\mathsf{exchange}$: whichever $\gist$ we chose in the pre-state, both
+$t$ and $\twin t$ are larger than the last time-stamp in $\gist$.
+
+The proof outline for the exchanger is available in
+Appendix~\ref{app:exch}.
+%
+In Section~\ref{sec:cal}, after introducing necessary FCSL background,
+we will illustrate \textbf{\emph{Step 3}} of our method and show how
+to employ the subjective Hoare spec~\eqref{tag:exchangespec} for
+modular verification of a concurrent client.
+
+% \is{Where is the discussed ``general pattern'', which we wanted to
+%   summarize around this moment of the paper (Anindya also suggests it
+%   in his very first comment)? I believe, this is a good place to put
+%   it.}
+% \an{It's in the second paragraph of Section 2.}
+

@@ -1,0 +1,2294 @@
+\documentclass[blockstyle,preprint,nocopyrightspace]{sigplanconf}
+
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage{latexsym}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{float}
+\usepackage[scaled=.90]{helvet}
+\usepackage[noend]{algorithmic}
+\usepackage{mathrsfs}
+\usepackage{mathpartir}
+\usepackage{dsfont}
+\usepackage{stmaryrd}
+\usepackage{url}
+\usepackage{textcomp} 
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{alltt}
+\usepackage{xspace}
+\usepackage{verbatim}
+
+% remarks
+\newcommand{\todo}[1]{\textcolor{red}{({#1})}}
+\newcommand{\is}[1]{\textcolor{blue}{(Ilya: {#1})}}
+\newcommand{\an}[1]{\textcolor{red}{(Aleks: {#1})}}
+
+% useful macros
+\newcommand{\asgn}{\leftarrow}
+\newcommand{\code}[1]{\lstinline{#1}}
+\newcommand{\ccode}[1]{\code{#1}}
+\newcommand{\var}[1]{\({#1}\)} 
+\newcommand{\num}[1]{\({\text{{\scriptsize{#1}}}}\)}
+\newcommand{\etc}{\emph{etc}}
+\newcommand{\ie}{\emph{i.e.}\xspace}
+\newcommand{\Ie}{\emph{I.e.}\xspace}
+\newcommand{\eg}{\emph{e.g.}\xspace}
+\newcommand{\Eg}{\emph{E.g.}\xspace}
+\newcommand{\vs}{\emph{vs.}\xspace}
+\newcommand{\etal}{\emph{et~al.}\xspace}
+\newcommand{\adhoc}{\emph{ad hoc}\xspace}
+\newcommand{\viz}{\emph{viz.}\xspace}
+\newcommand{\dom}[1]{\mathsf{dom}(#1)}
+\newcommand{\aka}{\textit{a.k.a.}\xspace}
+\newcommand{\cf}{\textit{cf.}\xspace}
+\newcommand{\wrt}{\emph{wrt.}\xspace}
+\newcommand{\loef}{L\"{o}f}
+\newcommand{\specK}[1]{\ensuremath{\textcolor{blue}{#1}}}
+\newcommand{\spec}[1]{\specK{\left\{{#1}\right\}}}
+\newcommand{\sep}{\textasteriskcentered}
+\newcommand{\res}{\mathsf{res}} 
+\newcommand{\ret}{\mathsf{ret}} 
+\newcommand{\fix}{\mathsf{fix}} 
+
+
+
+% Keep footnotes on one page
+\interfootnotelinepenalty=10000 
+
+\setlength{\parindent}{0.15in}
+\setlength{\topsep}{0cm}
+\setlength{\parskip}{0pt}
+\titlespacing*{\section}{0pt}{*1}{*1}
+\titlespacing*{\subsection}{0pt}{*1.0}{*0.5}
+\titlespacing*{\subsubsection}{0pt}{*1.0}{*0.5}
+\titlespacing*{\paragraph}{0pt}{*0.5}{*0.5}
+
+% SSReflect listings 
+\input{lstcoq}
+\lstset{style=Coq}
+
+
+\begin{document}
+
+\special{papersize=8.5in,11in}
+\setlength{\pdfpageheight}{\paperheight}
+\setlength{\pdfpagewidth}{\paperwidth}
+
+
+\authorinfo{Ilya Sergey}
+           {IMDEA Software Institute}
+           {ilya.sergey@imdea.org}
+%
+\authorinfo{Aleksandar Nanevski}
+           {IMDEA Software Institute}
+           {aleks.nanevski@imdea.org}
+
+\title{
+  Introducing Functional Programmers\\
+  to Interactive Theorem Proving and Program Verification
+}
+
+\subtitle{Teaching Experience Report\thanks{A part of this work has
+    been carried out while the first author was giving lectures in a
+    summer school on interactive theorem proving, which was sponsored
+    by JetBrains and took place in August 2014 at Saint Petersburg
+    State University.}}
+\maketitle
+
+\begin{abstract}
+
+  We report on the design and preliminary evaluation of a short
+  introductory course on interactive theorem proving and program
+  verification using the Coq proof assistant, targeted at students
+  with background in functional programming and software engineering.
+
+  The course builds on concepts familiar from functional programming
+  to develop understanding of logic and mechanized proving by means of
+  the Curry-Howard isomorphism. A particular emphasis is made of the
+  \emph{computational} nature of \emph{decidable} properties of
+  various data structures. This approach is of practical importance,
+  as Coq's normalization can automatically simplify or discharge such
+  properties, thus reducing the burden of constructing the proofs by
+  hand. As a basis for teaching this style of mechanization, we use
+  Gonthier \etal's Ssreflect extension of Coq and its associated
+  libraries.
+  
+  In the course, we minimize the exposure to ad-hoc proof automation
+  via tactics, and request that students develop proofs using only a
+  small set of proof-building primitives that they should clearly
+  understand. In addition to introducing logic as an application of
+  functional programming, the topics covered by the course include:
+  implementation of custom rewriting principles as instances of
+  indexed type families, boolean reflection, implementation of
+  algebraic structures and inheritance between them, and verification
+  of imperative programs in separation logic and Hoare Type Theory.
+
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+The concept of a rigorous mathematical proof has a long story as an
+educational topic. In our experience, however, a typical undergraduate
+curriculum in computer science teaches proofs from the point of view
+of logic, and ignores the fundamental connection between logic and
+programming. Thus, most undergraduates in computer science receive a
+strong background in programming, imperative as well as functional,
+but will seldom relate their programming intuition to logic and formal
+proofs.
+
+This situation is unfortunate, as recent years have seen the
+completion of a number of impressive and ground-breaking project in
+the field of formal mathematics and program verification. Examples
+include the Four color theorem~\cite{Gonthier:AMS08}, the Odd-Order
+theorem~\cite{Gonthier-al:ITP13}, seL4 kernel~\cite{Klein-al:TCS14}
+and CompCert compiler infrastructure~\cite{Leroy:POPL06}. These
+advances attest that proof assistants have significantly matured and
+are ready for use by the wider community in mathematics and computer
+science.
+
+An effective use of a proof assistant requires significant programming
+skills. This insight is especially true of proof assistants such as
+Coq~\cite{Coq-manual} or Agda~\cite{Norell:PhD}, which include a
+powerful dependently typed lambda calculus, in which one can write
+both programs as well as proofs, via the Curry-Howard isomorphism.
+However, the connection between formal mathematics and programming
+goes much deeper than the mere fact that proofs and programs can both
+be written in the lambda calculus. Indeed, even the way one defines
+the basic predicates of interest, implements algebraic objects and
+structures such as groups or rings, or organizes formal theories,
+significantly resembles programming in the large. In particular,
+programming concepts such as modules, functors, objects, abstract
+types and predicates, higher-order functions, inductive and
+coinductive types and families, overloading and inheritance, very
+quickly arise as natural mechanisms for structuring formal
+mathematical developments.
+
+Most fascinatingly---and, perhaps, confusingly to a novice---there may
+be many different ways, employing many different programming
+mechanisms, to formulate and mechanize the same mathematical
+problem. Each choice may present a number of tradeoffs that are not
+typically encountered in mere programming. It is important to know the
+tradeoffs well; good choices lead to reusable, maintainable and short
+proofs, just like they would in good programs. But, conversely,
+suboptimal or ``hacky'' choices typically lead to an explosion in
+complexity, much more quickly and severely than they do in
+programming.
+%
+In the light of this observation, one may say that effective
+construction of formal proofs is not just a programming challenge, but
+a programming challenge of the highest order, in which one's coding
+skills, discipline and inventiveness can really shine, much more so
+than in ordinary software development.
+%
+%\footnote{One may truly say that proof assistants
+%   such as Coq or Agda \emph{should be} the language of choice for
+%   discriminating hackers (\cf ICFP programming contest).}
+
+
+This article describes an introductory course on interactive theorem
+proving and verification using Coq, which we designed to focus on
+several such issues and their related tradeoffs, that pertain to both
+programming and proving. The considered issues appear frequently in
+our everyday formalization work, but because they have not been
+collected and emphasized in the existing introductory literature
+(rather, they are interspersed across research papers of many
+authors~\cite{Garillot:PhD,Mahboubi-Tassi:ITP13,Garillot-al:TPHOL09,Gonthier-al:JFP13,Gonthier-al:TR,Paulin-Mohring:TLCA93}),
+we have frequently needed to devote time to introduce them to new
+students and collaborators (all with significant experience with ML
+and Haskell), individually. The idea for this course and its selection
+of topics arose out of such informal teaching experience. In a more
+formal setting, we report on our experience with respect to the
+proof-of-concept evaluation of the course, which was delivered by the
+first author in a five-days summer school for a small group of
+students of Saint Petersburg State University (SPbSU), majoring in
+mathematics and software engineering and having necessary background
+in Haskell, thanks to the standard curriculum courses.
+
+By necessity imposed by space limits, our presentation in this report
+assumes quite a lot of familiarity with Coq, though, of course, such
+familiarity is not assumed in the course itself, the associated
+lecture notes, slides, and code templates for hands-on
+classes~\cite{Sergey:PnP}. However, we do not assume that the reader
+will be able to follow the ocasional Coq proof we present. In such
+cases, we discuss the main ideas of the proof in prose. In the rest of
+the article, we present the broader outline of the course, focusing in
+more depth on a few specific topics that are not usually covered by
+the existing literature and courses on Coq.
+
+\section{Related introductory literature and overview}
+\label{sec:overview}
+
+The Coq proof assistant~\cite{Coq-manual} has been in development
+since 1983, and by now there are a number of courses that provide
+introductions to Coq-powered proving and programming. Among the
+available manuscripts, we find the following three most suitable for
+teaching purposes.
+
+The book \emph{Interactive Theorem Proving and Program
+  Development. Coq'Art: The Calculus of Inductive Constructions} by
+Yves Bertot and Pierre Cast\'{e}ran~\cite{Bertot-Casteran:BOOK} is an
+exhaustive overview of Coq as a formal system and tool, covering both
+logical foundations, reasoning methodologies and automation, and
+offering large number of examples and exercises (from which we
+borrowed some).
+%
+Benjamin Pierce \etal's \emph{Software Foundations} electronic
+book~\cite{Pierce-al:SF} introduces Coq development from an angle of
+the basic research in programming languages, focusing primarily on
+formalization of language semantics and type systems, which serve both
+as main motivating examples of Coq usage and as a source of intuition
+for explaining Coq's logical foundations.
+%
+The most recently published book, \emph{Certified Programming with
+  Dependent Types} by Adam Chlipala~\cite{Chlipala:BOOK} provides an
+introduction to Coq from the perspective of writing programs that
+manipulate \emph{certificates}, \ie, first-class proofs of the
+program's correctness. The idea of certified programming is a natural
+fit for a programming language with dependent types, which Coq offers,
+and the book is structured as a series of examples that make the
+dependently-typed aspect of Coq shine, along with the intuition behind
+these examples and a detailed overview of state-of-the-art \emph{proof
+  automation} techniques.
+
+Although all the three books have been successfully used in numerous
+introductory courses on Coq, we thought that there are still some
+topics essential for effective and boilerplate-free mathematical
+reasoning via a proof assistant that are left underrepresented. Our
+course is targeted to fill these gaps, while giving the students
+enough background to proceed as Coq hackers to independently tackle
+projects of their interest. In particular, in the course, we have
+emphasised the following aspects of proof engineering, most of which
+are enabled or empowered by Gonthier \etal's \emph{small-scale
+  reflection} extension (Ssreflect) to Coq~\cite{Gonthier-al:TR}:
+
+\vspace{5pt}
+
+\begin{itemize}
+
+\item Special treatment is given to the \emph{computational} nature of
+  reasoning about \emph{decidable} propositions. In other words, many
+  results about decidable properties can be computed as boolean
+  values, rather than proven interactively. But to do so, one has to
+  formulate the properties as computable recursive Coq functions with
+  \code{bool} result, rather than as inductive predicates. The latter
+  is more in the spirit of the traditional introductions to Coq.
+
+\item Instead of supplying the students with a large vocabulary of
+  automated tactics necessary for everyday Coq hacking, we focus on a
+  small but expressive set of primitives (about six in total), offered
+  by Ssreflect or inherited from the vanilla Coq with notable
+  enhancements.
+
+%Later in the course, some of the standard Coq tactics (such as
+%\code{split} and \code{exists}) are introduced as reasonable
+%``shortcuts'' to the ``basic'' tactics invoked with specific
+%parameters.
+
+\item Reasoning by rewriting is presented from the perspective of
+  Coq's definition of the propositional equality and followed by
+  elaboration on the idea of using \emph{index type families} as a
+  tool to define client-specific conditional rewrite rules. The usual
+  way indexed type families are presented in the related work is for
+  use in programming and pattern matching, rather than rewriting.
+  Conversely, we advocate parametrized (but not indexed) types, for
+  programming and pattern matching.
+
+\item We provide a detailed explanation of the essentials of
+  Ssreflect's \emph{boolean reflection} between the sort \code{Prop}
+  and the datatype \code{bool} as a particular case of conditional
+  rewriting, following the computational approach to proving decidable
+  properties.
+
+\item Formal encoding of familiar mathematical structures (\eg,
+  monoids, partial orders, \etc) is carried out by means of
+  \emph{dependent records}; mathematical operations are overloaded
+  using the mechanism of \emph{canonical instances}, similar to
+  Haskell type classes. This analogy illustrates how the programming
+  ideas of overloading and inheritance come into formal
+  proving~\cite{Garillot-al:TPHOL09}.
+%
+  % \an{maybe we should cite some people here to give them credit for
+  %   the ideas.}
+
+\item A novel (from a teaching perspective) case study is considered,
+  introducing the students to the concepts of stateful program
+  verification using separation logic and Hoare Type
+  Theory~\cite{Nanevski-al:JFP08}.
+
+\end{itemize}
+
+\vspace{5pt}
+
+\subsection{Why teach with Ssreflect?}
+\label{sec:why-ssreflect}
+
+A significant part of our material is presented using the Ssreflect
+extension of Coq~\cite{Gonthier-al:TR}. Ssreflect is developed as a
+part of the Mathematical Components
+project,\footnote{\scriptsize{\url{http://www.msr-inria.fr/projects/mathematical-components-2/}}}
+to facilitate automated reasoning and simplification in very large
+mathematical developments, in particular, the formalizations of the
+Four color theorem~\cite{Gonthier:AMS08} and the Feit-Thompson (odd
+order) theorem~\cite{Gonthier-al:ITP13}.
+
+Ssreflect includes a small but expressive (and comfortable for
+practical work) set of primitives for proof construction, related to
+but different from the traditional set provided by Coq. It also comes
+with a large library of algebraic structures, ranging from natural
+numbers to graphs, finite sets and algebras, formalized and shipped
+with exhaustive toolkits of lemmas and facts about them. Finally,
+Ssreflect introduces some mild modifications to Coq's native syntax
+and the semantics of the proof script interpreter, which makes the
+proofs very concise.
+
+Using Ssreflect for our development was not the goal by itself: a
+large part of the course could be presented using traditional Coq
+without any loss in the insights but, perhaps, some loss in brevity.
+%
+However, having been developed as part of a very large formalization
+effort, Ssreflect's libraries are well-tested in the wild, and are an
+excellent example of good mechanization practice. In particular, they
+make it very easy for us to emphasize the above-listed mechanization
+aspects of the course. In fact, to the best of our knowledge, it was
+the work on Ssreflect and the Four color
+theorem~\cite{Gonthier:AMS08,Garillot-al:TPHOL09,Garillot:PhD} that
+first applied boolean reflection and canonical structures in Coq to a
+larger-scale formalization effort.
+
+% \begin{comment}
+% using Ssreflect's libraries
+% and tactics made it much easier to stress the main points of this
+% course, namely, that {(a)} the proof construction process should rely
+% on Coq's native computational machinery as much as possible and
+% %
+% \an{It's a bit mysterious here what's meant. Why not say ``boolean
+%   reflection'' right off the bat, to make things more concrete. Or
+%   point to the previous example is is-zero?}
+% %
+% {(b)} rewriting is one of the most important proof techniques, which
+% should be mastered and leveraged in the proofs. 
+% %
+% \an{Hmm, this (b) part is not really disputable in plain Coq
+%   either. I.e., this doesn't sound like a specific strength of Ssr,
+%   compared to Coq.}
+% %
+% Many lemmas in Ssreflect libraries are formulated in the form of
+% equalities between boolean values, which makes them immediately
+% suitable for rewritings, which directly follows the natural
+% mathematical intuition. 
+% %
+% \an{Plain Coq can also have equivalences, with
+%   which one may rewrite with too. Maybe instead of rewrite rules, use
+%   (b) to emphasize reflection.}
+% %
+% The enhancements Ssreflect brings over the standard Coq rewriting
+% machinery (such as rewriting using a series of equations in a number
+% of hypotheses and goals and fine-grained control over the rewriting
+% occurrences) also come in handy.
+% %
+% \an{Maybe mention which enhancemenents do you have in mind?}
+% %
+% \is{Okay, I've added some explanations here.}
+% \end{comment}
+
+Last, but not least, Ssreflect comes with a much improved
+\code{Search} tool, compared to standard Coq. The \code{Search} tool
+is invaluable, given that a fair part of the time spent on
+mechanization is typically devoted to reading third-party code and
+lemma libraries.
+
+% \an{Hmm, do we need this last section? We have said that most of the
+%   stuff is ``enabled or empowered'' by Ssreflect. Maybe giving credit
+%   to Georges and his team is best done by providing explicit
+%   references in the itemized list above.}
+
+%
+%when it comes to looking for
+%necessary third-party facts to employ in one's own proofs.
+
+\section{Structure of the course}
+
+In addition to the topics listed above, our course supplies some
+amount of ``standard'' teaching material required to get the students
+off the ground.
+%
+%ntroduce students with a background in programming and classical
+%mathematical disciplines to proof engineering and program development
+%in Coq. 
+In a nutshell, we begin by explaining how simple functional programs
+over basic datatypes can be defined and executed in the programming
+environment of Coq. We then proceed to the definition of propositional
+logic connectives and elements of interactive proof construction, by
+insisting on the Curry-Howard analogy with functional programming.
+%
+Building further on the common intuition about ``truth
+tables'', 
+%
+% \an{Hmm, ``truth tables'' seem like a distinctly logical intuition,
+% not programming one.}
+% \is{Ok, fixed it}
+%
+the course introduces propositional equality and the way to encode
+custom rewrite rules by means of indexed type families. The idea
+naturally extends to the discussion of boolean reflection and
+reasoning by computation.  We proceed to introduce 
+%
+% \an{you mean ``revisit''? or ``introduce''?  Induction wasn't
+%   mentioned before, so why should it be ``revised''?}
+%
+% \is{Fixed}
+%
+important principles of proof by induction, and provide a brief
+overview of standard Ssreflect libraries about basic datatypes such as
+natural numbers, booleans, equality types, \etc. These datatypes are
+very basic and broadly used, so the familiarity with the main
+libraries of lemmas about them is essential. Finally, all the
+introduced concepts and reasoning principles are put together and
+employed in a larger hands-on study of verification of imperative
+programs in Hoare Type Theory~\cite{Nanevski-al:POPL10}.
+
+In this section we provide a detailed description of the structure of
+the course and refer the interested reader to the full syllabus and
+the accompanying exercises available online~\cite{Sergey:PnP}.
+
+\subsection{From functional programs to propositional logic}
+
+Assuming that the students are knowledgeable about the basic concepts
+of functional programming, such as algebraic datatypes, pattern
+matching and possibly higher-order functions, we begin the course by
+demonstrating the syntax for the same concepts in Coq, focusing solely
+on Coq's programming language component.
+
+\subsubsection{Functional programming in Coq}
+\label{sec:programming-coq}
+
+We start by presenting simple datatypes, such as \code{unit},
+\code{bool}, \code{nat} and \code{empty} (\ie, the type without
+constructors), proceeding shortly after to the definitions of
+functions on these datatypes. For example, addition on \code{nat} is
+defined by the program below, which introduces the students to Coq's
+syntax for pattern matching and its abbreviated Ssreflect variant
+\code{if-is}. The latter is useful for cases with only one non-default
+branch. \code{_.+1} is Ssreflect notation for successor.
+
+\begin{lstlisting}
+Fixpoint my_plus n m := 
+  if n is n'.+1 then (my_plus n' m).+1 else m.
+\end{lstlisting}
+
+Next, we focus on the induction and recursion principles, generated by
+Coq automatically for each inductive definition. We explain these as
+higher-order functions, whose return types can depend on the value of
+the argument; hence, this gives us a way to introduce \emph{dependent
+  function types} as well. We show how the recursive function
+\code{my_plus} can be rewritten explicitly in terms of the recursion
+principles, and suggest a number of exercises intended to expose the
+students to working with higher-order dependently-typed
+functions. This lecture culminates with a short demonstration of
+custom dependently-typed functions, \eg, a function returning
+\code{unit} on some inputs and \code{nat} on some others.
+
+Elaborating futher on the types of generated recursion and induction
+principles, we draw the students' attention to the recursion principle
+generated for the datatype \code{empty}:
+
+\begin{lstlisting}
+empty_rect : forall (P : empty -> Type) (e : empty), P e
+\end{lstlisting}
+
+A function with such a type allows one to obtain instance of
+\emph{any} type, given an argument \code{e} of type \code{empty},
+thanks to the argument \code{P}, which can be instantiated by a
+constant function returning a necessary type. A closer examination of
+the body of \code{empty_rect} by means of \code{Print} machinery
+leaves no doubts that it is well-typed. Therefore, an important
+conclusion follows: \emph{assuming existence of a value that cannot be
+  constructed, we are able to construct anything}. We next show that
+\code{empty} is not the only datatype that can have this ``magical''
+property of allowing to construct a value of any type from it. In
+particular, we refer to the example with a type \code{strange}, taken
+from~\cite{Bertot-Casteran:BOOK}, which is also \emph{non-inhabited},
+even though it has a constructor:
+%
+\begin{lstlisting}
+Inductive strange := cs of strange.
+\end{lstlisting}
+%
+%
+% \an{What's the definition of \code{strange}? Maybe show it here? I'm
+% kinda
+% curious.}
+%
+While the students don't have all that much experience with the
+\code{empty} type, as it is not frequently encountered in programming,
+we point out that it will correspond to the empty set in mathematics,
+and to the false proposition in logic, and will thus have a
+significant role to play very soon in the course.
+
+We continue by showing a number of familiar algebraic datatypes, such
+as pairs, sums, lists and trees as well as functions operating on
+these, suggesting a number of simple programming exercises. After
+successfully accomplishing a few of them, the students already feel
+relatively comfortable with Coq as a programming language and realize
+its main ``limitation''. In particular, they notice they can't define
+generally-recursive functions in the usual programming style, and are
+forced to rely on primitive recursion in order to convince Coq's type
+checker that their functions terminate.
+
+\subsubsection{Searching and structuring libraries}
+\label{sec:search-defin}
+
+In practical programming, it is important to be able to search for
+appropriate procedures in someone else's libraries. The same holds for
+interactive proof development, where one needs to search for
+definitions and lemmas. When programming in Haskell, one may use
+search engines such as
+\emph{Hoogle}\footnote{\footnotesize{\url{http://www.haskell.org/hoogle/}}}
+and
+\emph{Hayoo!}.\footnote{\footnotesize{\url{http://hayoo.fh-wedel.de/}}}
+This functionality is provided in Coq by the \code{Search} command,
+which is further enhanced by Ssreflect (see Chapter~10
+of~\cite{Gonthier-al:TR}). We decided to introduce the students to
+\code{Search} very early on. Even though by this moment in the course,
+they are not familiar with formal logic and proofs, they can already
+use \code{Search} to look for definitions and functions from the
+programming side, based on their types. For example, they can execute
+queries like the following one
+%
+\begin{lstlisting}
+Search _ ((?X -> ?Y) -> _ ?X -> _ ?Y).
+\end{lstlisting}
+%
+which returns all \code{map}-like functions currently available in
+the imported libraries.  
+
+Coq's extensible parser is a powerful tool when defining custom
+notations for mathematical theories. From our experience it is also a
+source of constant frustration for the Coq newcomers, who struggle to
+figure out whether some notation is defined in a library, or is Coq's
+native syntax. To avoid the pain of working with custom third-party
+notations, we teach them to use commands like \code{Locate} and
+\code{Print}. We also show how to ``switch off'' all the syntactic
+sugar from custom notations with the \code{Set Printing All}
+command. We also show how to define one's own custom notation, with a
+warning that the feature should be used carefully, as it is easy to
+abuse and make one's code unreadable.
+
+At this point we also introduce the students to basic program
+structuring primitives of Coq, such as sections and modules. We
+explain the difference between the two (\eg, modules provide
+hierarchical name spaces, while sections declare local variables that
+generalize over the section body), and illustrate how to combine the
+two to achieve a degree of ``locality'' for definitions and hiding of
+the internal details.
+%
+% \an{Hmm, this is not a very clear paragraph, as it's not clear what is
+%   ``desired level of encapsulation''. Why not revise as follows. After
+%   ``we explain the difference between the two'', just say that we
+%   illustrate by simple examples what can be done by one feature, and
+%   what by the other. Do we want to go any deeper into this, and
+%   explain in more detail what the differences are? I can imagine that
+%   the Pierce-style courses probably mess this point up, just like they
+%   mess many other things.}
+% %
+% \is{I tried to clarify what I meant by encapsulation. How does it read
+%   now?}
+
+\subsubsection{Introducing logical connectives}
+\label{sec:intr-logic-conn}
+
+By this moment, the students are familiar with the basic principles of
+programming in Coq. In particular, they understand that values of
+inductive datatypes are constructed by applying constructors to the
+arguments and ``destructed'' by pattern matching. They know how to
+define functions of appropriate types, and that a function should be
+applied to get the value of its result type. They have even seen
+dependently-typed functions whose return type can vary depending on
+the value of the arguments. In other words, everything is set up for
+the introduction of constructive logic by means of the Curry-Howard
+analogy.
+
+First of all, we define when a logical statement will be \emph{true}
+for us: when its proof \emph{can be built} from hypotheses and rules
+by referring to the hypotheses and applying the rules,
+correspondingly. This definition has two important implications, which
+we elaborate upon: (1) this notion of truth is \emph{constructive};
+something is only true if its proof can be constructed in a finite
+number of steps, and (2) the truth is \emph{relative} with respect to
+the initial hypotheses and the rules of the logic. In our experience,
+this definition most often matches very well the intuition that the
+students have from their classical mathematical education. Even if
+they haven't been exposed to extensive study of mathematical logic
+and, hence, have only a very informal idea of what a formal proof is,
+they know how to write informal ones, and how to find flaws in
+them. The definition also makes it easy to introduce \emph{falsehood}
+as a proposition whose proof cannot be constructed.
+
+%\an{Hehe, this paragraph sounds way too deep for its own
+%  good. I mean, when I hear someone talking about ``the notion of
+%  truth'', I pull out the gun. Most of the time in such cases I can't
+%  quite figure out what the interlocutor means. More constructively, I
+%  think that the above paragraph should be made much more concrete and
+%  down-to-earth. Why not say the following. (1) We introduce basic
+%  logical propisitions as simple datatypes as in functional
+%  programming. (2) Then we show conjunction corresponds to pairing,
+%  disjunction to union, falsehood to empty type, truth to
+%  unit. Finally, (3) implication corresponds to function types, and
+%  proofs of implications to functions. Aside: how did the students
+%  react when you introduced them to this? Did they not know this
+%  already?}
+
+Next, we appeal to the analogy between the falsehood \code{False} and
+the datatype \code{empty}, defined previously, followed by the
+introduction of standard logical connectives by the Curry-Howard
+correspondence: conjunction corresponds to the product datatype
+\code{prod}, disjunction to \code{sum}, truth to a type with a single
+element (in Coq, the element is named \code{I}), implication to
+function type \code{A -> B}, universal quantification to dependent
+function types, and existential quantification to a specific dependent
+record type. This intuition gradually leads to the idea that proving a
+logical proposition corresponds to building a program that has the
+proposition as its type. In other words, we're trying to
+\emph{inhabit} a type with a \emph{proof term} element.\footnote{While
+  drawing the analogy of types/propositions as sets of proofs is
+  useful for building intuition, we find it important to emphasize
+  that, unlike sets in set theory, types in Coq are always
+  \emph{disjoint}; that is, an element cannot belong to more than one
+  type.}
+
+Given this relation, it is natural to explain the usual inference rules
+in terms of functional programming.
+%
+In particular, a function can be introduced by \emph{assuming} its
+argument and constructing its body, in which the argument is used,
+which corresponds to the rules of implication introduction. The
+similar intuition holds for universal quantification. The introduction
+rules for other logical connectives correspond to application of a
+\emph{constructor} of the corresponding logical connective (\eg,
+\code{conj} in the case of conjunction, and similarly for existential
+quantification). As for elimination rules, most of the connectives
+(conjunction, disjunction, existentials) clearly correspond to
+case-analysis by means of Coq's \code{match-with} expression
+construct. 
+%
+% \an{conjunction elimination is really by means of fst and snd
+%   projections.}
+% %
+% \is{... which are implemented using pattern matching, so the point
+%   stays.}
+%
+ The notable exceptions are the \emph{modus ponens}
+rule for implication, and the \code{forall}-specialization rule, which
+both correspond to function application.
+
+\subsubsection{Interactive proof construction: first encounter}
+\label{sec:inter-proof-constr}
+
+% Once we have presented the analogy, which relates introduction rules
+% (\ie, the rules that allow one to construct a logical connective,
+% which is a \emph{goal} to be proved) and constructors/assumptions as
+% well as elimination rules (\ie, the rules allowing one to \emph{make
+% use} of the assumptions by means of case-analysing on them or
+% applying them) and pattern matching/function applications,
+%
+After concepts related to proofs have been introduced, we can proceed
+to interactive proof development. We point out that even though proofs
+are the same as programs, it's frequently easier to develop them not
+as explicit lambda-terms, but in a step-by-step manner using proof
+scripting with a small (but expressive) set of Ssreflect's primitives.
+%
+% \an{I added the point about doing scriptintg. I expected
+%   that students would have been puzzled otherwise as to why not just
+%   write programs? I.e., why are we moving to scripting instead of
+%   sticking with functional programming? Should we elaborate even
+%   more?}
+
+First, we show the simplest possible proof script, which just appeals
+to a known fact whose proof is constructed explicitly as a
+lambda-term.  This construction is done by the \code{exact} primitive,
+as in the following proof of \code{True}, whose explicit proof is
+called \code{I}:
+%
+\begin{lstlisting}
+Theorem true_is_true : True.
+Proof. exact: I. Qed.
+\end{lstlisting}
+%
+Next, we demonstrate the machinery enabled by Ssreflect's \code{move}
+tactic placeholder and two \emph{bookkeeping} tacticals, \code{=>} and
+\code{:}. These allow one to work with \emph{assumptions}, moving them
+``bottom-up" (\ie, from the goal to the context) and vice versa,
+respectively:
+%
+\begin{lstlisting}
+Theorem imp_trans (P Q R: Prop) : 
+         (P -> Q) -> (Q -> R) -> P -> R.
+Proof. move => H1 H2 p; exact: (H2 (H1 p)). Qed.
+\end{lstlisting}
+%
+We emphasize that the proof by \code{exact} is and instance of
+so-called \emph{forward} reasoning style, in which assumptions are
+combined to eventually obtain the proof of the goal. In the above
+proof, \code{H1}, \code{H2}, \code{p} are proofs of \code{P->Q},
+\code{Q->R}, and \code{p}, respectively, and the proof of \code{R} is
+obtained as an application \code{H2 (H1 p)}. We also exhibit the
+opposite---\emph{backwards}---reasoning style, which replaces the goal
+by a number of obligations arising from the types of the applied
+function/hypothesis' arguments. In Ssreflect, backwards reasoning is
+implemented by the \code{apply:} tactic,\footnote{Which is somewhat
+  more powerful than Coq's native \code{apply} (without ``:'').} the
+use of which we immediately demonstrate on a number of simple
+examples:
+
+%\newpage
+
+\begin{lstlisting}
+Theorem all_imp_dist A (P Q: A -> Prop) : 
+  (forall x: A, P x -> Q x) -> (forall y, P y) -> 
+  forall z, Q z. 
+Proof. move => H1 H2 z; apply: H1; apply: H2. Qed.
+\end{lstlisting}
+%
+We elaborate that constructing proofs by means of \code{apply:}
+essentially corresponds to reading logical introduction rules
+``bottom-up''. In this way, constructors of logical connectives are
+essentially equated with hypotheses in context.
+
+At this point, students are equipped with three main proof building
+primitives, and can already construct simple proofs. The main missing
+component is the primitive for case analysis (\ie, pattern-matching),
+which we introduce next. As most of the Ssreflect tactics, \code{case}
+can be effectively combined with bookkeeping tacticals, which we make
+use of immediately.\footnote{The necessary syntax for working with
+  multiple subgoals, \eg, the \code{[||]} tactical, is introduced on
+  the way by gradually ``compressing'' the proofs in front of the
+  students during the hands-on recitations.}
+%
+\begin{lstlisting}
+Theorem conj_comm P Q : P /\ Q -> Q /\ P.
+Proof. case=> p q; apply: conj; [exact: q|exact: p]. Qed.
+\end{lstlisting}
+%
+If no specific argument is provided, the tactics \code{move} and
+\code{case} by default always work with the \emph{leftmost} assumption
+of the goal.
+
+The four primitives introduced by now: \code{exact}, \code{move},
+\code{case} and \code{apply}, together with Ssreflect's bookkeeping
+machinery, are sufficient for building proofs of arbitrary logical
+propositions.
+%
+% To provide students with the oportunity for practice that should
+% familiarize them with the effects that each of the primitives has on
+% the goal and the context, we suggested number increasingly complex
+% exercises (\eg, proofs of statements involving the falsehood
+% \code{False} and reasoning out of contradiction).  
+%
+% \an{The above paragraph seems unfocused. What's the point of saying
+%   that we let them reason out of False. It's not the most intriguing
+%   kind of assignments. I tried to make the paragraph more concrete,
+%   but I didn't succeed. Let's just erase it.}
+%
+%\is{Ok, let's remove it.}
+%
+We next explain a number of ``shortcut'' tactics that simplify the
+work with particular logical connectives and predicates. Examples
+include: \code{split}, \code{exists}, \code{left}, \code{right}, \etc.
+While explaining the shortcut tactics, we ask the students to express
+them through the four basic ones. We also explain Ssreflect's
+\emph{terminators} \code{by} and \code{done}, which raise an error
+message if they fail to discharge the goal. Finally, we illustrate the
+tactic \code{intuition} on a few examples. This tactic attempts to
+prove propositions in intuitionistic logic automatically. In this case
+too, we ask the students to prove the same examples without
+automation, using only the four basic primitives.
+
+We conclude this part of the course by providing a brief overview of
+non-constructive axioms from classical propositional logic, such as
+the \emph{law of excluded middle}, \emph{Peirce's law}, the \emph{law
+  of double negation}. Students are asked to to prove that these are
+all equivalent, following an excercise by Bertot and
+Cast\'{e}ran~\cite{Bertot-Casteran:BOOK}. We also briefly elaborate on
+the impredicativity of the sort \code{Prop} of propositions in Coq,
+and provide a short explanation of the basics of Coq's hierarchy of
+universes.
+
+\subsection{Equality and rewriting}
+\label{sec:rewriting}
+
+After explaining the basics of propositional logic, we proceed to
+address equational reasoning and the corresponding proof technique of
+\emph{rewriting}. Propositional equality is defined in Coq by the
+following \emph{indexed type family} (in this case, the index is the
+element of type \code{A} in the type signature \code{A -> Prop}):
+%
+\begin{lstlisting}
+Inductive eq (A : Type) (x : A) : A -> Prop :=  
+   eq_refl : eq x x.
+Notation "x = y" := (eq x y) (at level 70).
+\end{lstlisting}
+%
+A common way of understanding indexed type families such as the one
+above is to compare them to \emph{generalized algebraic datatypes}
+(GADTs) in Haskell~\cite{PeytonJones-al:ICFP06,Xi-al:POPL03}. The
+latter allow the programmer to refine and guide the process of
+(dependent) pattern matching by the type index of the
+scrutinee. Studying indexed type families from this point of view is a
+very active research
+area~\cite{Morris-al:FCS09,Dagand-McBride:ICFP12}.
+%
+However, not wanting to get bogged down with too many details of
+dependent pattern matching, we decided to explain indexed type
+families by another well-known analogy~\cite{Paulin-Mohring:TLCA93},
+%
+%\is{Where exactly does it occur in the litrerature?}
+%
+specifically useful in Coq: indexed type families correspond to
+\emph{custom} (\ie, user-defined) \emph{simultaneous conditional
+  rewrite rules}.
+
+The intuition about this is best built by examples. For instance, the
+proof of the equality's symmetry will look as follows:\footnote{In
+  fact, the case-analysis on Coq's predicate family \code{eq} is
+  overloaded by Ssreflect, so this example is presented in the course
+  using an equivalent, user-defined, equality predicate family
+  \code{my_eq}.}
+
+%\newpage
+
+\begin{lstlisting}
+Lemma eq_sym A (x y: A) : x = y -> y = x.
+Proof. by case. Qed.
+\end{lstlisting}
+
+The \code{case}-analysis on the assumption \code{x = y} essentially
+forces the unification mechanism of Coq to exploit the ``implicit
+equality'', encoded via the \code{eq}'s index (\ie, the second
+argument), and \emph{substitute} all occurrences of the index's actual
+value by the value declared in the constructor \code{eq_refl} first
+argument. In other words, case-analysing the assumption rewrites the
+occurrence of \code{y} by \code{x}, therefore leading to a subgoal
+\code{x = x} which trivially discharged by the terminator
+\code{by}. In a more pictorial analogy, one can think of the predicate
+\code{eq x y} as of the following ``rewriting'' table:
+
+\vspace{5pt}
+
+\begin{center}
+\hspace{-20pt}
+  \begin{tabular}{r|r|c|}
+    \cline{3-3}
+    \multicolumn{2}{c|}{} & \code{y}
+    \\
+    \cline{2-3} 
+    \multicolumn{1}{r}{\code{eq_refl}} &\multicolumn{1}{|c||}{\code{x}} & \code{x}
+    \\    \cline{2-3}
+  \end{tabular}
+\end{center}
+
+\vspace{5pt}
+
+In English, for the fixed value \code{x} (which is bound by the
+datatype's parameter), the instance of \code{eq x y} defines an
+``rewriting table'', whose top-right cell specifies \emph{what} should
+be replaced (in this case, this is \code{y}, which is captured by the
+datatype's index). The bottom-right cell, thus, specifies what the
+actual value of the index, \code{y}, should be substituted
+\emph{with}. Hence, case-analysis on such a rewriting table will
+replace all the occurrences of the columns' ``headers'' (values of
+indices in the actual instance) by the corresponding values in the
+``cells'' (values of indices in the constructors). In this analogy,
+the ``rows'' of the table correspond to particular constructors and
+their arguments, and in the case of \code{eq} there is just one,
+\code{eq_refl}, with a single argument \code{x}.
+
+This intuition is further strenghtened by more involved examples from
+the Ssreflect's library of natural numbers (\code{ssrnat}). In
+particular, we consider the following indexed family \code{nat_rels}
+and the companion lemma \code{ltngtP}:
+
+\begin{lstlisting}
+Inductive nat_rels m n : bool -> bool -> bool -> Set :=
+| CompareNatLt of m < n : nat_rels m n true false false
+| CompareNatGt of m > n : nat_rels m n false true false
+| CompareNatEq of m = n : nat_rels m n false false true.
+
+Lemma ltngtP m n: nat_rels m n (m < n) (n < m) (m == n).
+\end{lstlisting}
+
+\noindent
+The parameters of \code{nat_rels} are the nats \code{m} and
+\code{n}. The definition also has three indexes, all boolean.
+Together, \code{nat_rels} and \code{ltngtP} encode the following
+rewriting table.
+
+\vspace{5pt}
+
+\begin{center}
+\hspace{-20pt}
+  \begin{tabular}{r|r|c|c|c|}
+    \cline{3-5}
+    \multicolumn{2}{c|}{} & \code{m < n} & \code{n < m} & \code{m == n}
+    \\
+    \cline{2-5}
+    \multicolumn{1}{r}{\code{CompareNatLt}}& \multicolumn{1}{|c||}{\code{m < n}} & \code{true} & \code{false} & \code{false}
+    \\
+    \cline{2-5}
+    \multicolumn{1}{r}{\code{CompareNatGt}}& \multicolumn{1}{|c||}{\code{m > n}} & \code{false} & \code{true} & \code{false}
+    \\
+    \cline{2-5}
+    \multicolumn{1}{r}{\code{CompareNatEq}}& \multicolumn{1}{|c||}{\code{m = n}} & \code{false} & \code{false} & \code{true}
+    \\
+    \cline{2-5}
+  \end{tabular}
+\end{center}
+
+\vspace{5pt}
+\noindent
+The column headers specify the subexpression in the goal to be
+substituted by case analysing on a proof of \code{ltngtP} (\ie,
+\emph{what} is substituted). In this particular case, we want to
+simultanously substitute for three different boolean expressions:
+\code{m < n}, \code{n < m} and \code{m == n}.\footnote{The ordering
+  relations and the equality on natural numbers are implemented in
+  Ssreflect as boolean functions, since they are decidable.}  The row
+headers specify when (\ie, \emph{under which conditions}) the
+substitution takes place. The value identified by a given row and
+column says what we substitute \emph{with}.  More concretely, case
+analysing on a proof of \code{ltngtP} will make Coq substitute the
+occurrences of \code{m == n} in a goal as follows (and similarly for
+\code{m < n} and \code{n < m}). It will generate three subgoals, in
+which \code{m == n} is replaced with \code{false}, \code{false}, and
+\code{true}, respectively. The subgoals will contain hypotheses as
+read off from the row headers; the first subgoal will be conditioned
+on \code{m < n}, the second on \code{m > n}, and the third on \code{m
+  = n}. One can employ such simultaneous conditional rewriting to
+carry out very short and effective proofs. For example, the following
+proofs about \code{minn} and \code{maxn} functions are taken from the
+\code{ssrnat} library:
+%
+\begin{lstlisting}
+Definition maxn m n := if m < n then n else m.
+Definition minn m n := if m < n then m else n.
+
+Lemma addn_min_max m n : minn m n + maxn m n = m + n.
+Proof.
+by rewrite /minn /maxn; case: ltngtP=>//; rewrite addnC.
+Qed.
+\end{lstlisting}
+%
+In the proof of \code{addn_min_max}, right after \emph{unfolding} the
+definitions of \code{minn} and \code{maxn} by the rewrite command, the
+case-analysis on the table constructed by \code{ltngtP} with
+\emph{simultaneous} rewritings and reducing \code{if}-expressions,
+produces a number of subgoals, most of which are discharged by
+Ssreflect's trailing tactical \code{//}, which can be expressed in
+somewhat standard Coq as \code{try done} for each of the subgoals.
+%
+The observation about simultaneity of rewriting with respect to
+\code{m < n}, \code{n < m} and \code{m == n} is of essence. Had we
+tried instead to build the proof of \code{addn_min_max} based on the
+case-analysis over a lemma stating the totality of
+\code{<},\footnote{This is the lemma \code{forall m n, m < n \\/ m == n \\/ m > n}.} we would first have to prove a
+series of auxiliary properties, such as that \code{n < m} is
+\code{false} when \code{m < n} is \code{true}, and vice versa. The
+latter increases the proof burden. The simultaneous rewriting via the
+\code{ltngtP} lemma ``packages'' these facts together in the truth
+table \code{nat_rels}.
+%
+% \an{This is a bit too fast. Should we show the proof state after the
+%   case? Also, should we say that we asked students to carry out the
+%   same proofs without using ltngtP, but with using a lemma about
+%   totality, which should be more cumbersome. We may even show that
+%   other proofs here in the paper, for a comparison. Does that make
+%   sense?}
+% %
+% \is{I don't mind showing an alternative proof, but I'm not sure I
+%   understand what kind of a proof do you want to demonstrate? The one
+%   by induction on \code{m}/\code{n}?}
+
+While case analysis on lemmas over indexed families logically
+corresponds to rewriting, the above example readily illustrates that a
+separate \code{rewrite} primitive is also very useful, in particular
+with a number of enhancements provided by Ssreflect. The usage
+scenarious of a separate \code{rewrite} primitive include
+folding/unfolding definitions (by means of the \code{/} modality in
+Ssreflect), rewriting in assumptions and sub-expressions, and using
+occurrence switches to select specific subexpressions for rewriting
+(see Chapter~7 of~\cite{Gonthier-al:TR}).
+%
+
+In the excercises for this module, we ask the students to practice
+with rewrite tactics on a number of examples involving natural
+numbers. The selection of exercises also familiarizes them with the
+\code{ssrnat} library, where most of the lemmas take the form of
+equality. One such lemma is \code{addnC} employed in the proof above,
+which states commutativity of addition. The students also get to
+practice with the \code{Search} tool to find lemmas that encode the
+familiar properties of natural numbers such as associativity of
+addition, neutrality of zero, \etc.
+
+\subsection{Boolean reflection and views}
+\label{sec:views}
+%
+% \an{But views are not really discussed}
+
+One confusing point for students with programming background, when
+they are exposed to Coq, is the difference between the two-constructor
+enumeration type \code{bool} and Coq's sort of propositions
+\code{Prop}. At this point in the course, we explain the difference,
+but in a way that illustrates the trade-offs between the two concepts,
+when it comes to building interactive proofs. Following Ssreflect, we
+suggest that one should use boolean expressions to encode
+\emph{decidable} properties, whereas the propositions from \code{Prop}
+should be used for undecidable properties, or properties whose
+decidability is not trivial to establish. Consequently, one obvious
+difference that can be immediately pointed out is that \code{Prop}
+allows quantification over infinite domains, while \code{bool}
+doesn't. But more importantly, \code{bool} and \code{Prop} can be
+related by an indexed family (i.e, a ``rewriting table'', as
+introduced in the previous section). This idea is at the core of
+Ssreflect and, if used properly, often leads to very effective and
+compact proofs.
+
+\subsubsection{Coercing \code{bool} into \code{Prop}}
+\label{sec:coerc-codeb-into}
+We start by pointing out that booleans can be naturally injected into
+propositions by equating their value to \code{true}, using
+propositional equality defined in the previous section. This injection
+is done in Ssreflect by the implicit \emph{coercion}, defined in the
+\code{ssrbool} library:
+%
+\begin{lstlisting}
+Coercion is_true (b: bool) : Prop := b = true
+\end{lstlisting}
+
+We explain this coercion as an implicit type conversion, familiar to
+students from languages like Scala or Haskell, which Coq inserts
+automatically every time it ``expects to see'' a proposition, but
+instead encounters a boolean. We next show that, given a suitably
+formulated boolean expressions, reasoning with booleans can be
+surprisingly nifty, as demonstrated by the following example,
+involving Ssreflect's bool-returning function \code{prime}, which
+implements Erathostenes' sieve:
+%
+\begin{lstlisting}
+Goal prime (16 + 13). Proof. done. Qed.
+\end{lstlisting}
+%
+Indeed, the proof would have been much longer had one used the usual
+definition of prime numbers as those with only trivial
+divisors.\footnote{In fact, Ssreflect's library \code{prime} provides
+  both definitions and proves them equivalent, so that the user can
+  employ either one as needed.}
+%
+This example, and a number of similar ones, convey the idea that
+decidable properties, if implemented as computable functions returning
+a boolean result, allow Coq to perform automatic simplifications, and
+even obtain results by computation, without imposing any proving
+burden on the user.
+
+\subsubsection{Introducing the \code{reflect} datatype}
+\label{sec:reflect}
+
+Coercing booleans into propositions is easy enough by an implicit
+coercion, but going in the opposite direction is a somewhat more
+complicated. Ssreflect suggests a general methodology for implementing
+the equivalence between particular propositions and boolean
+expressions by means of the following \code{reflect} indexed family:
+%
+\begin{lstlisting}
+Inductive reflect (P : Prop) : bool -> Set :=
+  | ReflectT of   P : reflect P true
+  | ReflectF of ~ P : reflect P false.
+\end{lstlisting}
+%
+Indeed, following the ``rewriting table'' analogy (defined in
+\S~\ref{sec:rewriting}), one can think of \code{reflect} as a generic
+rewrite rule, parametrized with respect to ``logically equivalent''
+proposition \code{P} and a boolean~$\mathtt{b_P}$.
+
+\vspace{5pt}
+
+\begin{center}
+\hspace{-20pt}
+  \begin{tabular}{r|r|c|}
+    \cline{3-3}
+    \multicolumn{2}{c|}{} & $\mathtt{b_P}$
+    \\
+    \cline{2-3}
+    \multicolumn{1}{r}{\code{ReflectT}} & \multicolumn{1}{|c||}{\code{P}} & \code{true} 
+    \\
+    \cline{2-3}
+\multicolumn{1}{r}{\code{ReflectF}} & \multicolumn{1}{|c||}{{\small\texttt\textasciitilde}~\code{P}}  & \code{false} 
+\\\cline{2-3}
+  \end{tabular}
+\end{center}
+%
+\vspace{5pt}
+%
+We illustrate the use of the \code{reflect} datatype by examples
+involving reflection of logic connectives, \eg, conjunction
+%
+\begin{lstlisting}
+Lemma andP (b1 b2 : bool) : reflect (b1 /\ b2) (b1 && b2).
+\end{lstlisting}
+%
+The students are asked to prove a number of similar lemmas, \eg, for
+disjunction, in order to master the principles of providing custom
+instances of \code{reflect}.
+
+We next explain the use of \emph{views} and \emph{view hints}, which
+are part of Ssreflect's bookkeeping machinery (see Chapter~9
+of~\cite{Gonthier-al:TR}). We omit the discussion here, but briefly
+note for the reader unfamiliar with Ssreflect, that views are simply
+\code{reflect} lemmas which can be employed to on-the-fly convert a
+boolean expression into the equivalent proposition. For example, the
+above lemma \code{andP} can be used as a view to transform \code{b1 &&
+  b2} into a conjunction \code{b1 /\\ b2}. The latter form may be
+preferable at times; for example, the conjunction can be destructed
+into component conjuncts by the usual case analysis, whereas the
+similar destruction is much more cumbersome in the case of \code{b1 &&
+  b2}. Of course, the advantage of the \code{b1 && b2} form is that it
+may often simplify by computation, for special values of \code{b1} and
+\code{b2}, whereas those simplification won't be carried out
+automatically by Coq in the case of the \code{b1 /\\ b2} form.  A
+particularly useful view is the lemma \code{eqP} which relates boolean
+and propositional equality, in the special case of \code{eqType}s,
+\ie, types with decidable equality. We refer to such types as
+\emph{equality types}, but postpone the definition of \code{eqType}
+until one of the future lectures.
+\begin{lstlisting}
+Lemma eqP (A : eqType) (x y : A): reflect (x = y)(x == y).
+\end{lstlisting}
+We use the \code{eqP} lemma to illustrate the interoperatbility
+between the two different equalities. For example, the boolean
+equality \code{x == y} can be used in the scrutinee of conditionals,
+as the following example shows, whereas the propositional one
+cannot. However, in proofs, we may need to use \code{eqP} to switch
+between the two forms.
+%
+\begin{lstlisting}
+Definition foo (x y : nat) := if x == y then 1 else 0.
+Goal forall x y, x = y -> foo x y = 1.
+Proof. by rewrite /foo => x y /eqP ->. Qed.
+\end{lstlisting}
+%
+To prove the goal, one first has to unfold \code{foo}.
+%
+% \an{We presumably don't have to unfold here, as the view will apply
+%   anyway. We should try to minimize the proofs whenever possible.}
+% %
+% \is{I tried it before and this proof doesn't go through without the unfolding.}
+%
+Then the view \code{/eqP} is used to covert the proposition \code{x =
+  y} into the boolean \code{x == y}, or more precisely, into \code{(x
+  == y) = true}.  The later is subsequently used (by \code{->}), to
+rewrite the condition in \code{if-then-else} to \code{true}. By
+computation, this reduces the goal into \code{1 = 1}, which is then
+trivially discharged.
+%
+
+\subsection{Proofs about inductive predicates and recursive functions}
+\label{sec:induction}
+The next course module is dedicated to proofs by induction on custom
+datatypes and inductively-defined predicates.
+
+Proof by induction in Ssreflect are usually done using the \code{elim}
+tactic. It has a number of enhancements over the standard Coq
+\code{induction}, and in particular, it keeps with the semantic of
+Ssreflect, already introduced with \code{move} and \code{case}, that
+the proof-scripting primitives by default always apply to the leftmost
+assumption in the goal, initiating the proof by induction on it.
+%
+%\an{Was this mentioned before in the paper? I don't recall.}
+%
+% \is{No, it wasn't, but I couldn't find a better place to put this
+%   remark in.}
+
+We begin by pointing out that \code{elim} can be seen as a special
+case of \code{apply}, where the lemma chosen for application is the
+default induction principle generated automatically by Coq for the
+datatype in question. For example, inducting on natural numbers
+corresponds to applying \code{nat_ind} lemma, which expresses the
+well-known Peano induction schema. Similarly, eliminating falsehood
+(or, equivalently, the empty set) applies the lemma \code{empty_ind}.
+%
+% \an{Maybe better to say, eliminating empty, will apply the lemma
+%   empty-rect. The point here is that False-ind is not presented in the
+%   paper, so the non-expert reader will wonder what that is. Or maybe
+%   just omit the sentence.}
+%
+%   \is {Fixed by mentioning empty_ind instead}
+
+We illustrate the usual patterns of inductive reasoning by working out
+a number of examples related to decidable properties of natural
+numbers. Here, we focus on evenness. We tie to the previous lecture by
+expressing the property in two ways: as a boolean expressions
+\code{evenb}, and as an inductive proposition \code{evenP} in
+\code{Prop}.\footnote{In the definition of \code{evenP}, we make the
+  equalities such as \code{n = m.+2} \emph{explicit} in the
+  constructor \code{EvenSS}. This can be avoided by switching to
+  indexed families, but we reserve indexed families for implementing
+  ``rewriting tables'' only, as shown in \S~\ref{sec:rewriting}.
+%
+  With explicit equalities, we can avoid the \code{inversion} tactic,
+  whose behavior is not trival to explain.}
+%
+\begin{lstlisting}
+Inductive evenP n : Prop :=
+  Even0 of n = 0 | EvenSS m of n = m.+2 & evenP m.
+
+Fixpoint evenb n := if n is n'.+2 then evenb n' else n==0.
+\end{lstlisting}
+%
+We consider the proofs of following two logically equivalent
+statements formulated using the two definitions given above.
+%
+%\an{Is this taken from CPDT? Do we need a citation?}
+%
+%\is{No, it's not precise and not that big to cite Adam for this.}
+%
+\begin{lstlisting}
+Lemma evenP_contra n : evenP (n + 1 + n) -> False.
+Proof.
+elim: n=>[|n IH]; first by rewrite addn0 add0n; case.
+rewrite addn1 addnS addnC !addnS. 
+rewrite addnC addn1 addnS in IH.
+by case=>// m /eqP; rewrite !eqSS => /eqP <-.
+Qed.
+
+Lemma evenb_contra n: evenb (n + 1 + n) -> False.
+Proof. by elim: n=>[//|n IH]; rewrite addSn addnS. Qed.
+\end{lstlisting}
+%
+We do not expect the reader to understand the two proofs, but it can
+be noticed that the first proof is significantly more verbose and
+requires a number of rewritings. Pleasantly, in the second proof, the
+burden of rewritings is much smaller, thanks to the boolean and
+computational nature of \code{evenb}, which automatically performs
+simplification and partial evaluation in both the base and the
+inductive case. Intuitively, in the second proof, the boolean
+computation automatically discharges the base case (\code{//}), and
+produces a residual subgoal for the inductive case which is almost
+identical to the induction hypothesis. We only need a few simple
+commutations of ``1'', performed by the lemmas \code{addSn} and
+\code{addnS} from the \code{ssrnat} library, to finish the proof.
+
+Sometimes, it may happen that a boolean property is less convenient
+than propositional ones. In the case of \code{evenb}, the problem
+arises because the property has an ``orbit'', which differs from the
+constructors of the underlying datatype. In the case of evenness, the
+orbit is 2 (\ie, if a number $n$ is even, then so is $n+2$), but
+natural numbers are constructed by incrementing by $1$. This makes the
+following lemma a bit more cumbersome to prove in the boolean case
+than in the propositional one.
+%
+\begin{lstlisting}
+Lemma even_add n m : evenb n -> evenb m -> evenb (n + m).
+\end{lstlisting}
+%
+In the propositional case, it turns out one can use induction either
+on the first or the second \emph{assumption}. Contrarily, in the
+boolean version, it is only natural to induct on \code{n} and
+\code{m}. Either way, the inductive case is decremented by 1, but to
+exploit the orbit, we need to decrement by 2. In the course, we
+illustrate several ways in which this proof can be carried out. One is
+by generalizing the induction hypothesis in a reasonably simple way to
+quantify over all numbers smaller than $n$ (or $m$), not just over the
+immediate predecessor. But we also illustrate that one can build and
+then use \emph{custom induction principles} with \code{elim}. In this
+particular case, the following custom induction principle suffices.
+%
+\begin{lstlisting}
+Lemma nat2_ind (P: nat -> Prop) : P 0 -> P 1 -> 
+  (forall n, P n -> P n.+2) -> forall n, P n.
+\end{lstlisting}
+%
+With this lemma, the proof of \code{even_add} reduces to a half-liner:
+\code{by elim/nat2_ind : n.}
+
+The module concludes by summarizing the observed patterns of inductive
+definitions using predicates and recursive boolean functions, and
+enumerating the common practices of proving in both styles. A number
+of follow-up exercises in the hands-on recitations motivates the
+students to master both techniques, and familiarizes them with the
+basic Ssreflect libraries about the datatypes \code{nat}, \code{bool}
+and functional lists.
+% \an{Is this paragraph important enough to leave? It seems
+% uninformative and obvious.}
+%
+% \is{I think it's better to leave}
+
+\subsection{Programming with abstract algebraic structures}
+\label{sec:depstruct}
+At this point in the course, the students are sufficiently proficient
+in proving statements in equational logic over natural numbers. We
+next introduce them to building their own theories of algebraic
+structures, familiar from the university classes on abstract algebra.
+
+One can initiate the discussion of abstract algebraic structure with
+an intuition from programming. Indeed, an abstract algebraic structure
+is similar to the notion of class from object-oriented programming,
+module from Standard ML, or type class from
+Haskell~\cite{Wadler-Blott:POPL89}. In simply-typed languages, these
+mechanisms allow the programmer to aggregate, \ie, \emph{package}
+together, a number of operations over some datatype, potentially
+abstracting over the datatype implementation. In a dependently-typed
+language such as Coq, we can do a bit more: we can package the
+operations together with \emph{proofs} of their important properties,
+such as commutativity or associativity, to obtain an abstract
+structure.
+
+\subsubsection{Defining abstract structures}
+\label{sec:defin-abstr-struct}
+
+%Drawing further from the intuition supplied by Haskell's type classes
+%and record types from imperative programming languages, we provide a
+%gentle introduction into a possible way to build algebraic theories in
+%Coq. 
+As a running example, we consider partial commutative monoids (PCMs);
+an algebraic structure which recurrs in our current ongoing work on
+the verification of stateful and concurrent
+programs~\cite{Nanevski-al:ESOP14}. We implement PCMs using two of the
+Coq's native constructs: \emph{dependent records} and \emph{canonical
+  structures}.  We follow the estasblished Ssreflect design pattern of
+defining algebraic data structures by means of \emph{mix-in}
+composition~\cite{Garillot:PhD}, whereby different dependent records
+formalize different algebraic properties, which can be combined using
+\emph{packed classes} mechanism. The latter also defines the field
+resolution strategy~\cite{Garillot-al:TPHOL09} in a case of
+overlapping names.
+%
+% \an{Hmm, what is field-resolution strategy?}
+%
+%\is{I clarified}
+%
+For instance, the \emph{mix-in} defining PCMs is represented by the
+following dependent record:
+%
+\begin{lstlisting}
+Record mixin_of (T : Type) := Mixin {
+  valid_op : T -> bool;
+  join_op : T -> T -> T;
+  unit_op : T;
+  _ : commutative join_op;
+  _ : associative join_op;
+  _ : left_id unit_op join_op;
+  _ : forall x y, valid_op (join_op x y) -> valid_op x; 
+  _ : valid_op unit_op }.
+\end{lstlisting}
+%
+The type \code{T} is the \emph{carrier type} of the structure. The
+field \code{valid_op} selects a subset of \code{T}, standing for the
+``defined'' elements. The invalid (or ``undefined'') elements help
+model partiality: a partial function over \code{T} will return some
+invalid element on an input on which it is mathematically undefined.
+\code{join_op} is the binary operation of the PCM, and \code{unit_op}
+is the unit element. The remaining five unnamed fields enumerate the
+axioms that have to be satisfied by each PCM instance.
+
+Next, the mix-in ``interface'' is packaged with a carrier type, into a
+dependent record type, which represents PCMs. We also introduce a
+coercion from the package to the underlying carrier type, so that the
+two can be conflated. This coercion essentially accounts for the
+delegation hierarchy from object-oriented languages.
+%
+%\an{Delegation?}
+%
+\begin{lstlisting}
+Structure pcm : Type := 
+    Pack {type : Type; _ : mixin_of type}.
+Coercion type : pcm >-> Sortclass.
+\end{lstlisting}
+%
+Next, we explain the mechanism of packaging all necessary definitions
+along with lemmas about data structures (such as \emph{join}'s
+commutativity and associativity in the case of PCMs) into a single
+module that should be imported by the clients of the algebraic
+structure.  For example, we introduce appropriate notation for the
+join operation, and specifically name and prove the lemmas that
+correspond to the PCM properties that we left unnamed in the mixin.
+\begin{lstlisting}
+Notation x \+ y := (join_op x y).
+Lemma joinC (U : pcm) (x y : U) : x \+ y = y \+ x.
+Lemma joinA (U : pcm) (x y z : U) : 
+             x \+ y \+ z = x \+ (y \+ z).
+\end{lstlisting}
+The lemmas such as \code{joinC} and \code{joinA} are proved by
+destructing the package \code{U}, but notice how the coercion allows
+conflating \code{U} with its carrier type. Also notice how the
+notation \code{x \\+ y} allows the PCM \code{U} to be ommitted from
+the equations themselves, as the typechecker can infer it from the
+context.
+
+Algebraic structures can inherit the properties of other, more basic
+structures. Thus, we also require an analogue of object-oriented
+\emph{inheritance}. We illustrate how this can be done in Coq, by
+defining an interface for a \emph{cancellative} PCM, which inherits
+from an ordinary PCM. The cancellative PCM is defined as the following
+mix-in record:
+%
+\begin{lstlisting}
+Record mixin_of (U : pcm) := Mixin {
+  _ : forall a b c: U, valid (a \+ b) -> 
+                       a \+ b = a \+ c -> b = c }.
+\end{lstlisting}
+%
+Notice that the dependent record \code{mixin_of} in this case is
+parametrized via the carrier PCM \code{U}, which is used as a target
+for a coercion whenever an instance of a plain PCM or a carrier type
+\code{U} is required, since coercions a transitive.
+%
+% \an{Hmm, are you refering to $a\ b\ c : U$? Then, it's more
+%   appropriate to say that the coercion allows to conflate $U$ and its
+%   underlying carrier type}.
+%
+% \is{Ok, added some explanation}
+%
+
+\subsubsection{Canonical instances of abstract structures}
+\label{sec:canonicals}
+We proceed to show how to \emph{instantiate} the definition of
+abstract structure with concrete datatypes. It turns out that it is
+insufficient to merely prove that a datatype satisfies the PCM
+axioms. To work comfortably with an algebraic structure in practice,
+one has to explicitly ``register'' the structure with the type
+inference engine.
+
+We first show what goes wrong if one doesn't perform the
+``registration''.  For instance, assume we first define an instance of
+a PCM for \code{nat} with addition, by proving that \code{+} with
+\code{0} satisfies the PCM axioms.  Then the following lemma which
+uses the generic notation \code{\\+} for the PCM operation, is
+considered ill-formed by Coq. The reason is that Coq cannot figure
+that there is a PCM associated with \code{nat}, and that the generic
+notation \code{\\+} should be resolved with addition. Indeed, we could
+have defined the PCM for \code{nat} via multiplication $(\times)$ with
+$1$, in which case \code{\\+} should be resolved by~$\times$.
+%
+\begin{lstlisting}
+Lemma add_perm (a b c : nat) : 
+       a \+ (b \+ c) = c \+ (b \+ a).
+\end{lstlisting}
+%
+This is why for any given type such as \code{nat}, we need to register
+which structure should be considered as its ``default'' PCM. We do so
+using \emph{canonical instances} mechanism of
+Coq~\cite{Mahboubi-Tassi:ITP13,Saibi:PhD}. In the above case, once a
+structure is registered as the default PCM for \code{nat}, the
+\code{add_perm} lemma can be proved by selective rewriting using the
+standard PCM properties.\footnote{The \emph{rewriting selectors}, \eg,
+  \code{[c \+ _]}, specify by means of regular expressions, in which
+  subterms of the goal the rewriting should be performed.}
+%
+% \an{This proof can be simplified, presumably? We haven't discussed
+%   subterm selection before such as \code{c \\+ _}, so it might be
+%   better not to use them. Or if we want to use selectors, then have an
+%   example with them in some of the previous sections.}
+%
+% \is{Well, I mention that we introduce a number of concepts on the fly,
+%   so I don't introduce selectors specifically (although they are
+%   mentioned in the section about rewriting).}
+%
+\begin{lstlisting}
+Proof. by rewrite joinA [c \+ _]joinC [b \+ _]joinC. Qed.
+\end{lstlisting}
+%
+%
+%
+% A similar effect to the above use of canonical instances can be
+% obtained by Coq's type classes, which are based on type classes in
+% Haskell~\cite{Sozeau-Oury:TPHOL08}. However, similarly to the
+% Haskell's type classes, Coq's ones do not provide a way to program the
+% resolution policy for particular lemma instances in different
+% contexts~\cite[\S~5.2]{Kriener-al:PPDP13}.
+% %
+% \an{Really?  Is there a reference for this?}
+% %
+% \is{Yes, I've just added it.}
+%
+We conclude this module by presenting a few more examples of algebraic
+structures. We recal the structure \code{eqType} of types with
+decidable equality from (\S~\ref{sec:reflect}), and present
+Ssreflect's definition of a mix-in for \code{eqType} (defined in the
+\code{eqtype} library). The instances of this structure provide
+definitions of the boolean equality operation \code{==}, and proofs
+that \code{==} is a decidable version of propositional equality
+\code{=}. We exhibit a number of instances for standard datatypes such
+as \code{nat} and \code{bool}. As an exercise in the recitations, the
+students have to implement an interface for the
+\emph{partially-ordered set} structure, and to provide a number of
+canonical instances for it.
+
+
+\subsection{Case study: verifying imperative programs using separation
+  logic in Hoare Type Theory}
+
+The last module of the course presents a large case study, which
+employs all of the Coq programming and proving skills acquired by now:
+specification and verification of imperative programs in Hoare Type
+Theory (HTT)~\cite{Nanevski-al:JFP08,Nanevski-al:POPL10}.
+%
+HTT is an implementation of separation logic, formalized as a shallow
+embedding in Coq. In particular, types are used to implement
+specifications in the style of Hoare triples. The implementation
+provides a number of lemmas that correspond to the customary inference
+rules of separation logic, and are used to interactively establish
+that an imperative program satisfies a type that corresponds to a
+Hoare triple. The soundness of HTT is proved with respect to standard
+state-transformer denotational semantics, which is formalized in Coq.
+
+\subsubsection{Introducing Hoare triples using the types analogy}
+\label{sec:intr-hoare-logic}
+We expected that the students of the course would all have been
+exposed to Hoare logic in their university education. Nevertheless, to
+set up the stage, we begin the module by revisiting the main concepts,
+such as \emph{partial correctness}, notations and rules. In
+particular, we stress a number of points to build an intuition that
+Hoare triples are a kind of ``types in disguise''. This is not a
+standard way of understanding Hoare logic, but it is reasonably
+accurate, especially in the case of separation logic. Indeed, an
+essential property of separation logic is \emph{fault avoidance}---a
+property that verified programs are memory-safe. This insight can be
+summarized by the slogan ``well-proved programs don't go wrong'',
+which is a slight modification of Milner's motto about typability,
+generalized to a dependently-typed setting.
+%
+% \an{This may annoy reviewers; it sounds more like ideology than
+%   reality. Do we really want it in the paper?}
+
+Another point relating Hoare triples to types is the rule of
+consequence, which allows for strengthening the precondition and
+weakening the postcondition.
+%
+\begin{mathpar}
+\hspace{-30pt}
+\small{
+\inferrule*[Right={(Conseq)}]
+ {P \implies P' \\
+  \spec{P'}~ c~ \spec{Q'}\\
+  Q' \implies Q}
+ {\spec{P}~ c~\spec{Q}}
+}
+\end{mathpar}
+%
+The rule features a very similar variance policy as the rule of
+subtyping for arrow types in the simply typed lambda-calculus with
+records~\cite[Chapter~15]{Pierce:BOOK02}: 
+%
+\vspace{-10pt}
+%
+
+\begin{mathpar}
+\hspace{-30pt}
+\small{
+\inferrule*[Right={(S-Arrow)}]
+ {P  <: P' \\
+  Q' <: Q}
+ {P' \rightarrow Q' <: P \rightarrow Q}
+}
+\end{mathpar}
+
+\vspace{-10pt}
+
+\subsubsection{Basics of separation logic}
+\label{sec:sep-log}
+After a short tour of Hoare logic, we demonstrate a number of
+well-known scalability problems that arise in the presence of pointers
+and aliasing. We proceed to introduce the main ideas behind separation
+logic~\cite{Ishtiaq-Ohearn:POPL01,Reynolds:LICS02}, focusing mainly on
+definition of heaps, and explicit heap disjointness.
+%
+% \an{Hmm, why is ``explicit'' in emphasis? What would be implicit heap
+%   disjointness?  Maybe just say: focusing mainly on definition of
+%   heaps, and how the scalability lost in the demonstrated examples
+%   could be recovered if the preconditions and postconditions could
+%   explicitly state disjointness between various heap values and
+%   variables.}
+
+We expected that our students will not be familiar with separation
+logic, as it is not typically a topic covered in standard university
+curricula. This fact embolded us to take a very non-standard approach
+in our presentation, and in particular, tailor the ideas behind
+separation logic to Coq-supported mechanized reasoning.
+
+%
+First of all, we ommitted \emph{stack variables} from the
+presentation. As in functional programming, all our variables will be
+immutable. If mutation is required, it should be done via heap
+references. A consequence is that the effectful commands of our
+programs has to be able to return non-unit results, unlike in
+separation logic, where no results are returned.  Second, we introduce
+higher-order functions and the fixed-point combinator, therefore
+removing \code{while}-loops (and loop invariants), as they can be
+expressed through recursion.  Third, and perhaps most drastically, we
+avoid using the separation logic's standard \emph{separating
+  conjunction} connective $\sep$. In the way we will work with Coq,
+$\sep$ introduces a level of indirection; the first move in almost all
+the proofs is to unfold the definition of $\sep$, and reveal the
+existential quantification over the disjoint heaps. Instead, we base
+the specifications on the operation of disjoint heap union. The latter
+is well-known as the semantic foundation
+behind~$\sep$~\cite{Calcagno-al:LICS07}, but we found that it works
+well in practical mechanization too. Finally, we freely use
+heap-valued variables in our specs, which is not a particularly
+accepted practice in the world of separation logic, but (1) it works
+well in Coq, and (2) it also seems unavoidable in the absence of
+native logical infrastructure to reason about
+bunches~\cite{Nanevski-al:POPL10}.
+
+%of mutable \emph{stack variables}, we agree to implement mutation only
+%by means of changing the values of pointers in the heap, therefore
+%posing all local variables to be immutable. We also assume that the
+%procedures for allocation and deallocation of fresh pointers are
+%available and implemented opaquely.
+%%
+%Second, we agree that now each command in the language, besides having
+%a possible \emph{side-effect} (\eg, changing a value of a pointer in
+%the heap) returns a result, which might very well be of the
+%\code{unit} type. 
+%%
+%Third, we introduce higher-order functions and the fixed-point
+%operator to the language, therefore removing the \code{while}-loops,
+%as they can be now expressed through generally-recursive functions. 
+%% 
+%Finally, and the most important, we totally avoid the usage of the
+%separation logic's standard \emph{separating conjunction} logical
+%connective $\sep$, as it introduces the unnecessary level of
+%indirection that would force us to introduce and explain the
+%``entails'' relation between heaps and propositions as well as a
+%number of distribution laws. 
+
+Therefore, our separation logic specs have the following form,
+featuring explicitly-quantified initial/final heaps $h$ and the result
+$\res$, as illustrated by the rules for writing to a pointer $x$ (the
+rule from reading $!x$ is similar)
+%
+\begin{mathpar}
+\hspace{-30pt}
+\small{
+\inferrule*[Right={(Write)}]
+ {}
+ {\spec{h ~|~ h = x \mapsto -}~ x ::= e ~\spec{\res :
+     \mathtt{unit}, h ~|~ h = x \mapsto e}}
+}
+\end{mathpar}
+%
+and for a pointer allocation
+%
+\begin{mathpar}
+\hspace{-30pt}
+\small{
+\inferrule*[Right={(Alloc)}]
+ {}
+ {\spec{h ~|~ h = \mathsf{empty}}~ \mathtt{alloc}(v) ~\spec{\res, h ~|~ h = \res \mapsto v}}
+}
+\end{mathpar}
+%
+Defining an appropriate form of a frame rule is possible, so working
+with explicit heap and result variables in assertions is pleasant,
+perhaps surprisingly so.
+% and, as we will soon show, has to be done in Coq anyway.
+%
+% \is{Should we say something more about the lack of BI in Coq and
+%   give references?}  \an{I said something above. Now this sentence on
+%   the ``pleasentless'' seems superfluous, and should probably be
+%   erased.}
+%
+
+With only immutable variables allowed, sequential composition has to
+explicitly account for the results of commands, binding the result to
+a variable in the continuation.
+
+\begin{mathpar}
+\small{
+\inferrule*[Right={(Bind)}]
+ {\spec{h ~|~ P(h) }~c_1~\spec{\res, h ~|~ Q(\res, h)} \\
+ \spec{h ~|~ Q(x, h) }~c_2~\spec{\res, h ~|~ R(\res, h)}}
+ {\spec{h ~|~ P(h)}~ x \asgn c_1; c_2 ~\spec{\res, h ~|~ R(\res, h)}}
+}
+\end{mathpar}
+%
+One can also \emph{inject} a \emph{pure} expression into a command by
+means of the $\ret$-statement. The corresponding rule is an equivalent
+of Hoare-logic rule for variable assignment:
+%
+\begin{mathpar}
+\hspace{-30pt}
+\small{
+\inferrule*[Right={(Return)}]
+ {} 
+ {\spec{h ~|~ P(h)}~ \ret~e ~\spec{\res, h ~|~ P(h) \wedge \res = e}}  
+}
+\end{mathpar}
+%
+%\an{Hmm, why not use small footprint spec?}  
+%
+% Since \code{while}-loops can be expressed by means of a fixed-point
+% combinator, we add an inference rules for named functions (so the
+% logic now requires a form of a variable context) and a rule the
+% $\fix$-construct.  \an{The last sentence seems repetitive. The fix is
+%   already mentioned above.}
+
+\subsubsection{Effectful computations as monads}
+\label{sec:hoare-types-as}
+A functional programmer will imediately notice that the rules
+\textsc{(Bind)} and \textsc{(Return)}, shown in \S~\ref{sec:sep-log},
+bear a lot of similarity with the monadic operations \emph{bind} and
+\emph{return}, familiar from the Haskell's parametrized type class
+\texttt{Monad}:
+%
+\vspace{5pt}
+%
+{\small{
+\begin{verbatim}
+class Monad m where
+  (>>=)            :: m a -> (a -> m b) -> m b
+  return           :: a -> m a
+\end{verbatim}
+}}
+%
+\vspace{5pt}
+%
+More specifically, each command in HTT returns a result of some type,
+similarly to \emph{monadic} programs. Furthermore, commands can be
+bound by means of the $x \asgn c_1; c_2$ syntax, and the corresponding
+logic rule checks that the pre/postconditions of $c_1$ and $c_2$ agree
+with each other (modulo the rule of consequence), so they could be
+chained. Finally, similarly to how pure expressions in Haskell can be
+embedded into a monad using the \texttt{return} command, one can
+construct commands from expressions using the $\ret~e$ syntax. All
+these observations illustrate that there is a correspondence in the
+style of the Curry-Howard isomorphism between monadic programs and
+inference rules in Hoare/separation logic, thereby lifting the
+Curry-Howard theme of the course to stateful programming as well.
+
+\subsubsection{HTT essentials}
+\label{sec:htt-essentials}
+We can now present the main concepts of HTT, such as the notion of
+monadic \emph{Hoare type} and the notation for writing effectful
+programs and their specifications in Coq.
+%
+But before we do so, we remind the students that in general, one
+cannot implement effectful and potentially non-terminating general
+recursive computations as pure expressions in Coq. (They have already
+faced this issue \wrt~recursion in one of the previous lectures). To
+encode such computations, similar as in Haskell, one has to
+encapsulate their side-effects by a monad. However, in the case of Coq
+and HTT, the monad will be more general than in Haskell. First, it
+will encapuslate recursion, in addition to the effects related to
+mutable state, whereas Haskell doesn't consider recursion to be an
+effect in this sense. Second, the type will include the precondition
+and the postcondition of the specified computation; thus such monadic
+types are called Hoare types.
+
+A Hoare type is written using the notation of the form
+\texttt{\small\{x1 x2 ...\}, STsep (p, q)}. Here \code{p} and \code{q}
+are heap predicates, standing for the pre and postcondition. More
+specifically, the type of \code{p} is \code{heap -> Prop} and the type
+of \code{q} is \code{A -> heap -> Prop}, where \code{A} is the type of
+the result of the command being specified. The identifiers \code{x1},
+\code{x2} \etc.~bind the logical variables that scope over both
+\code{p} and \code{q}, and are implicitly universally quantified, as
+customary in Hoare logics. For example, the allocation procedure,
+mentioned in \S~\ref{sec:sep-log} is given the following Hoare type,
+which is a straightforward rephrasing of its Hoare-style specification
+with a small (\ie, minimal) heap footprint:\footnote{We omit the
+  discussion on the distinction between \code{fun} and \code{vfun}; it
+  has to do with the treatment of exceptions in HTT, but we don't
+  consider exceptions in the course.}
+
+%\newpage
+
+\begin{lstlisting}
+alloc : forall (A : Type) (v : A),
+           STsep (fun h => h = Unit,
+                 [vfun (res : ptr) h => h = res :-> v])
+\end{lstlisting}
+%
+
+\subsubsection{Verifying an imperative factorial implementation}
+\label{sec:verify-an-imper}
+We illustrate the HTT verification machinery on an imperative
+implementation of the factorial procedure
+(Figure~\ref{fig:fact}). This program will be our main running example
+for the section. In the course, we first present a paper-and-pencil
+proof outline for this program (ommitted here). The proof outline
+lists the assertions that are valid at each program point, and how
+they have been justified by the inference rules of separation
+logic. This demonstration introduces the students to how separation
+logic is used in practice.
+
+\begin{figure}
+{\small
+\begin{alltt}
+\num{ 1}  fun fact (\var{N} : nat) : nat = \{
+\num{ 2}      n   \(\asgn\) alloc(\var{N});
+\num{ 3}      acc \(\asgn\) alloc(1); 
+\num{ 4}      res \(\asgn\) 
+\num{ 5}        (\(\fix\) loop (_ : unit). 
+\num{ 6}            a' \(\asgn\) !acc;
+\num{ 7}            n' \(\asgn\) !n;
+\num{ 8}            if n' is m' + 1 then
+\num{ 9}               acc ::= a' * n';;
+\num{10}               n   ::= m';;
+\num{11}               loop(tt) 
+\num{12}            else \(\ret\) a'
+\num{13}         )(tt);
+\num{14}      dealloc(n);;
+\num{15}      dealloc(acc);;
+\num{16}      \(\ret\) res
+\num{17}  \}
+\end{alltt}
+}
+\caption{A pseudocode implementation of an imperative factorial
+  procedure with pointer allocation. The notation \texttt{\small{;;}}
+  stands for sequential composition without result binding.}
+\label{fig:fact}
+\end{figure}
+
+Next we show how the same reasoning is implemented in Coq. We start
+with providing a declarative definition \code{fact_pure} of a
+factorial by means of Coq's primitive recursion.
+
+%\newpage
+
+\begin{lstlisting}
+Fixpoint fact_pure n := 
+ if n is n'.+1 then n * (fact_pure n') else 1.
+\end{lstlisting}
+%
+Our goal will be to demonstrate that the procedure \code{fact} from
+Figure~\ref{fig:fact} computes \code{fact_pure} of its input value. We
+will also prove that \code{fact} does not \emph{leak} memory.
+
+To stress the compositionality of the verification, we will break the
+proof into two parts. We will first verify the recursive loop function
+on lines 5-13. After that, we refactor the factorial program so that
+it invokes the recursive function, rather than inline it. Then we
+verify that program, reusing the already developed proof for the
+recursive loop function.
+
+
+The ``loop invariant'' of the recursive function is defined as a type
+\code{fact_tp} below. It constrains the heap inside the loop to
+consist of the two pointers: the counter \code{n} and the accumulator
+\code{acc}, storing values \code{n'} and \code{a'}, respectively.
+These facts are stated by using heap values \code{n :-> n'} and
+\code{acc :-> a'}. Heaps form a PCM under the operation of
+\emph{disjoint union}, so we use the familiar operator \code{\\+} from
+the lecture on PCMs (\S~\ref{sec:depstruct}) to combine the two
+single-pointer heaps into a disjoint union. Thus, the verification in
+HTT in general, and of the factorial example in particular, will rely
+heavily on the PCM library that the students practiced with
+previously. Once the loop terminates, the postcondition of the type
+\code{fact_tp} says that the counter \code{n} is decremented to
+\code{0}, and the accumulator stores the return result, which equals
+\code{a' * fact_pure n'}.
+
+%\vspace{30pt}
+
+\begin{lstlisting}
+Notation fact_tp n acc := 
+  {n' a'}, STsep (fun h => h = n :-> n' \+ acc :-> a',
+            [vfun res h => h = n :-> 0 \+ acc :-> res /\ 
+               res = a' * fact_pure n']).
+\end{lstlisting}
+
+\begin{lstlisting}
+Program Definition fact_acc (n acc : ptr): 
+  fact_tp n acc := 
+  Fix (fun (loop : unit -> fact_tp n acc) (_ : unit) => 
+    Do (a' <-- read nat acc;
+        n' <-- read nat n;
+        if n' is m'.+1 then 
+          acc ::= a' * n';; 
+          n ::= m';;
+          loop tt
+        else ret a')) tt.
+\end{lstlisting}
+
+%
+One can see that the implementation of \code{fact_acc} almost exactly
+matches the pseudocode of the lines 5--13 from
+Figure~\ref{fig:fact}. The notations \code{Fix} and \code{Do} for
+effectful and generally-recursive computations are provided by HTT.
+%
+The Coq's command \code{Program Definition} is similar to the standard
+definition, except that it allows the expression being defined to have
+uninstantiated components, which are left as obligations to be filled
+later~\cite{Sozeau:TYPES06}. In this particular case, what is omitted
+is the proof that \code{fact_acc} meets the type. 
+%
+
+We next show how this proof is built. It essentially amounts to the
+application of the rule \textsc{(Conseq)}
+(\S~\ref{sec:intr-hoare-logic}) to demonstrate that the type
+automatically computed by Coq for the loop body (and containing the
+\emph{weakest precondition} and \emph{strongest postcondition} of the
+loop body) can be weakened to the explicitly provided type
+\code{fact_tp n acc}. Application of \textsc{(Conseq)} issues a pair
+of implications, which can be discharged together by applying a number
+of helper lemmas that correspond to structural rules in separation
+logic. All in all, the proof script looks as follows.
+\begin{lstlisting}
+Next Obligation.
+apply: ghR=>_ [n' a'] /= -> _; heval.
+case: n'=>[|m'] /=; rewrite ?muln1 ?mulnA; heval=>//.
+by do 2![apply: (gh_ex _)]; apply: val_doR. 
+Qed.
+\end{lstlisting}
+%
+
+While the script is cryptic, it is conceptually straightforward.  The
+first line applies HTT's lemma \code{ghR}, which applies the rule of
+consequence, and ``pulls out'' all logical variables occurring in the
+specification (\ie, \code{n'} and \code{a'} in this case). In Hoare
+logic parlance, this amounts to an iterated application of the rule of
+universal quantification (infinitary version of the rule of
+conjunction). The application of this lemma is followed by some
+bookkeeping of assumptions and use of HTT's \code{heval} tactic to
+symbolically evaluate the program; that is, automatically apply the
+rules for writing and reading from the pointers. The symbolic
+evaluation stops at the conditional. Next, \code{case}-analysis on
+\code{n'} considers the two branches of the conditionals:
+\code{then}-branch is when the counter \code{n'} has not reached zero;
+\code{else}-branch is when zero has been reached. Both branches are
+first simplified by rewriting with \code{mulnA} and \code{muln1}
+lemmas. These two lemmas are taken from the standard \code{ssrnat}
+library, and express the associativity of multiplication, and
+neutrality of \code{1}. After the simplification, the
+\code{else}-branch is trivially discharged by symbolic evaluation. The
+\code{then}-branch requires application of a procedure call, in this
+case a recursive call to \code{loop}.  The fixed-point combinator
+tells us that \code{loop} has the type \code{fact_tp n acc}, but we
+need to instruct the system as to the values of logical variables
+\code{n'} and \code{a'} to be used in the recursive call.  We do so by
+using the lemma \code{gh_ex} twice; once for \code{n'} and again for
+\code{a'}. In the particular case of \code{fact_acc}, we don't
+actually have to provide the values for \code{n'} and \code{acc'}
+explicitly, as the unification mechanism of Coq's will be able to
+infer them from the equations in the residual subgoals. Thus, we
+provide underscore \code{\_} as an argument to \code{gh_ex}. Finally,
+we apply the lemma \code{val_doR}, which allows the system to verify
+that by making the function call to \code{loop}, under the assumption
+that \code{loop} has the type \code{fact_tp n acc}, as specified by
+the fixed-point combinator, we can reach the specification for
+\code{fact_acc}.
+
+One can see that most of the proof script has to do with bookkeeping
+technicalities, such as starting symbolic evaluation and naming the
+variables that arise from case analysis. The only non-trivial insight
+was that we need to rewrite by \code{muln1} and \code{mulnA} at an
+appropriate place.
+%
+% \an{Hmm, I don't know if this
+%   writeup is good. But I have to run now.}\is{Are you planning to
+%   revise it?}
+
+We can now specify and verify the full procedure \code{fact}, which
+wraps the allocation and deallocation of the around \code{fact_acc}. 
+
+%\vspace{42pt}
+
+\begin{lstlisting}
+Program Definition fact (N : nat) : 
+  STsep (fun h => h = Unit, 
+         [vfun res h => res = fact_pure N /\ h = Unit]) := 
+  Do (n   <-- alloc N;
+      acc <-- alloc 1;
+      res <-- fact_acc n acc;
+      dealloc n;;
+      dealloc acc;;
+      ret res).
+\end{lstlisting}
+%
+The equalities \code{h = Unit} in \code{fact}'s pre- and
+postconditions ensure that the procedure does not leak any memory. The
+proof of the specification is straightforward and mostly carried out
+by symbolic evaluation via the \code{heval} tactic. We omit it here,
+but it can be found in the lecture notes~\cite{Sergey:PnP} and the
+code accompanying them.
+
+\subsubsection{Proving specifications with and without automation}
+\label{sec:proving-with-without}
+
+Too much reliance on proof automation implemented by unspecified
+third-party tactics can easily obscure the arguments behind the
+proof. To avoid such situations in the case of HTT, this module asks
+the students to perform a few program verifications, without relying
+on the automation provided by \code{heval}. The students are supposed
+to figure out the lemmas applied by \code{heval} in the course of its
+run, and apply these lemmas by hand as appropriate.
+
+As an example, we consider a simple program that swaps the natural
+values of two pointers, \code{x} and \code{y}.
+%
+\begin{lstlisting}
+Program Definition swap (x y : ptr):
+ {a b : nat},
+  STsep (fun h => h = x :-> a \+ y :-> b,
+        [vfun _ h => h = x :-> b \+ y :-> a]) :=
+    Do (vx <-- read nat x;
+        vy <-- read nat y;
+        x ::= vy;;
+        y ::= vx).
+\end{lstlisting}
+%
+The proof can be carried out by first ``pulling out'' the logical
+variables and applying automation by \code{heval}.
+%
+\begin{lstlisting}
+Next Obligation. by apply: ghR=> _ [a b]-> _; heval. Qed.
+\end{lstlisting}
+%
+However, in a paper-and-pencil proof one would consistently apply a
+series of the rules, such as \textsc{(Bind)}, \textsc{(Write)}
+\etc. Therefore, we suggest the students to use the \code{Search}
+machinery to find the appropriate lemmas and apply them, which leads
+to the following proof of \code{swap}'s specification, exactly in the
+spirit of Hoare-style reasoning.
+%
+\begin{lstlisting}
+Next Obligation.
+apply: ghR => _ [a b]-> _.
+apply: bnd_seq; apply: val_read => _.
+apply: bnd_seq; apply: val_readR => _.
+apply: bnd_seq; apply: val_write => _.
+by apply val_writeR.
+Qed.
+\end{lstlisting}
+%
+Indeed, each line of the proof decomposes a sequential composition by
+means of \textsc{(Bind)}-like lemma \code{bnd_seq} and then applies a
+necessary lemma for writing or reading a pointer, and the variant
+\code{val_readR} allows one to avoid making rewritings in the heap to
+bring it to the ``right'' shape.\footnote{This problem can be avoided
+  by means of lemma overloading, as demonstrated
+  in~\cite{Gonthier-al:JFP13}, but we do not discuss this technique
+  in the course.}  
+%
+% \an{Hmm, the part of the paragraph starting with
+%   ``and the variant'' is too mysterious at this point. It's probably
+%   best to omit it.}
+
+Our introduction to the imperative program verification and HTT is
+concluded by a series of exercises, including a proof of an imperative
+Fibonacci procedure and a verification of number of procedures
+operating on singly-linked lists.
+
+%\newpage
+
+\section{Evaluation and experience}
+\label{sec:eval-exper}
+
+A preliminary proof-of-concept evaluation of the described course has
+been conducted by the first author in a form of a five-days summer
+school, which took place in Saint Petersburg State University (SPbSU)
+in August 2014. The school was advertised amongst the senior-years
+students specializing in mathematics and software
+engineering. Overall, five students enrolled for the course.
+
+As one of the main prerequisites for the school, we listed good
+knowledge of functional programming (preferably, based on a
+statically-typed language, such as ML, Haskell or Scala), which
+the students of the software engineering chair obtain from the
+standard curriculum that includes, in particular, a course on Haskell.
+%
+Passing familiarity with classical propositional logic was desired,
+and students at SPbSU take such a course during their second or third
+year. We didn't assume any knowledge of intuitionistic logic or Hoare
+logic, although simple Hoare logic is usually briefly mentioned in one
+of the introductory computer science courses at SPbSU.
+
+Every day of the school featured four hours of lectures, which were
+mostly delivered in a hands-on mode, with the instructor presenting
+the material through interaction with Coq. The exceptions were the
+introductory lecture and parts of the last lecture on separation logic
+and HTT, which required some amount of theoretical background to be
+presented beforehand using slides. In the afternoon, four hours were
+dedicated to solving homework assignments under supervision of the
+lecturer. Every lecture started from the discussion on the solutions
+of the exercises from the previous day. The exercises on HTT on the
+very last day of the lectures were discussed immediately after the lab
+session.
+
+\subsection{Observations}
+\label{sec:common-observations}
+%In our experience based on the summer school, 
+Students had little trouble learning Coq's programming syntax. They
+quickly mastered writing simple recursive programs, and satisfying the
+requirements imposed by Coq's termination checker. Some of the
+students expressed a lot of eagerness to \emph{test} their code.
+Before being introduced to formal proofs, they started writing
+``proofs'' that correspond to unit tests, such as the one below.
+%
+\begin{lstlisting}
+Theorem test_plus_3_8 : my_plus 3 8 = 11.
+Proof. reflexivity. Qed.
+\end{lstlisting}
+%
+Surprisingly, such clever hackers experienced most troubles later on,
+when making transition from programming to proving, until they finally
+understood the semantics of proof primitives such as \code{move} and
+\code{case}.
+
+In the process of explaining the basic concepts of the interactive
+proof (\S~\ref{sec:inter-proof-constr}), we noticed that, when it
+comes to applying a tactic, the students often confuse \emph{goals}
+and \emph{assumptions}. Specifically, some of the student had trouble
+deciding whether they should use \code{split} or \code{case} when a
+conjunction is encountered in a goal. It helped when we repeated the
+explanation of the four basic primitives (\code{exact:}, \code{move},
+\code{case} and \code{apply:}), and emphasize that all other proof
+constructions can be expressed through them.
+
+Equalities are usually confused with equivalences by the
+students. Fortunately, equivalences are rare in Ssreflect libraries,
+and most of the reasoning they encountered in this course can be
+conducted by simple rewriting (\ie, without setoids). However, as in
+many other cases, instead of giving the students a direct hint on how
+to prove/discharge an equivalence, it was much more beneficial (in a
+long run) to reming them of the
+\code{Search}/\code{Locate}/\code{Check}/\code{Print} utilities, so
+they would figure out themselves on how to deal with a particular
+logical connective.
+%
+% \an{Hmm, I didn't understand this point? When did they
+%   encounter equivalences? Where were they searching in? In which
+%   libraries?}
+
+Being dedicated hackers, about a half of the students often found
+themselves in a situation that, after some progress with the proof,
+they no longer understand the proof state. This situation typically
+occurs when doing proofs by induction (\S~\ref{sec:induction}). In
+such cases, the students often went to the Coq manual in search of a
+powerful tactic that would solve the problem for them. We tried to
+prevent these situations by suggesting them to reflect on a problem
+and construct a paper-and-pencil proof first. For those who insisted
+on using some standard library tactics (\ie, \code{inversion}, which
+usually resulted from the definitions following the traditional Coq
+style~\cite{Chlipala:BOOK,Pierce-al:SF} of using indexed type families
+as GADTs), we allowed them to do so once they were able to explain the
+outcome through the use of only the basic primitives.
+
+We were pleasantly surprised to find some of the students' proofs of
+the exercises (\S~\ref{sec:rewriting}, \S~\ref{sec:induction}) were
+shorter and conceptually simpler than those we developed ourselves as
+model solutions.
+
+\subsection{Feedback from the participants}
+\label{sec:feedback}
+
+In the post-school anonymous evaluation, we received largely positive
+feedback. The course has been praised for a selection of topics with
+an emphasis on verification of imperative programs, which some of the
+students found to be an ``impressive piece of real-world research
+project that can be taught in a comprehensible way''.
+
+One major criticism we got had to do with a way the proofs were
+presented in the files accompanying the lectures and used for the
+hands-on sessions. In the later lectures we have ``compressed'' some
+of the proof steps into non-atomic lines (\eg, several rewritings
+followed by the bookkeeping machinery). Although not complex
+conceptually, some students found such proofs hard to follow without
+breaking the lines into more atomic steps. And while doing so, they
+would lose the pace of the lecture, and had to ask the lecturer to
+start the example over. We intend to revise the code supporting the
+course to avoid this problem in the future.
+
+\section{Related courses and future work}
+
+While designing the course, we have drawn a lot of inspiration from
+the available teaching
+material~\cite{Bertot-Casteran:BOOK,Pierce-al:SF,Chlipala:BOOK}, from
+which we also borrowed a number of examples and exercises. However, we
+often had to redesign these examples and exercises to keep to the
+explicit but minimalistic Ssreflect style of proof, based on the small
+set of core tactics, and emphasizing the computational nature of a
+properties being defined and verified.
+
+Initially, we intended to adopt some of the teaching insights from
+Henz and Hobor's (H\&H) experience
+report~\cite{Henz-Hobor:CPP11}. Alas, a majority of the practices
+described there are quite specific to the teaching program of National
+University of Singapore's School of Computing (in particular, some
+background on modal logic was assumed). The introduction into formal
+proofs in H\&H's course is made through the Aristotle’s term logic,
+whereas we deliberately strived to employ the students' inuition
+acquired from the courses on functional programming. Both approaches
+have their strengths. In particular H\&H's seems to be more
+approachable by students with no background in formal methods. On the
+other hand, our course is at freedom to employ a richer vocabulary of
+programming analogies, making it easier to explain the notions such as
+inductive proof, dependent records and Hoare types. Noteworthy, H\&H
+notice the same anti-patterns, exhibited by the students during the
+learning process, in particular, the undue ``hacking'' with tactics.
+
+In the future, we plan to extend the course with a discussion on
+co-fixpoints and proofs by coinduction, supported by recent advances
+on the mechanized proof construction in this
+area~\cite{Hur-al:POPL13}. We also intend to enhance the course with a
+survey of proof automation techniques by means of of tactic
+engineering~\cite{Stampoulis-Shao:ICFP10,Ziliani-al:ICFP13} or lemma
+overloading via canonical
+structures~\cite{Gonthier-al:JFP13,Mahboubi-Tassi:ITP13}.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+In this report, we have described a design of an experimental course
+on interactive proofs in the Coq proof assistant.
+
+The primary audience of the course are students with expertise in
+software development and programming in addition to the knowledge of
+discrete mathematic disciplines on the level of an undergraduate
+university program. The high-level goal of the course was to
+demonstrate that rigorous mathematical reasoning and development of
+robust and intellectually manageable programs have a lot in common,
+and that understanding of common programming concepts provides a solid
+background for building mathematical abstractions and proving theorems
+formally. The low-level goal of this course is to provide an overview
+of Coq, taken in its both incarnations: as an expressive functional
+programming language with dependent types, and as a proof assistant
+providing support for mechanized interactive theorem proving.
+%
+% By aiming at these two goals, our course intends to provide a
+% demonstration that the concepts familiar from the mainstream
+% programming languages and serving as parts of good programming
+% practices can provide illuminating insights about the nature of
+% reasoning in Coq's logical foundations and make it possible to reduce
+% the burden of mechanical theorem proving. 
+%
+The presented insights should eventually give the students a freedom
+to focus solely on the essential part of the formal development
+instead of fighting with the proof assistant in futile attempts to
+encode the "obvious" mathematical intuition.
+%
+% \an{Hmm, isn't this paragraph saying exactly what the previous one
+%   said too?}
+
+All the materials of the course, including the lecture notes,
+exercises, source files for the hands-on lectures, and necessary
+libraries, are available online~\cite{Sergey:PnP}.
+
+% \acks
+% \todo{Acknowledgments, if needed.}
+
+% Anindya Banerjee
+% Olivier Danvy
+% \'{E}ric Tanter
+% R\'{e}my Haemmerl\'{e}
+% Michael D. Ernst
+
+\bibliographystyle{abbrvnat}
+\bibliography{references,proceedings}
+
+\end{document}
+
+

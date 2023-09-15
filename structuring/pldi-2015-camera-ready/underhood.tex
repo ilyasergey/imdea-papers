@@ -1,0 +1,123 @@
+
+\section{Elements of FCSL Infrastructure}
+\label{sec:underhood}
+
+In this section we sketch the ideas behind implementation of FCSL as
+an embedding into Coq, and describe important parts of FCSL machinery,
+used to simplify construction of proofs.
+
+\subsection{FCSL Model and Embedding into Coq}
+\label{sec:shallow-embedding}
+
+Programs in FCSL are encoded as their values in the denotational
+semantics of sets of \emph{action trees}~\cite[Appendix F of extended
+version]{Nanevski-al:ESOP14}. The trees are a structured version of
+\emph{action traces} by Brookes~\cite{Brookes:TCS07}. They implement
+finite, partial approximations of the behavior of FCSL commands. Basic
+commands, such as \code{ret} and atomic actions are given semantics as
+finite sets of primitive trees. The semantics of program combinators,
+such as sequential or parallel composition, is defined as a
+set-comprehension over the elements of their constituents' semantics,
+and \code{ffix} combinator is defined by taking Tarski's fixed point
+of its argument function's monotone closure over the powerset lattice.
+%
+Therefore, each FCSL program (\eg, \code{span} in
+Figure~\ref{fig:coq-span}) is a value in Coq, obtained by composing
+primitive commands and atomic actions via FCSL combinators and native
+Coq expressions (\eg, functions and conditionals).
+
+In our implementation, the definition of each FCSL command (\ie, its
+denotational semantics) is packaged, as a dependent record, together
+with a specification, corresponding to its \emph{weakest pre-} and
+\emph{strongest postconditions}~\cite{Dijkstra:CACM75} \wrt the
+natural safety predicate,\footnote{The predicate states that a program
+  can execute (possibly, concurrently) in a state, satisfying a given
+  precondition, without crashing~\cite[\S F.5]{Nanevski-al:ESOP14}.}
+and with a proof that such specification is a valid one for the
+corresponding program's semantics.
+%
+We also defined a number of implicit coercions that inject a command
+into the corresponding record instance, containing the command's
+spec. This allowed us to exploit the type-checking machinery of Coq,
+which is capable of composing coercions, thus \emph{synthesizing}
+weakest pre- and strongest postconditions for arbitrarily complex
+well-typed FCSL programs.
+
+\subsection{Verification Conditions and Structural Lemmas}
+\label{sec:lemmas}
+
+Even though each well-typed FCSL program has already the strongest
+specification inferred automatically by the system, such spec isn't
+what one would typically like to ascribe to a program and expose to
+the clients. Therefore, verification in FCSL reduces to
+\emph{weakening} the derived strongest spec to the one of interest.
+
+The verification conditions for weakening are encoded by wrapping a
+program into the \code{Do} constructor (\eg, in
+Figure~\ref{fig:coq-span}), which emits a corresponding proof
+obligation.
+%
+Such proofs in FCSL are structured to facilitate systematic
+application of Floyd-style structural rules, one for each command. All
+the rules are proved sound from first principles, and are applied as
+lemmas to advance the verification.
+%
+As the first step of every proof, the system implicitly applies the
+weakening rule to the automatically synthesized weakest pre- and
+strongest postconditions, essentially converting the program into the
+continuation-passing style (CPS) representation and sequentializing
+its structure.
+%
+Every statement-specific structural rule ``symbolically evaluates''
+the program by one step, and replaces the goal with a new one (or
+several ones) to be verified.
+
+For example, the following lemma \code{step}, corresponding to the
+rule of sequential composition, reduces the verification of a program
+$(y \asgn e_1; (e_2~y))$ with continuation~$k$, to the verification
+of the program $e_1$ and the program $e_2~y~k$, where $y$ corresponds
+to a symbolic result of evaluating $e_1$, constrained according to
+$e_1$'s postcondition. One can apply it several times until $e_1$ is
+reduced to some primitive action, at which point one can apply the
+structural rule for that action.
+%
+\begin{lstlisting}
+Lemma step W A B (e1 : ST W A) 
+                   (e2 : A -> ST W B) i (k : cont B): 
+        verify i e1 (fun y m => verify m (e2 y) k) ->
+        verify i (y <-- e1; e2 y) k.  
+\end{lstlisting}
+%
+\code{ST} is a type synonym for \code{STsep}, hiding its pre's and
+post's.
+
+\subsection{Extracting Concurroid Structure via Getters}
+\label{sec:getters}
+
+When working with compositions of multiple concurroids, as in examples
+listed in Section~\ref{sec:more-examples}, one frequently has to
+select the \emph{self}, \emph{joint} or \emph{other} components that
+belong to one of the composed concurroids. A na\"{i}ve way of doing
+this is to describe the state space of the composition concurroid
+using existentials that abstract over the concurroid-specific
+fields. For instance, in the case of flat combiner, which composes
+three concurroids \code{Priv}, \code{Alloc} and \code{FlatCombine}, we
+could use three existentials to abstract over
+\emph{self}/\emph{joint}/\emph{other} fields for \code{Priv}, another
+three for \code{Alloc}, and three more for \code{FlatCombine}. To
+access any of the fields, we have to destruct all nine of the
+existentials. This quickly becomes tedious and results in proofs that
+are obscured by such existential destruction.
+
+Our alternative approach develops a systematic way of projecting the
+fields associated with each concurroid, based on the concurroid's
+label. Thus, for example, we can write \code{self\ pv\ s} to obtain
+the \emph{self} component of \code{s}, associated with a concurroid
+whose label is \code{pv}. The identifier \code{pv_self} we used in the
+spec for \code{span_root} and for \code{flat_combine} is a notational
+abbreviation for exactly this projection. While this is an obvious
+idea, its execution required a somewhat involved use of
+dependently-typed programming, and an intricate automation by
+employing canonical structures and lemma
+overloading~\cite{Gonthier-al:ICFP11,Mahboubi-Tassi:ITP13}.
+

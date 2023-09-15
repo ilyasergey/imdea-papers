@@ -1,0 +1,367 @@
+\section{Verifying Exchanger's Client}
+\label{sec:cal}
+\newcommand{\ts}{{ts}}
+\newcommand{\vvs}{{vs}}
+\newcommand{\acc}{{ac}}
+\newcommand{\ws}{{ws}}
+\newcommand{\sorted}[1]{\mathsf{sorted}\ #1}
+
+%\paragraph{Client definition.}
+We next illustrate how the verified exchanger from
+Section~\ref{sec:overview} can be used by client programs, and how the
+\emph{other} component, asserted by the spec to satisfy $\gist
+\subseteq \histo \hunion \mygather{\pending}$, is crucial in this
+process.
+%
+We emphasize that proof of the client does not see the fine-grained
+implementation details of the exchanger, which are hidden by
+spec~\eqref{tag:exchangespec}.
+%
+A version of the client we consider is actually used in
+\code{java.util.concurrent}~\cite{ExchangerClass}, and is defined as
+follows. First, we make the exchanger loop until it succeeds in
+exchanging the value.
+%
+\[
+{\small{
+\begin{array}{rl}
+& \esc{exchange'}~(v : A) : A = \{\\[1pt]
+&  ~~~~ w' \Asgn \esc{exchange}~v;\\[1pt]
+&  ~~~~
+  \kw{if}~~w'~~\kw{is}~~\esc{Some}~w~~\kw{then}~~\kw{return}~w~~\kw{else}~~\esc{exchange'}~v~\}
+\end{array}
+}}
+\]
+%
+Next, $\esc{exchange'}$ is iterated over a sequence, exchanging each
+element in order, appending the received matches to an accumulator. 
+%
+\[
+{\small{
+\begin{array}{rl}
+& \esc{ex\_seq}~(\vvs, \acc : \esc{seq}~A) : \esc{seq}~A = \{\\[1pt]
+& ~~~~ \kw{if}~~\vvs~~\kw{is}~~v{::}\vvs'~~\kw{then}\\[1pt]
+& ~~~~ ~~~~ w \Asgn \esc{exchange'}~v;~~\esc{ex\_seq}~(\vvs', \esc{snoc}~\acc~w)\\[1pt]
+& ~~~~ \kw{else}~~\kw{return}~\acc~\}
+\end{array}
+}}
+\]
+%
+Our goal is to show
+% compositionally, \ie~reasoning only out of the
+%spec of $\mathtt{exchange}$, 
+that the parallel composition
+%
+\[
+e = \esc{ex\_seq}~(\vvs_1, \esc{nil}) \parallel \esc{ex\_seq}~(\vvs_2, \esc{nil})
+\]
+%
+exchanges $\vvs_1$ and $\vvs_2$, \ie,~returns the pair $(\vvs_2,
+\vvs_1)$. This is a valid property, assuming that $e$ runs without
+interference, so that the two threads in $e$ have no choice but to
+exchange the values between themselves. We make the assumption
+explicit by using the $\hide$ constructor. Thus, the Hoare
+triple we will prove is:
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:hidespec} 
+{\small{
+\!\!\!
+\begin{array}{c}
+\specK{\{\heaps = g \mapsto\mathsf{null}\}}~~\hide~~e~~\specK{\{g \in
+  \mathsf{dom}~\heaps, \res = (\vvs_2, \vvs_1)\}} @ \cal P
+\end{array}
+}}
+\]
+%
+It says that we start with a heap where $g$ stores $\mathsf{null}$,
+and end with a possibly larger heap (due to the memory leak of the
+exchanger), but with the result $\res = (\vvs_2, \vvs_1)$.
+
+%$vs$ and $ws$ are exchanged. This is a valid property under the
+%assumptions that the two $\esc{ex\_seq}$ threads run in isolation,
+%\ie, without interfernce from any other exchanging threads. In that
+%case, the two threads have no other options but to exchange values
+%between themselves.
+
+\paragraph{Explaining the verification.}
+%
+The proof of $\hide~~e$ involves several stages: verification of
+$\esc{exchange'}$, $\esc{ex\_seq}$, $e$ and finally $\hide~e$. We only
+list the specs involved in the first two stages, omitting the
+associated proof outlines. These are straightforward, as the programs
+contain only sequential composition, and can be found in our Coq
+scripts. The last two stages employ parallel composition and $\hide$,
+and are thus more involved, so we present them in detail.
+
+The following are the specs for $\esc{exchange'}$ and $\esc{ex\_seq}$.
+%
+\[
+{\small{
+\begin{array}{c}
+\specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \gists, \gist \subseteq \gists \hunion \histo \hunion \mygather{\pending}\}}\\[2pt]
+\esc{exchange'}\ v\\[2pt]
+\spec{\!\!
+\begin{array}{c}
+\heaps = \emptyset, \perms = \emptyset, \gist \subseteq \gists \hunion
+  \histo \hunion \mygather{\pending}, \\[1pt]    
+\exists t\ldot \hists = t \mapsto (v, \res) \hunion \gists, \mathsf{last} (\gist) < t, \twin{t}
+\end{array}
+\!\!}@\cal E
+% \specK{\{\heaps = \emptyset, \perms = \emptyset, \gist \subseteq \gists \hunion \histo \hunion \mygather{\pending}, \hbox{}}\\
+% \specK{\exists t\ldot \hists = t \mapsto (v, \res) \hunion \gists, \mathsf{last} (\gist) < t, \twin{t}\}} @ 
+\end{array}
+}}
+\]
+%
+%\vspace{-10pt}
+%
+\[
+{\small{
+\!\!\!
+\begin{array}{c}
+\spec{\!\!
+\begin{array}{c}
+\heaps = \emptyset, \perms = \emptyset, \hists = \mathsf{zip}~\ts~\vvs~\acc, \hbox{}\\[1pt]
+\sorted{\ts}, \mathsf{zip}~\overline{\ts}~\acc~\vvs \subseteq \histo \hunion \mygather{\pending}
+\end{array}
+\!\!}
+\\[2pt]
+\mathtt{ex\_seq}~\vvs'~\acc\\[2pt]
+\spec{\!\!\!\!
+\begin{array}{c}
+\exists \ts'~\acc'\ldot\heaps = \emptyset, \perms = \emptyset, \res =
+  \acc~\esc{++}~\acc',\\[1pt] 
+\hists = \mathsf{zip}~(\ts~\esc{++}~\ts')~(\vvs~\esc{++}~\vvs')~(\acc~\esc{++}~\acc'), 
+ \sorted{(\ts~\esc{++}~\ts')},\\[1pt]
+\mathsf{zip}~(\overline{\ts}~\esc{++}~\overline{\ts'})~(\acc~\esc{++}~\acc')~(\vvs~\esc{++}~\vvs') \subseteq 
+      \histo  \hunion \mygather{\pending}
+\end{array}
+\!\!\!\!}@\cal E
+\end{array}
+}}
+\]
+
+The spec for $\esc{exchange'}$ is immediately derived
+from~(\ref{tag:exchangespec}) by removing the now-impossible case of
+exchange failing, and then framing the history components by $\gists$,
+as explained in Section~\ref{sec:background}.
+%
+The spec for $\esc{ex\_seq}$ is more complicated.  It starts with two
+logical variables $\ts$ and $\vvs$. The conjunct
+$\hists = \mathsf{zip}~\ts~\vvs~\acc$ in the precondition says that
+$\ts$ is the list of time-stamps currently generated by our thread,
+and $\vvs$ is the list of values exchanged for those in $\acc$. Here
+$\mathsf{zip}$ creates a history out of a list of time-stamps and
+values:
+%
+\[
+{\small{
+\mathsf{zip}~ts~vs~ws = \left\{%
+\begin{array}{l}
+t \mapsto (v, w) \hunion \mathsf{zip}~\ts'~\vvs'~\ws', \\
+\hphantom{\emptyset,}\ \mbox{if $\ts=t\,{::}\,\ts', \vvs=v\,{::}\,\vvs', \ws=w\,{::}\,\ws'$}\\
+\emptyset, \mbox{if $\ts = \vvs = \ws = \mathsf{nil}$}\\
+\mbox{undefined}, \mbox{otherwise}
+\end{array}\right.
+}}
+\]
+%
+%\[
+%\begin{array}{c}
+%\mathsf{zip}~(t\,{::}\,ts)~(v\,{::}\,vs)~(w\,{::}\,ws) = 
+%  t \mapsto (v, w) \hunion \mathsf{zip}~ts~vs~ws\\
+%\mathsf{zip}~\mathsf{nil}~\mathsf{nil}~\mathsf{nil} = \emptyset\\
+%\mathsf{zip}~ts~vs~ws = \mbox{undefined otherwise}
+%\end{array}
+%\]
+The precondition further assumes that the time-stamps in $\ts$, when
+considered as natural numbers, strictly grow ($\sorted{\ts}$), and
+that the \emph{other} history contains the ``twin'' history of
+$\hists$: $\mathsf{zip}~\overline{\ts}~\acc~\vvs \subseteq \histo
+\hunion \mygather{\pending}$. Here $\overline{\ts}$ denotes the list
+of twin time-stamps of $\ts$, and $\acc$ and $\vvs$ appear in the
+reversed order compared to $\hists$.
+
+The postcondition says that $\esc{ex\_seq}$ adds a list of time-stamps
+$\ts'$, which are all larger than time-stamps in $\ts$ and also
+strictly grow. Intuitively, this holds because the postcondition of
+$\esc{exchange'}$ ensures the time-stamp $t$ is larger than any
+time-stamps used in $\hists$, $\histo$ or $\pending$ (by choosing the
+logical variable $\gist$ in the spec of $\esc{exchange'}$ to be the
+union of $\hists$, $\histo$ and $\mygather{\pending}$). The self
+history $\hists$ is extended with the new time-stamps and values:
+$\hists =
+\mathsf{zip}~(\ts~\esc{++}~\ts')~(\vvs~\esc{++}~\vvs')~(\acc~\esc{++}~\acc')$. Similarly
+for the environment history, which must be a twin of $\hists$ by the
+resource invariant~(\ref{tag:exchanging}). The result $\res$ appends
+an unknown list of values $\acc'$, supplied by interfering threads, to
+the starting list $\acc$.
+
+The above spec for $\esc{ex\_seq}$ is also used as its loop
+invariant. For use in clients, we restrict it to
+$\acc = \ts = \vvs = \mathsf{nil}$, and derive:
+%
+\[
+{\small{
+\begin{array}{c}
+\specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset\}}\\[2pt]
+\mathtt{ex\_seq}~vs~\mathsf{nil}\\[2pt]
+\spec{\!\!\!
+\begin{array}{c}
+\exists \ts\ldot \heaps = \emptyset, \perms = \emptyset, 
+\mathsf{sorted}~\ts, \hists = \mathsf{zip}~\ts~\vvs~\res,
+\\[1pt]
+\mathsf{zip}~\overline{\ts}~\res~\vvs \subseteq \histo  \hunion \mygather{\pending}  
+\end{array}
+\!\!\!}@ \cal E
+\end{array}
+}}
+\]
+%
+Naming the postcondition above as $Q(\vvs)$, we can now verify the
+parallel composition $e$.
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:e}\\
+{\small{
+\begin{array}{c}
+\specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset\}}\\[2pt]
+%\specK{\{\heaps = \emptyset\hunion\emptyset, \perms = \emptyset\hunion\emptyset, \hists = \emptyset\hunion\emptyset\}}\\
+\specK{\{(\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset) \circledast 
+  (\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset)\}}\\[2pt]
+\begin{array}{c}
+\specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset\}}\\[1pt]
+\mathsf{ex\_seq}~\vvs_1~\mathsf{nil}\\[1pt]
+\specK{\{Q(\vvs_1)\}}
+\end{array} \parallel
+\begin{array}{c}
+\specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset\}}\\[1pt]
+\mathsf{ex\_seq}~\vvs_2~\mathsf{nil}\\[1pt]
+\specK{\{Q(\vvs_2)\}}
+\end{array}\\[2pt]
+\specK{\{Q(\vvs_1) \circledast Q(\vvs_2)\}}\makebox[0pt]{\quad $@ \cal E$}
+\end{array}
+}}
+\]
+Unfolding the definition of $\circledast$, the postcondition obtains:
+%
+%{\small{
+\begin{align*}
+\exists \ts_1~& \ts_2\ldot \heaps = \emptyset, \perms = \emptyset, \mathsf{sorted}~{\ts_1}, \mathsf{sorted}~{\ts_2},\\
+& \hists = \mathsf{zip}~\ts_1~\vvs_1~\res.1 \hunion \mathsf{zip}~\ts_2~\vvs_2~\res.2,\\
+& \mathsf{zip}~\overline{\ts_1}~\res.1~\vvs_1 \subseteq \mathsf{zip}~\ts_2~\vvs_2~\res.2 \hunion \histo \hunion\mygather{\pending}, \tag{\arabic{tags}}\refstepcounter{tags}\label{tag:x}\\
+& \mathsf{zip}~\overline{\ts_2}~\res.2~\vvs_2 \subseteq \mathsf{zip}~\ts_1~\vvs_1~\res.1 \hunion \histo \hunion\mygather{\pending}. \tag{\arabic{tags}}\refstepcounter{tags}\label{tag:y}
+\end{align*}
+%}}
+%
+Intuitively, the values of each \emph{self} component $\heaps$,
+$\perms$, $\hists$ from $Q(\vvs_1)$ and $Q(\vvs_2)$ are joined into
+the self component of the joined thread. At the same time, the
+\emph{other} component $\histo$ of the left thread equals the sum of
+the $\hists$ of the right thread, and the $\histo$ of the joining
+thread. Thus, the predicates $\mathsf{zip}~\overline{\ts}~\res~\vvs
+\subseteq \histo \hunion \mygather{\pending}$ from $Q_1$ and $Q_2$
+become $(\ref{tag:x})$ and $(\ref{tag:y})$, respectively.
+%\[
+%\begin{array}{c}
+%\{\heaps = \emptyset, \perms = \emptyset, \chi_s = \emptyset\}\\
+%\{\heaps = \emptyset\hunion\emptyset, \perms = \emptyset\hunion\emptyset, \chi_s = \emptyset\hunion\emptyset\}\\
+%\begin{array}{c}
+%\{\heaps = \emptyset, \perms = \emptyset, \chi_s = \emptyset\}\\
+%\mathsf{ex\_seq}~vs_1~\mathsf{nil}\\
+%\{\heaps = \emptyset, \perms = \emptyset, \\
+%\exists ts_1\ldot \mathsf{sorted}~ts_1, \\
+%  \chi_s = \mathsf{zip}~ts_1~vs_1~\res, \\
+% \mathsf{zip}~\overline{ts_1}~\res~vs_1 \subseteq \chi_o \hunion \mygather{\pending}\}
+%\end{array} \parallel
+%\begin{array}{c}
+%\{\heaps = \emptyset, \perms = \emptyset, \chi_s = \emptyset\}\\
+%\mathsf{ex\_seq}~vs_2~\mathsf{nil}\\
+%\{\heaps = \emptyset, \perms = \emptyset, \\
+%\exists ts_2\ldot \mathsf{sorted}~ts_2, \\
+%  \chi_s = \mathsf{zip}~ts_2~vs_2~\res, \\
+%\mathsf{zip}~\overline{ts_2}~\res~vs_2 \subseteq \chi_o \hunion \mygather{\pending}\}
+%\end{array}\\
+%\{\heaps = \emptyset, \perms = \emptyset, \exists ts_1~ts_2\ldot \mathsf{sorted}~ts_1, \mathsf{sorted}~ts_2,\\
+%\chi_s = \mathsf{zip}~ts_1~vs_1~\res.1 \hunion \mathsf{zip}~ts_2~vs_2~\res.2\\
+%\mathsf{zip}~\overline{ts_1}~\res.1~vs_1 \subseteq \mathsf{zip}~ts_2~vs_2~\res.2 \hunion \chi_o \hunion\mygather{\pending}\\
+%\mathsf{zip}~\overline{ts_2}~\res.2~vs_2 \subseteq \mathsf{zip}~ts_1~vs_1~\res.1 \hunion \chi_o \hunion\mygather{\pending}\}
+%\end{array}
+%\]
+
+What does this postcondition say? First, the self history of $e$
+contains both $\mathsf{zip}~\ts_1~\vvs_1~\res.1$ and
+$\mathsf{zip}~\ts_2~\vvs_2~\res.2$. Thus, $\vvs_1$ is exchanged for
+$\res.1$, and $\vvs_2$ for $\res.2$. But we additionally want to
+conclude that $\res.1 = \vvs_2$ and $\res.2 = \vvs_1$, \ie, the lists
+are exchanged for each other, in the absence of interference.
+
+To derive this desired property, we will use the inequalities
+$(\ref{tag:x})$ and $(\ref{tag:y})$. Notice that $(\ref{tag:x})$ and
+$(\ref{tag:y})$ are ultimately instances of the conjunct
+$\gist \subseteq \histo \hunion \mygather{\pending}$ that was part of
+the specification~(\ref{tag:exchangespec}). Hence, this example
+justifies the use of subjectivity in specs.
+
+First, we apply $\hide$ to the spec~$(\ref{tag:e})$, to limit the
+interference on $e$. We pick substitution
+$\Phi_1 = [\emptyset/\heaps, \emptyset/\perms, \emptyset/\hists,
+g\,{\mapsto}\,\mathsf{null}/\heapj$,
+$\emptyset/\pending, \emptyset/\heapo, \emptyset/\permo,
+\emptyset/\histo]$,
+and obtain (via the $\hide$ rule~\eqref{eq:ehide}):
+%
+\[
+{\small{
+\begin{array}{c}
+\specK{\{\heaps = g \mapsto \mathsf{null}\}}\\[2pt]
+\specK{\{\heaps = g \mapsto \mathsf{null}, \Phi_1 (\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset)\}}\\[2pt]
+\hide_{\Phi_1}~~e \\[2pt]
+\specK{\{\exists \Phi_2\ldot \heaps = \Phi_2(\heapj), \Phi_2(Q (\vvs_1) \circledast Q(\vvs_2))\}} @ \cal P
+\end{array}
+}}
+\]
+%
+From the unfolding of $Q(\vvs_1) \circledast Q(\vvs_2)$, we obtain
+that $\Phi_2$ must be such that $\heaps$ and $\perms$ map to
+$\emptyset$, and $\hists$ maps to $\mathsf{zip}~\ts_1~\vvs_1~\res.1
+\hunion \mathsf{zip}~\ts_2~\vvs_2~\res.2$. Moreover, by the general
+conditions on $\Phi$, $\permo$ and $\histo$ also map to
+$\emptyset$. The variable $\heapj$ maps to some heap which, by
+resource invariant~\ref{exP}, must contain the pointer $g$. Hence,
+from $\heaps = \Phi_2(\heapj)$, we derive $g \in
+\mathsf{dom}~\heaps$. Also by resource invariant~\ref{matched},
+$\mathsf{dom}\ \pending = \perms \hunion \permo$, and thus $\pending$
+too must map to $\emptyset$. Hence, we can weaken and simplify the
+postcondition into:
+\begin{align*}
+\exists \ts_1~\ts_2\ldot & g \in \mathsf{dom}\ \heaps, \sorted{\ts_1}, \sorted{\ts_2}\\
+& \mathsf{zip}~\overline{\ts_1}~\res.1~\vvs_1 \subseteq \mathsf{zip}~\ts_2~\vvs_2~\res.2 \tag{\ref{tag:x}'}\label{tag:x'}\\
+& \mathsf{zip}~\overline{\ts_2}~\res.2~\vvs_2 \subseteq \mathsf{zip}~\ts_1~\vvs_1~\res.1 \tag{\ref{tag:y}'}\label{tag:y'}
+\end{align*}
+%
+Now, histories are finite maps from time-stamps to value pairs. Hence
+$(\ref{tag:x'})$ implies that the time-stamps from $\overline{\ts_1}$
+are included in the time-stamps of $\ts_2$. Similarly from
+$(\ref{tag:y'})$, $\overline{\ts_2}$ is included in $\ts_1$. Thus,
+$\ts_1$ and $\ts_2$ are of same size, and moreover, since they both
+are strictly increasing, it must be that $\ts_2 =
+\overline{\ts_1}$. Therefore, $(\ref{tag:x'})$ can be strengthened
+into an equality: 
+%
+\[
+\mathsf{zip}~\overline{\ts_1}~\res.1~\vvs_1 = \mathsf{zip}~\ts_2~\vvs_2~\res.2
+\]
+%
+As the time-stamps in $\overline{\ts_1}$ and $\ts_2$ appear
+in the same order, it must be $\res.1 = \vvs_2$ and $\vvs_1 = \res.2$,
+leading to the desired (\ref{tag:hidespec}).  
+%
+% \an{I omitted here some steps. In particular, that $\sorted{\ts_1}$
+%   implies $\sorted{\overline{\ts_1}}$ is not straightforward, and
+%   requires also deriving that there are no twins in $\ts_1$. That can
+%   all been done (and has been done), but should we present it?}
+
+
+

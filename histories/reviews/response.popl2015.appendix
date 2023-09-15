@@ -1,0 +1,436 @@
+===========================================
+The rest of this response answers the reviewers' specific questions.
+===========================================
+
+===[#68A]===
+
+> It would help to clarify upfront what a PCM is ... in particular, to
+> explain what assumptions are made about when the "partial" join
+> operator is defined.
+
+Definition of a PCM employed for carrying out the necessary invariants
+is up to the client [22]. In our studies the PCM employed included
+natural numbers (with plus), heaps (with disjoint union), mutual
+exclusion PCM (defined in Section 5.1) and histories (with disjoint
+union, again). Partiality models impossible combinations of threads'
+contributions to the resource. For instance, in the mutual exclusion
+PCM, the result of joining two 'Own' elements is undefined, which
+models a situation that a lock cannot be held by more than one
+concurrent thread simultaneously.
+
+> Furthermore, section 2 uses the disjoint-union operator on
+> histories. What happens if the disjoint-union of two histories
+> produces one that is not "continuous"?
+
+The notion of history continuity is orthogonal to the PCM axioms, and
+it is enforced as an invariant of the concurroid STS in each of the
+examples. While not important for the verification of the pair
+snapshot, it has been proven to be useful to reason about data
+structures, such as stacks, allowing us to specify the freedom from
+the ABA problem (page 6) and to verify the sequential specification. 
+
+All concurroids presented in the paper ensure that the combined
+self/other histories captured by them are continuous and remain so as
+they evolve via transitions.
+
+> The specification (equation (5)) and explanation in section 2 are a
+> bit confusing.  In particular, the specification looks as though it
+> is a partial one as it only considers the case where the
+> self-history is empty. There is a claim that the frame rule allows
+> generalizing it to the case where the self-history is not
+> empty. (This is illustrated later in the end of section 3.1.) This
+> appears to be a bit magical, Presumably the magic is buried in the
+> PCM structure / FCSL.  It might be simpler to first illustrate the
+> (apparently) more-complete specification (equation (16)) first, and
+> discuss (5) and the frame-rule later on.
+
+By presenting the specification with the empty self-history, we follow
+the tradition of separation logic, in which programs are usually given
+the "tightest" possible spec, i.e., specs mention the smallest
+possible heap necessary for the program to be executed (so-called
+"small footprint"). Similarly, here we give the spec with a "small
+footprint" in terms of history and, later, show how an *equivalent*
+"large-footprint" spec can be derived using frame rule, which in FCSL
+generalizes the traditional separation logic rule for heaps to
+arbitrary PCMs [22].
+
+> The use of tau to make (5) "stable" also makes it a bit harder to
+> understand first.
+
+We agree that the spec (5) can be simplified, but at the price of
+losing the knowledge that the snapshot captured by readPair (at a
+timestamp 't') actually took place during the readPair execution
+period (hence, \tau <= t in the postcondition).
+
+===[#68B]===
+
+> p.1, second column, "for a class of structures": not sure what this means.
+> Does "structure" mean "data structure"?
+
+Yes, indeed, "data structures" were meant.
+
+> p.1, "granularity abstraction": this term has not been defined. I assume
+> it refers to the idea (explained above) that the client can reason about
+> a fine-grained implementation as if it was coarse-grained.
+
+Unfortunately, there is no formal definition of granularity
+abstraction in the literature.  We effectively reuse an informal
+definition from Turon et al. [30]: "clients can pretend, for the
+purpose of simplifying their own verification, that they are using the
+coarse-grained version, yet be sure that their code will still be
+correct when linked with the fine-grained version". We've
+substantiated exactly this point with the producer/consumer client.
+
+> p.2, "histories form a PCM with disjoint union": I assume a history is a
+> *sequence* of actions, not a set of actions. So, what does "disjoint union"
+> mean for histories? Oh, wait. I suppose a history is a *set* of timestamped
+> actions. Then, disjoint union makes sense. Could this be clarified?
+
+Your understanding is correct. We will clarify this in a future
+revision.
+
+> p.2, "Histories [...] are finite maps from the natural numbers to [...]". Is
+> it obvious that using natural numbers for timestamps is a good choice (or the
+> only choice)? Natural numbers are equipped with the successor operation,
+> which leads you to require "continuity". Would it make sense to use an
+> abstract type of timestamps that does not support successor?
+
+Natural numbers were certainly an obvious choice, and we believe that
+other choices are possible. However, without the ordering relation on
+timestamps it would be tricky or even impossible to express the fact
+that the "result" of the operation was logically observed during the
+time-span of a corresponding procedure call (as it's done, e.g., in
+the spec (5) via the inequality "\tau <= t"). As mentioned in Section
+6, in the future we plan to consider branching-time histories, which
+might employ different sets for time-stamping.
+
+> p.2, your explanation of the atomic pair snapshot data structure initially
+> looks as if the x and y components are treated in a symmetric manner; but
+> actually, the code in Figure 1 relies solely on the version number vx; it
+> looks as if vy is completely unused. Equation (4) seems to confirm this. Is
+> it indeed the case that vy is unused? Or is it used by some other method?
+
+Indeed, the structure is not treated symmetrically, so maybe
+presenting the implementation in a symmetric way was
+misleading. Ultimately, we had our eyes on the n-snapshot algorithm,
+where one can have n pointers, and then the symmetry is required.
+
+> p.2, "Thus, histories only grow, and only by adding valid snapshots". What
+> does "valid" mean here? What would be an invalid snapshot?
+
+Valid snapshot is one that corresponds to some particular values of
+'x' and 'y' such that they were present in the data structure at the
+same moment of time.
+
+> p.3, "Inclusion makes the precondition stable [...]": more generally, is there
+> an obligation to check that every assertion in Figure 2 is stable?  (I assume
+> there is.) But then, stable with respect to what? I suppose the answer is,
+> stable with respect to a suitable concurroid, which is hidden here (for
+> simplicity) and will be explained in Section 3. Perhaps this should be said.
+
+Indeed, each assertion is stable with respect to the environment
+transitions described by the appropriate concurroid implementing a
+protocol followed by a concurrent data structure.
+
+However, one only needs to prove stability when applying rules for
+atomic actions, frame, return and injection (see Fig 11 of the
+Appendix). In general, there's no formation requirement of stability
+on the assertions in a Hoare spec. Simply, if they aren't stable, the
+spec won't be provable.
+
+> p.3, "The readX method has the following spec:" Perhaps you could spend a
+> couple lines explaining this spec? In particular I wasn't quite sure why
+> "tau <= t" in the postcondition makes intuitive sense (I guess a suitable
+> witness for t is the most recent timestamp in the input history tau_O).
+
+Similarly as in the case of readPair, we're not guaranteed that readX
+will return the values from the most recent time-stamp. Instead, readX
+will return some value in the "interval" [\tau, \tau_O], where \tau is
+the "input" other history, and \tau_O is the "output" other
+history. Intuitively, after readX reads from x, but before it returns
+the obtained value, \tau_O may grow due to other threads
+interference. By requiring \tau <= t, we ensure that we won't get a
+value from the history, which has "expired" before the call to
+readX. We will clarify this point in future revisions.
+
+> Figure 2, line 7, I like the way in which tau_1 no longer appears in this
+> assertion, as it is subsumed by tau_2, which is a richer history. Nice.
+
+Thanks.
+
+> p.4, "labeled components". When a history is identified by a label l, one
+> could think of the history as stored in a ghost memory cell whose address is
+> l. Thus, instead of saying that l is a "label", you could say it is a "ghost
+> memory location". (Some authors have also used the words "region" or "island"
+> for a piece of ghost state identified by a unique address.)
+
+This is a right intuition, so we will draw this analogy.
+
+> p.4, "The self and other portions of any given label have to belong to a
+> common PCM". What about the joint portion? Does it also have to belong to some
+> PCM?
+
+In general, no. Although in most of our examples the joint part has
+been a PCM (most often a heap), the theory doesn't require it. The
+intuition is that the joint component is not subject to self/other
+split between threads.
+
+> p.4, "different labels can use different PCMs". So the points-to assertions
+> are implicitly parameterized with a PCM?
+
+Yes, since a label uniquely determines a concurroid instance, and,
+hence, the type of its PCM.
+
+> p.4, "These three basic assertions can be combined by the usual propositional
+> connectives [...]". Why does it make sense here to use ordinary conjunction
+> instead of separating conjunction?
+
+l -s-> a constrains the self portion of l to be a, but doesn't
+constrain the "other" and "joint" portions of label l to be
+empty. Symmetrically for l -j-> a and l -o-> a (see (13) and Figure 10
+in the appendix of the longer version). Thus, each of the basic
+assertions contains as its domain the full state of the label l. Since
+the states of the basic assertions are not disjoint, the assertions
+can't be conjoined by separating conjunction.  We have found this
+choice to give us the shortest specs in practice.
+
+> p.5, in the definition of "wr_x", the "other history" tau_O seems to appear
+> out of nowhere (I mean, there is one occurrence of the metavariable tau_O,
+> but it is not constrained by an assertion l |->^O tau_O). Puzzling.
+
+We assume \tau_O to be always available from the corresponding
+concurroid. In this particular case we need to refer to it in order to
+instantly pick a fresh value of a timestamp as a maximum of timestamps
+currently used in \tau_S and \tau_O plus one. It is also worth
+mentioning that wiggly-arrow means that "other" field \tau_O remains
+fixed (transitions are defined so that they never change the other
+component, essentially defining the concurroid's Guarantee). We will
+clarify this in future revisions.
+
+> One thing that isn't clear to me at the end of Section 3 is that there is
+> a certain mismatch between Sections 2 and 3. Throughout Section 2, triples
+> of the form {P}c{Q} are used. Now, Section 3 reveals that in FCSL, triples
+> really are quadruples of the form {P}c{Q}@U. So I assume Section 2 must be
+> revisited with the idea that every triple in it is implicitly relative to
+> the pair-snapshot concurroid, called "S" in the paper. Thus, the "real"
+> spec of readPair is of the form {...} readPair() {...} @ S. Now, if I am
+> a client who wishes to use readPair(), how much do I need to know about S?
+> Do I need to have access to its concrete definition? (Hopefully not, since
+> it reveals implementation details of the pair-snapshot data structure.) Do
+> I need to treat S as an "abstract concurroid" whose definition is opaque?
+> Or can I somehow "hide" S and perform my client-side reasoning in the empty
+> concurroid? I wish this was clarified.
+
+First of all, the @U component in Hoare quadruples of FCSL plays the
+role of Rely/Guarantee and the Resource Invariant for a particular
+concurrent data structure, as presented by [22]. It was omitted in
+semi-formal specs in Section 2 for the sake of simplicity, since the
+shape of the state (two pointers, x and y) and the "Rely" (two "write"
+operations) were assumed to be intuitively clear.
+
+In the formal FCSL reasoning, all "relevant" concurroids, whose state
+is being affected or examined by the program being verified, should be
+mentioned explicitly and concretely. The "irrelevant" concurroids can
+be (and usually are) "framed away" by means of the "extend" rule (18).
+
+The concern about "abstract concurroids" is answered in the first part
+of the response.
+
+> p.6, "Note that pop doesn’t deallocate [...]". If you modified the code of
+> pop() to deallocate the node p, would your proof break? (I hope it would!)
+> Where/why would it break? Is this explained later on in the paper? My guess is
+> that 1- the Treiber concurroid doesn't allow deallocation (as noted in the
+> paper); 2- if pop() used deallocate(), then its spec would need to mention
+> P-entangled-T instead of just T; 3- but then certain assertions that appear in
+> its proof would no longer be stable (not sure why).
+
+Short answer: the Treiber concurroid is designed in such a way that it
+doesn't have a "release" transition, so there is no way to write code
+that operates with it and transfers ownership over some chunks of the
+heap from its joint state anywhere else.
+
+Long answer requires us to recall that the proof of the Treiber stack
+specifications starts with defining the concurroid T and its "resource
+invariant", which ties together a number of properties, in particular:
+
+(1) Its overall self/other history is stacklike, complete and
+continuous; (2) the "last" snapshot in the history corresponds to the
+contents of the actual stack.
+
+Next, *all* the transitions of the concurroid are shown to preserve
+these invariants. Essentially, these properties together imply that
+the stack data structure evolves "in a right way", without
+experiencing the ABA problem. After formulating the transitions, one
+should define actions, which tie the concurroid logic to the program
+commands, such as write, CAS, etc (see Appendix C of the extended
+version of the paper). A number of properties of such actions should
+be proved, in particular, that they respect transitions and don't
+break the invariant. 
+
+Finally, one should give reasonably strong *stable* specs to the
+actions (with respect to concurroid's transitions). Such spec for
+'tryPush' can be read from the proof in Figure 4. The spec for
+'tryPop' is similar. The proofs of these specs very much rely on the
+implicit invariant that the pointers in the stack structure (except
+'snt') *never* change their values.
+
+Had we allowed the pop-transition de-allocate (e.g., by making it a
+release-transition and entangling T with P), we could not, in
+particular, ensure the stability of tryPop's precondition anymore (as
+someone else could deallocate the pointer at the same time, change its
+value, and push it back). And since this precondition is essential for
+making use of the T's 'pop' transition, we wouldn't be able to use
+'pop' anymore, because otherwise, in some cases depending on the
+interference, it would break the concurroid invariant.
+
+Allowing deallocation is possible (turning Treiber's stack into a
+Michael's stack), but it amounts to redesigning the whole data
+structure and reformulating its invariant.
+
+> p.6, in the definition of the Treiber concurroid, why is the shared heap h_s
+> described explicitly (i.e. as a union of several sub-heaps) instead of via a
+> separation logic assertion (i.e. as a separating conjunction of several
+> predicates, one for each sub-heap)? We seem to be losing some of the usual
+> benefits of separation logic here. We end up using a first-order logic
+> predicate list(p, l, h) instead of the usual separation logic predicate
+> list(p, l).
+> Similarly, why does (26) on p.7 define Arr_n(a,l,h), instead of
+> separation-logic predicate Arr_n(a,l)?
+> And why do we have to write "pv \mapsto^s h" instead of just writing
+> a normal separation logic assertion that describes our private state?
+> Again, we seem to be losing some readability (and compatibility with
+> standard separation logic). Could this situation be improved?
+
+These concerns are addressed in the first part of the response.
+
+> p.6, why does completeness (no gaps in the history) not appear also in the
+> pair-snapshot example? I suppose it is not necessary there.
+
+History completeness is needed for client-side reasoning. Since we
+didn't consider clients of readPair, we went for a simpler spec to
+improve readability. For stacks we did build clients, and thus we
+needed the continuity, in particular, to verify the spec of the
+producer/consumer client and the sequential spec (23).
+
+> Figure 4, the proof is clear, except of course the reader would like
+> to know how one proves that tryPush admits this specification.
+
+Indeed. The Coq files contain such proof (see treiber.v). We apologize
+for omitting these details in the paper due to lack of space.
+
+> p.7, "which is essentially an elaborated version of (1)". Perhaps you
+> could introduce grb also in the precondition, and then argue that, up
+> to an appropriate definition of the "abstract points-to" predicate that
+> appears in (1), we *really* obtain (1).
+> p.8, "Note also that the sentinel pointer is returned back to the private
+> heap, along with the garbage heap". This seems a little too concrete in
+> my eyes. Ideally I would like the proof of "exchange" to be independent
+> of the implementation of Treiber's stack -- hence the client should not
+> know that there is a sentinel pointer, a garbage heap, etc. It should
+> only reason in terms of an abstract predicate that describe a Treiber
+> stack. Could you do this? I suppose you can (but the module Treiber needs
+> to export an operation new_stack() in addition to push() and pop()).
+
+Certainly. However, abstractions of this sort are not considered in
+this paper, as discussed in the first part of the response. We didn't
+build such abstraction for stacks, but did for locks in [22].
+
+> p.8, "To supply the intuition behind the proof, we first review how ordinary
+> locks work with auxiliary state [...]". Could you explicitly give the Hoare
+> triples (or quadruples) for lock and unlock? The informal description that
+> follows is difficult to understand.
+
+We will clarify it in future revisions. Right now, the definition of
+such quadruples for lock/unlock can be found in page 9 of [22] (let us
+refrain from putting it in ASCII here).
+
+> p.8, you write "As in CSL [...]  a lock comes with a resource invariant I
+> which relates the auxiliary state to the heap of the shared resource". But
+> in CSL, I is just an assertion, which describes the shared resource, period.
+> There is no built-in idea of an "auxiliary state" in the reasoning rules for
+> locks, is there?
+
+You're right, resource invariants in CSL follow Owicki-Gries and are
+not explicitly parametrized by auxiliary state. Nevertheless, their
+job *is* to relate auxiliary state to the heap of the shared
+resource. One may say that the auxiliary state is "hardcoded" in the
+invariant. This is one of the drawbacks of Owicki-Gries, as observed
+in the introduction of the paper [19].
+
+> If one were to implement coarseGrainedCombine(f, x) simply as a sequence
+> of lock();f(x);unlock(), would one be able to prove exactly the same
+> abstract specifications for coarseGrainedCombine and flatCombine?
+
+Almost. The specification would be the same, modulo the NoReq conjunct
+in (32) and the join with all "g_p[i]" components in (31), which would
+not be present in the coarse-grained case, as they are artefacts of
+the helping machinery. To provide truly *the same* specs, one would
+need abstract predicates to hide these artefacts, but we can do that
+in Coq.
+
+> Footnote 7 on page 9 is cryptic. Exactly what kind of side effects is the
+> function f allowed to perform? Can it alter some private state? Can it use
+> concurrent data structures (other than the flat combiner at hand)? etc.
+> I am somewhat lost.
+
+We just meant, the spec doesn't require the function to be
+sequential. The function can certainly alter private state, but it can
+also allocate new concurroids via hiding, and fork children threads.
+
+> Ideally one should explain how a new flat combiner is initialised,
+> how each participating thread receives its own tid and its own proof
+> of NoReq(tid). Ideally this machinery should be somehow abstracted
+> away inside the FC module, which would provide only two operations
+> new_flat_combiner() and flatCombine(fc, f, x)...  (Of course the
+> paper is complex enough as it stands. This is just a suggestion for
+> future work...)
+
+This concern about abstract interfaces for concurroids has been
+responded in the "short" part of the response above.
+
+To elaborate a bit more, we would like to add that it is an
+interesting point in general, what would be the *best* abstract
+interface for, e.g., stack-like concurroids. For instance, some stacks
+(e.g., Treiber's) admit an arbitrary number of threads, whereas some
+others (e.g., our FC-stack or Michael's stack) work only with a
+limited number of threads. Moreover, the memory footprint for
+different implementations is going to be different (e.g., Treiber's
+stack doesn't deallocate); that said, should the "abstract" interface
+admit possible memory leaks after the stack has been deallocated?
+While all these are important questions to be answered, we considered
+them orthogonal for the work presented, and therefore, did not discuss
+in the paper.
+
+===[#68C]===
+
+> [HOCAP/iCAP] present one spec that can be specialised to the obvious
+> sequential spec, and also to the specification you give in the
+> introduction (2). [Note this is allowing the client to specify the
+> spec, not as you claim a necessary restriction on all clients].  Can
+> you provide one spec that is that general?  You show you can
+> specialise to the sequential spec, but not to (2).
+
+The "weak" specification (2) for stacks, whose all elements satisfy
+the predicate P, can be obtained by making an assumption about the
+self and other-contributions to the history (i.e., elements pushed by
+the thread itself and its environment), namely, that the pushed
+elements would always satisfy P. Out of this assumption, since pop's
+spec (21) essentially says that if an element has been popped, then it
+must have been pushed previously by the same or some other thread
+(which follows from the predicates 'complete' and 'stacklike' defined
+on the stack histories), we can infer that *if* all pushed and
+initially present elements in the stack satisfied P, than any popped
+element satisfies P as well.
+
+The *if* can be removed by means of hiding, which allows one to limit
+the interference and account for the contributions of all interfering
+threads to the data structure, as illustrated by the producer/consumer
+example, therefore, in this case making it possible to check that *no*
+elements falsifying P were pushed. Indeed, to remove the *if* without
+hiding, one needs the extensions that we alluded to wrt "make_atomic"
+when discussing related and future work in Section 6.
+
+===[#68D]===
+
+[No questions were asked.]
+

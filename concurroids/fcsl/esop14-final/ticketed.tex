@@ -1,0 +1,588 @@
+
+\section{A Concurroid for the Ticketed Lock}
+\label{sec:ticketed}
+
+In this section, we instantiate the presented framework by
+constructing from scratch a concurroid for another famous fine-grained
+locking algorithm---a ticketed lock~\cite{DinsdaleYoung-al:ECOOP10}.
+Unlike the CAS-based spin lock, which we took as a running example,
+this algorithm, although simple, provides fairness guarantees for
+competing threads. We start by giving a simplified implementation of
+the algorithm and building the intuition about the states and
+transitions of the concurroid, implementing its protocol.
+
+\subsection{Reference implementation}
+\label{sec:refer-impl}
+
+As a reference implementation of the ticketed lock, we use the one
+from the work on Concurrent Abstract
+Predicates~\cite{DinsdaleYoung-al:ECOOP10}. 
+
+\begin{code}
+ lock = {                        unlock = {
+   n := TAKE();                   DROP_TKT();         
+   while (!TRY(n)) skip;         }
+ }  
+\end{code} 
+
+The three \emph{atomic} actions \texttt{TAKE}, \texttt{TRY(n)} and
+\texttt{DROP\_TKT} have the following operational meaning:
+
+\begin{code}
+ TAKE()     = { fetch_and_increment(next); }
+ TRY(n)     = { return (n == owner); }
+ DROP_TKT() = { fetch_and_increment(owner); }  
+\end{code} 
+
+As a minor difference, we assume a pointer to the lock structure being
+fixed and omit it from the code, referring instead to its two
+essential fields: \texttt{owner} and \texttt{next}. These two fields
+are natural numbers, describing the state of the ticketed lock system.
+%
+We implemented \texttt{TAKE()} and \texttt{DROP\_TKT()} as
+\texttt{fetch\_and\_increment}, which is is a standard atomic operation
+implemented in most of the modern architectures, operationally
+equivalent to the following sequence of commands:
+
+\begin{code}
+ fetch_and_increment(ptr) = { tmp := ptr; ptr++; return tmp; }  
+\end{code}
+
+
+The intuition behind the protocol comes from the idea of the
+organization of the service in a bakery: \texttt{next} corresponds to
+the current ticket available at the dispenser (but not yet taken!),
+whereas \texttt{owner} indicates a ticket number, an owner of which is
+called to be served, or is currently being served. Hence, the
+\texttt{lock} procedure corresponds to drawing a ticket from the
+dispenser and a subsequent repetitive attempt to be served, whereas
+\texttt{unlock} corresponds to throwing the ticket away and increasing
+the ticket counter, so the next client could be served (if there is
+one in a waiting line).
+
+\subsection{States of the concurroid}
+\label{sec:states-concurroid}
+
+The intuition for the construction of a ticketed lock concurroid can
+be built from the idea of \emph{splitting} the resources in the spirit
+of the Subjective Concurrent Separation
+Logic~\cite{LeyWild-Nanevski:POPL13}. What are the primary resources
+that a ticketed lock deals with? Those are tickets, of course! Some of
+them can be taken by a current thread, some by others. If we make an
+assumption that each ticket is thrown away right after its owner has
+been served, we will see a simple invariant: all tickets in the system
+are from the range $[n_1, n_2)$, where $n_1$ and $n_2$ are natural
+numbers, corresponding to the values of \texttt{owner} (currently
+being served or about to be) and \texttt{next} (next ticked to be
+issued), hence non-inclusion on the right side of the range.
+
+As in the case of the CAS-based spin lock
+(Section~\ref{sec:overview}), the \self and \other components of the
+ticketed lock concurroid are pairs of two PCMs: the PCM of
+\emph{finite sets} of natural numbers, accounting for the tickets
+($\tL$ and $\tE$), and a generic PCM accounting in order to the heap
+invariant associated with this particular lock: $\gL$ and
+$\gE$. Similarly to the CAS-based spin lock, the ticketed lock is
+parametrized by a resource invariant~$I$.
+%
+We will denote the whole concurroid with the label $\tlock$, pointers
+$\own$ and $\nxt$ and invariant $I$ by $\TL$. Let us start by defining
+a predicate, describing valid states of the ticketed lock concurroid.
+
+\begin{definition}[$\TL$ state invariant ${\cal W}_T$] 
+\label{def:tlock}
+\[
+\begin{array}{rcl} 
+{\cal W}_T &\eqdef & \tlock \spts (\tL, \gL) \aand \tlock \opts (\tE, \gE) \aand 
+\tlock \jpts (\own \hpts \angled{n_1, b}) \hunion (\nxt \hpts n_2) \hunion h ~ \aand \\ 
+&& n_1 \le n_2 \aand (\tL \join \tE) = \set{n ~|~ n_1 \le n < n_2} ~\aand \\
+&& 
+\left(\begin{array}{l}
+n_1 \in (\tL \join \tE) \aand b = \mathsf{true} \aand h = \hempty ~\oor \\
+\mathsf{if}~~ n_1 = n_2 ~~\mathsf{then}~~ b = \mathsf{false} \aand I\
+(\gL \join \gE)\ h \\
+~~~~~~~~~~~~~~~~~~\mathsf{else}~~n_1 \in (\tL \join \tE) \aand b = \mathsf{false} \aand I~(\gL \join \gE)\ h
+\end{array}\right)
+\end{array}
+\]
+\end{definition}
+
+Definition~\ref{def:tlock} highlights a number of important invariants
+of the ticketed lock:
+
+\begin{itemize}
+
+\item The first line of the conjunction specifies the shape of the
+  concurroid states. Since the \joint component is always a heap, we
+  needed to introduce a ``ghost'' value $b$, such that $\own \hpts
+  \angled{n_1, b}$, which tracks if the lock is taken or not.  This is
+  a purely logical artifact, which simplifies the reasoning and it can
+  be safely erased in the actual implementation, making this entry
+  look just as $(\own \hpts n_1)$. To make it clear that $b$ is
+  auxiliary state, we could have introduced a separate label whose
+  \joint part contains only $b$. In our implementation, \joint
+  components need not contain only heaps, but can contain arbitrary
+  non-heap types, whose values are by default considered
+  auxiliary. Thus, the addition of a new label with a boolean contents
+  $b$ would suffice to declare $b$ as an auxiliary state. However, for
+  simplicity, we omitted such generalization.
+
+\item The second line states the invariant with respect to the
+  distributed tickets. Indeed, the number of a ticket currently being
+  (or just about to be) served is less than or equal to the number of
+  the ticket in the dispenser, hence, $n_1 \le n_2$. The tickets in
+  the queue range from $n_1$ to $n_2$, and $n_2$ has not yet been
+  assigned to any thread.
+
+\item The last three lines outline the essential ``states'' of the
+  system. 
+
+\begin{itemize}
+
+\item One case is the lock being locked. It corresponds to a thread
+  with some ticket $n_1$ (captured either by $\tL$ or $\tE$) being
+  served. Therefore, the ownership over the heap is being transferred
+  to the client ($h = \hempty$) and the logical flag $b$ is indicating
+  the locking ($b = \mathsf{true}$). We will refer to this state as
+  \emph{locked}.
+
+  \item Another case corresponds to the situation when there are no
+    more threads awaiting for service or being served. This is the
+    case $n_1 = n_2$. Therefore, the lock is not taken ($b =
+    \mathsf{false}$) and has the ownership over the heap with the lock
+    invariant holding over it ($I~(\gL \join \gE)\ h$). We will refer
+    to this state as \emph{unlocked}.
+
+  \item The least obvious case is the situation when \emph{no} thread
+    is being served, but one is just about to be. This is the thread
+    having the ticket $n_1$ (hence $n_1 \in (\tL \join \tE)$), but the
+    lock is not yet taken ($b = \mathsf{false}$) and has the
+    ownership over the heap ($I~(\gL \join \gE)\ h$). We will refer to
+    such state as \emph{transit}. 
+
+\end{itemize}
+
+\end{itemize}
+
+It is important to notice that the awkward addition of the logical
+flag $b$ to the \joint state is a byproduct of co-existence of
+``locked'' and ``transit'' states of the concurroid and our generality
+with respect to the invariant $I$. In particular, had we assumed
+$I~(\gL \join \gE)\ h \implies h \neq \hempty$, we could use this fact
+in order to distinguish between the ``locked'' and ``transit''
+states. Finally, as it will be shown, the flag $b$ plays an important
+role only when verifying the body of the \texttt{lock} procedure, and
+can be abstracted away for convenience of the clients of \texttt{lock}
+and \texttt{unlock}.
+
+\subsection{Transitions of the concurroid}
+\label{sec:trans-conc}
+
+In contrast with the CAS-based spin lock, whose internal transitions
+do not allow any components of the state to change, the internal
+transitions of the ticketed lock concurroid account for \emph{taking}
+the tickets from the dispenser and changing the corresponding counter
+$\nxt$ in the \joint part of the state. Again, describing the
+transitions on states $w$ and $w'$, we implicitly assume $w. \mathother = w'.\mathother$.
+
+\begin{definition}[$\TL$ internal transitions $\tau_T$]
+\label{def:tlock-int}
+\[
+\begin{array}{lcl}
+(w, w') \in \tau_T & \iff & 
+\begin{array}[t]{llll}
+w.\mathself & = \tlock \hpts (\tL, \gL), & w.\mathjoint & = \tlock
+\hpts (\nxt \hpts n_2 \hunion h), \\
+w'.\mathself & = \tlock \hpts (\tL', \gL), & w.\mathjoint & = \tlock
+\hpts (\nxt \hpts n'_2 \hunion h), \\
+n_2 \le n'_2
+\end{array}\\  
+\end{array}
+\]
+  
+\end{definition}
+
+Notice that in Definition~\ref{def:tlock-int} we don't specify the
+rest of the \joint heap $h$. What is important is that it remains
+unchanged. The $\nxt$ counter may only increase, and this change is
+reflected by changing the \self auxiliary component $\tL$ to
+$\tL'$, assuming that the resulting state still adheres to the state
+predicate ${\cal W}_T$ (Definition~\ref{def:tlock}).
+
+\begin{definition}[$\TL$ external transitions, $\alpha_T$ and $\rho_T$]
+\label{def:tlock-ext}
+
+\[
+\begin{array}[t]{lcl}
+(w, w') \in \alpha_T~h & \iff & 
+\begin{array}[t]{ll}
+w.\mathself & = \tlock \hpts (\tL \cup \set{n_1}, \gL), \\
+w.\mathjoint & = \tlock \hpts (\own \hpts \angled{n_1, \mathsf{true}} \hunion \nxt
+\hpts n_2), \\
+w'.\mathself & = \hlock \hpts (\tL, \gL'), \\
+w'.\mathjoint & = \tlock \hpts (\own \hpts \angled{n_1 + 1, \mathsf{false}} \hunion \nxt
+\hpts n_2 \hunion h)
+\end{array}
+\\ \\
+(w, w') \in \rho_T~h & \iff & 
+\begin{array}[t]{ll}
+w.\mathself & = \hlock \hpts (\tL \cup \set{n_1}, \gL), \\
+w.\mathjoint & = \tlock \hpts (\own \hpts \angled{n_1, \mathsf{false}} \hunion \nxt
+\hpts n_2 \hunion h),
+ \\
+w'.\mathself & = \hlock \hpts (\tL \cup \set{n_1}, \gL), \\
+w'.\mathjoint & = \tlock \hpts (\own \hpts \angled{n_1, \mathsf{true}} \hunion \nxt
+\hpts n_2)
+\end{array}
+\end{array}
+\]
+
+\end{definition}
+
+In Definition~\ref{def:tlock-ext}, the acquire transition $\alpha_T$
+transfers the heap $h$ to the \joint part of the state $w'.j$,
+increases the service counter, hence $n_1 + 1$, and flips the flag $b$
+from \textsf{true} to \textsf{false}. The transition is only possible
+when the ticket number $n_1$ is ``registered'' in the \self-set $\tL$
+in the initial state. Similarly, the release transition $\rho_T$ is
+only possible when the ticked being called is owned by the \self set
+$\tL$. In such a case, the ownership of the heap $h$ is given away to
+the calling thread.
+
+We now have all ingredients to define the concurroid for ticketed
+locks.
+
+\begin{definition}[The concurroid for the ticketed lock]
+
+  $\TL = (\{\tlock\}, {\cal W}_T, \tau_T, (\alpha_T, \rho_T))$, where
+  ${\cal W}_T$ is given by Definition~\ref{def:tlock} and $\tau_T,
+  \alpha_T$ and $\rho_T$ are
+  defined in Definitions~\ref{def:tlock-int}~and~\ref{def:tlock-ext}.
+\end{definition}
+
+\subsection{Atomic actions of a ticketed lock}
+\label{sec:atom-acti-tick}
+
+We now define the three atomic actions, used in the implementation of
+the locking/unlocking procedures in Section~\ref{sec:refer-impl}.
+
+The action \textsf{take} corresponds to internal transitions of the
+concurroid $\TL$ and returns the number of the drawn ticket as its
+result. Hence the following specifications, according to the
+definitions of Section~\ref{sec:logic}:
+%
+\begin{definition}[\textsf{take} action]
+\label{def:take-act}
+%
+$\mathsf{take} = (\TL, \mathsf{nat}, \sigma, \mu)$, where
+\[
+{\small
+\begin{array}{lclcl}
+w \in \sigma & \iff & 
+  w & = &\tlock \hpts \state{(\tL, \gL)}{\nxt \hpts n_2 \hunion h}{(\tE,
+    \gE)}\\ \\
+(w, w', \result) \in \mu & \iff & 
+  w &= &\tlock \hpts \state{(\tL,~~~~~~~~~~~ \gL)}{\nxt \hpts n_2 ~~~~~~~~~\hunion h}{(\tE,
+    \gE)} ~\aand\\
+&&  w' &=& \tlock \hpts \state{(\tL \cup \set{n_2}, \gL)}{\nxt \hpts (n_2 + 1) \hunion h}{(\tE,
+    \gE)} ~\aand\\
+&&  \result &=& n_2
+\end{array}}
+\]
+\end{definition}
+%
+By doing \emph{flattening}, one can see that operationally
+$\mathsf{take}$ corresponds to an atomic \emph{fetch-and-increment} of
+the pointer $\nxt$. Formally, the fetch-and-increment operation can be
+is defined in Section~\ref{sec:actions}.
+%
+Two other actions, \textsf{try} and \textsf{droptkt} account for the
+heap ownership transfer and, hence, correspond to internal transitions
+of the entanglement $P \entangle \TL$.
+
+\begin{definition}[\textsf{try} action]  
+\label{def:try-act}
+%
+$\forall n:\mathsf{nat}\ldot~\mathsf{try}(n) = (P \entangle \TL, \mathsf{bool}, \sigma, \mu)$, where
+%
+\[
+{\small
+\begin{array}{l}
+w \in \sigma \iff
+\\
+\begin{array}{lcl}
+~~~~~~  w & = & \priv ~\hpts \state{\hempty}{\hempty}{\hE} \hunion \\
+  &&\tlock \hpts \state{(\tL \cup \set{n}, \gL)}{\own \hpts \angled{n_1, b}
+    \hunion \nxt \hpts n_2 \hunion h}{(\tE, \gE)}\\ \\
+\end{array}    
+\\ \\
+(w, w', \result) \in \mu \iff 
+\\
+\begin{array}{llcl}
+ &  w & = & \priv ~\hpts \state{\hempty}{\hempty}{\hE} \hunion \\
+ &&&\tlock \hpts \state{(\tL \cup \set{n}, \gL)}{\own \hpts \angled{n_1, b}
+     \hunion \nxt \hpts n_2 \hunion h}{(\tE, \gE)} ~\aand\\  
+\mathsf{if}~ n = n_1 \\
+\mathsf{then} &  
+w' & = & \priv ~\hpts \state{h}{\hempty}{\hE} \hunion \\
+  &&&\tlock \hpts \state{(\tL \cup \set{n}, \gL)}{\own \hpts \angled{n_1, \mathsf{true}}
+    \hunion \nxt \hpts n_2}{(\tE, \gE)} ~\aand\\  
+  & \result &=& \mathsf{true}  ~\aand~ I~(\gL \join \gE)~h \\
+\mathsf{else} &  
+w' & = & w ~\aand~ \result = \mathsf{false} \\
+\end{array}
+\end{array}
+}
+\]
+\end{definition}
+%
+One can see that the action \textsf{try}$(n)$ corresponds to reading
+from the heap cell $\own \hpts -$ (hence, it's operational), but it
+has a interesting effect on the auxiliary state. In particular, if the
+comparison succeeds (\textsf{then}-branch), the ownership over heap
+$h$ is transferred to the \self-part of $\hpriv$, and logical flag is
+flipped, which corresponds to the internal transition of the
+entanglement $P \entangle \TL$. Otherwise, the thread has approached
+the counter with a ticket that is not called, and thus is denied
+service for now. The state therefore doesn't change, which corresponds
+to the reflexivity of the internal transition. The action can only be
+performed if the ticket $n$, which is being checked for the service,
+is present in the \self part, hence $\tL \cup \set{n}$ (that is the
+thread indeed has right to \emph{try} claim the service).
+
+\begin{definition}[\textsf{droptkt} action]  
+\label{def:incrown-act}
+%
+$\mathsf{droptkt} = (\TL, \mathsf{unit}, \sigma, \mu)$, where
+\[
+{\small
+\begin{array}{lclcl}
+w \in \sigma & \iff & 
+  w & = & \priv \hpts \state{h}{\hempty}{\hE} \hunion \\   
+  &&&& \tlock \hpts \state{(\tL \cup \set{n_1}, \gL)}{\own \hpts \angled{n_1, b} \hunion \nxt \hpts n_2}{(\tE, \gE)} ~\aand\\ 
+  && \multicolumn{3}{l}{I~(f(\gL) \join \gE)~h ~\aand~ f~\text{is local}}
+\\ \\
+(w, w', \result) \in \mu & \iff & 
+  w & = & \priv \hpts \state{h}{\hempty}{\hE} \hunion \\   
+  &&&& \tlock \hpts \state{(\tL \cup \set{n_1}, \gL)}{\own \hpts \angled{n_1, b} \hunion \nxt \hpts n_2}{(\tE, \gE)} ~\aand\\ 
+  && \multicolumn{3}{l}{I~(f(\gL) \join \gE)~h ~\aand~ f~\text{is
+      local} ~\aand}\\ 
+&& w' &=& \priv \hpts \state{\hempty}{\hempty}{\hE} \hunion \\   
+  &&&& \tlock \hpts \state{(\tL, \gL)}{\own \hpts
+    \angled{n_1 + 1, \mathsf{false}} \hunion \nxt \hpts n_2 \hunion
+    h}{(\tE, \gE)}
+\end{array}
+}
+\]
+\end{definition}
+
+In the definition of \textsf{droptkt}, the \self-contribution
+with respect to the abstract state $\gL$ is captured via some
+\emph{auxiliary function} $f$, which is required to be
+\emph{local}~\cite{LeyWild-Nanevski:POPL13}. Another important change
+is removing a ticket $n_1$ from the \self-set $\tL$, once the
+service is finished (\ie, the lock is unlocked).
+
+\subsection{Lock predicates}
+\label{sec:spec-textttl-texttt}
+
+In order to verify the \texttt{lock} and \texttt{unlock} procedures,
+we first introduce a number of auxiliary predicates to simplify the
+presentation of the reasoning.
+
+\begin{definition}[$\TL$ predicates]
+\label{def:predicates}
+\[
+\small{
+\begin{array}{rcl}
+  \islock(\gL) & \eqdef  &  \tlock \spts (\tL, \gL) \\
+  \\
+  \cantry(n, \gL) & \eqdef & \tlock \spts (\tL \cup \set{n}, \gL) \aand
+  \tlock \jpts (\own \hpts \angled{n_1, b} \hunion h) ~\aand\\
+  & & (n = n_1) \implies \neg b \\
+  \\
+  \locked(\gL, \gE) & \eqdef  &  \tlock \spts (\tL \cup \set{n_1}, \gL) \aand
+  \tlock \jpts (\own \hpts \angled{n_1, \mathsf{true}} \hunion h) \\
+\end{array}
+}
+\]
+\end{definition}
+
+In Definition~\ref{def:predicates} and further we implicitly treat all
+non-bound logical variables as existentially quantified.
+%
+% \an{Hmm, this is not the folklore. If you don't want to mention a
+%   variable, just put a $-$ instead of it.} 
+%
+The predicate $\islock$ identifies a state $w$ as one satisfying to
+the structure of the $\TL$ concurroid. The predicate $\cantry$ asserts
+that the current thread can make an attempt to acquire the lock with
+the ticket $n$, but it might fail. The auxiliary condition $(n = n_1)
+\implies \neg b$ is essential for verifying the body of \texttt{lock}
+in order to exclude the bogus situation when the same thread tries to
+re-acquire the lock which it already owns.
+
+Curiously, the $\islock$ and $\locked$ predicates can be considered as
+implementation of the \emph{abstract} interface for locks, as
+presented by the work on CAP~\cite{DinsdaleYoung-al:ECOOP10}: we
+deliberately picked the same name for ours. In particular, we can
+prove the similar properties for ours predicates with respect to the
+locking intuition:
+
+\begin{lemma}
+\label{lm:lk1}
+$\locked(\gL, \gE) \implies \islock(\gL)$.  
+\end{lemma}
+
+\begin{lemma}[Mutual exclusion for Ticketed Lock]
+\label{lm:lk2}
+
+$w \models \locked(\gL, \gE) ~\aand~ w^{\top} \models \locked(\gE,
+\gL) 
+\implies \mathsf{False}$.  
+\end{lemma}
+
+Lemma~\ref{lm:lk2} is a ``subjective'' formulation of the mutual
+exclusion property, stating that the lock can be simultaneously
+acquired by at most one thread. We address the interested reader to
+our formal development in Coq~\cite{fcsl-coqscripts} for the proofs of
+these and some other lemmas about locks as well as for implementation
+of the same abstract interface for the CAS-based spin lock.
+
+\subsection{Verifying locking procedures}
+\label{sec:verify-lock-proc}
+
+We culminate the development of this appendix with the verification of
+the \texttt{lock} procedure for the ticketed lock
+(Section~\ref{sec:refer-impl}).\footnote{Verification of
+  \texttt{unlock} is significantly simpler, and we address the reader
+  to our formal development for the details~\cite{fcsl-coqscripts}.} 
+\[
+\begin{array}{c}
+\spec{\priv \spts \hempty \lsep \islock(\gL)}
+\\
+\mathsf{lock} \tag{\arabic{tags}}\refstepcounter{tags}
+\\
+\spec{\exists h, \gE, 
+\priv \spts h \lsep \locked(\gL, \gE) ~\aand~
+I~(\gL \join \gE)~h}
+\end{array}
+\label{lock-spec}
+\]
+
+Since in our logic imperative \texttt{while}-loops are implemented as
+a fixed point iteration of a tail-recursive function, for such functions
+a specification should be defined by the programmer (same is true for
+loop invariants in the standard Hoare logic). We begin by assuming for
+each auxiliary element of PCM $\gL$ and a ticket number $n$ a family
+of curried functions $\mathit{loop}(n: \mathsf{nat}): \mathsf{unit}
+\rightarrow \mathsf{unit}$ with the following \SCST specification:
+
+\[
+\begin{array}{c}
+\spec{\priv \spts \hempty \lsep \cantry(n, \gL)}
+\\
+\mathit{loop}(n)(\_)  \tag{\arabic{tags}}\refstepcounter{tags}
+\\
+\spec{\exists h, \gE, 
+\priv \spts h \lsep \locked(\gL, \gE) ~\aand~
+I~(\gL \join \gE)~h}
+\end{array}
+\label{loop}
+\]
+
+We proceed by unfolding the definition of the locking procedure and
+presenting the proof outline.
+
+\[
+\begin{array}{l}
+\spec{\priv \spts \hempty \lsep \islock(\gL)}
+\\
+n \leftarrow \mathsf{inject'}(\mathsf{take});
+\\
+\spec{
+\begin{array}{l}
+  \priv \spts \hempty \lsep  \tlock \spts (\tL \cup \set{n_2}, \gL)
+  \aand \tlock \jpts (\own \hpts - \hunion \nxt \hpts
+  n'_2 \hunion h')~\aand \\
+  n = n_2
+  \aand n_2 \le n'_2
+\end{array}
+}
+\\
+\spec{\priv \spts \hempty \lsep \cantry(n, \gL)}
+\\
+\mathsf{fix}.\mathit{loop}(n). ~\_~. ~(~
+\\
+~~ \mathsf{if}~ (\mathsf{try}(n))~\mathsf{then}
+\\
+~~~~\spec{{
+  \priv \spts h \lsep \tlock \hpts \state{(\tL, \gL)}{\own \hpts \angled{n, \mathsf{true}}
+  \hunion \nxt \hpts n_2''}{(\tE', \gE)} \aand I~(\gL \join \gE)~h}
+}
+\\
+~~~~\mathsf{return}~();
+\\
+~~~~\spec{\priv \spts h \lsep \locked(\gL, \gE) ~\aand~
+I~(\gL \join \gE)~h}
+\\
+~~\mathsf{else}
+\\
+~~~~\spec{\priv \spts \hempty \lsep \cantry(n, \gL)}
+\\
+~~~~\mathit{loop}(n)(\_);
+\\
+~~~~\spec{\exists h, \gE, \priv \spts h \lsep \locked(\gL, \gE) ~\aand~
+I~(\gL \join \gE)~h}
+\\
+)(\_)
+\\
+\spec{\exists h, \gE, 
+\priv \spts h \lsep \locked(\gL, \gE) ~\aand~
+I~(\gL \join \gE)~h}
+\end{array}
+\]
+
+In fact, the proof has been implicitly split into two parts: (a)
+proving the correctness of the \emph{loop} specification~\eqref{loop}
+in the body of the locking procedure by the rule \textsc{Fix}
+(Figure~\ref{fig:rules}) and (b) proving the specification of the
+locking itself, assuming the \emph{loop} spec. In the outline we have
+blended them both together, as the proof of~\eqref{loop} is
+straightforward: just by reading the specification of the
+$\mathsf{try}$ action, we know that in \textsf{then}-branch the heap
+$h$ has been transferred to \self-part of $\priv$.  Moreover, in the
+proof outline we omitted some reasoning about stability, which,
+indeed, has been taken into account. In particular, in the assertion
+right after the line ``$\mathsf{if}~
+(\mathsf{try}(n))~\mathsf{then}$'', we mention $n_2''$ rather than
+$n_2'$, since this counter could have been changed by the \other
+threads. These subtle details become clear in the mechanized proofs
+and are omitted above for the sake of brevity.
+
+Finally, we have employed a slightly different version of injection,
+which we emphasized by using the $\mathsf{inject'}$ command. It
+differs from one we described in Section~\ref{sec:reasoning} by the
+form of entanglement it handles. The original rule \textsc{Inject}
+enabled concurroid framing with respect to the right operand of
+$\entangle$. In contrast, the following rule enables concurroid
+framing with respect to the left operand of $\entangle$, or right
+operand of the ``reversed'' operator $\rentangle$:
+%
+% \an{Hmm, the same notation is used for both left and right
+%   entanglement.}
+%
+\begin{mathpar}
+\inferrule*[Right={Inject'}]
+  {\stconc{p}{c}{q}{U}\\
+   \mbox{$r$ stable under $V$}}
+  {\stconc{p \lsep r}{\mathsf{inject'}\ c}{q \lsep r}{U \rentangle V}}
+\end{mathpar}
+%
+The rule was, indeed, proved sound as well~\cite{fcsl-coqscripts}. In
+general, we have actually proved the injection rule sound for any
+operator satisfying a number of general properties, and then shown
+that $\entangle$ and $\rentangle$ (as well as some other combinators),
+satisfy these general properties.
+
+

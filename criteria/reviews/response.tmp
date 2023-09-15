@@ -1,0 +1,128 @@
+We thank the reviews for the very thorough and insightful reviews. 
+
+### Reviewer A
+
+TODO
+
+### Reviewer B
+
+The reviewer correctly noticed that custom history invariants and the
+ability to snapshot subjective state in history entries, in order to
+capture past interference, along with the fact that those do **not**
+require to engineer a new program logic in order to capture custom
+correctness conditions, are the key observations made by the paper.
+They are also the most surprising ones.
+
+We will certainly highlight these points in the revised version.
+
+ - _The paper doesn't lay out why this particular Hoare
+   logic is the best way to do it._
+
+While the paper _doesn't_ argue for using FCSL specifically as the
+only logic to encode custom correctness conditions, none of the
+related works on concurrency logics explored the combination of the
+enumerated above features as a way to encode CAL, QC and QQC.
+
+For what it's worth, FCSL's explicit "other" state provides, in our
+experience, the most straightforward way to do so. The logics like
+CAP, iCAP, CoLoSL, etc., in our prior experience and from the personal
+communication with the authors, require one to implement a much more
+elaborated structure of capabilities in order to encode _subjective
+histories_, account for history-related invariants, "snapshot"
+interference and, what is the most important, to express explicit
+quiescence (which in FCSL is done via generic mechanism of hiding).
+
+  - _No specification is given for the exchange procedure
+   of figure 1, just a procedural description._
+
+The reason for this is that there is no commonly accepted way to
+specify the intended effect of the procedure, which was our motivation
+to explore it in the first place.
+
+### Reviewer C
+
+**Question C.1.** _Can you demonstrate your ideas on a simple
+  concurrent program of just two or three lines?_
+
+Yes. The toy example motivating the need in custom correctness
+criteria and the ability to specify them in FCSL is as follows. We
+will certainly include to the revision of the paper.
+
+In the program below "x" is a shared location, "tmp" is a local
+variable, write and read operations are atomic, but the overall
+procedure is not.
+
+weakIncr() {
+  tmp <- read(x);
+  write(x, tmp + 1);
+  return tmp;
+}
+
+Indeed, some updates might be "lost" due to the interference. However,
+we are able to express the correctness condition stating that the
+returned result is no more "behind" the "ideal" one (which would be
+the case for a fully atomic, linearizable implementation) than the
+_overall number of concurrent calls made to the procedure_. 
+
+This roughly corresponds to a version of QQC and can be expressed in a
+Hoare-style spec via the mechanism of histories and tokens similar to
+the ones used for the Counting Network, but simpler, as we don't need
+to store interference to history entries. The (self+other) history H
+would be just a growing sequence (e.g., [0, 1, 1, ...]) with possible
+repetitions, but no skips, i.e., the actual values stored to "x". The
+tokens (self+other) would correspond to the threads willing to
+increment, so a fresh token is dispensed at the moment of read(x). The
+postcondition would then state:
+
+0 <= size(H) - res <= #(all ever dispensed tokens accumulated in _other_).
+
+That is, with more concurrent increments, the discrepancy between the
+ideal result (size of the post-history) and the actual one (res) gets
+bigger, yet it's bounded by the number of interfering calls ever
+made. I.e., if we only call "weakIncr" sequentially, it is "precise".
+
+**Request C.2.** _Comparison to the Views framework._
+
+_Views_ is a _framework_ for encoding concurrency logics and type
+systems, therefore, its purpose is to specify _logics_, not to reason
+about _programs_ (this can be done via particular instances of
+_Views_, e.g., CAP). Our work identifies reasoning patterns for
+stating interference-sensitive program specifications in the spirit of
+CAL, QC and QQC in FCSL, which is a particular logic featuring its own
+set of abstractions, specifically, subjective auxiliary state. The
+described patterns are likely amenable for encoding in other logics,
+which are instances of the _Views_ framework. Exploring such
+possibilities is beyond the scope of this paper.
+
+### Reviewer D
+
+**Question D.1**. _Can you summarise your new contributions when
+  compared to [34,31,39]?_
+
+  - [31] suggested the idea of subjective self/other state in a logic
+    for _corarse-grained_ concurrency. That is, it didn't allow one to
+    encode custom synchronization protocols and invariants (i.e.,
+    fine-grained concurrency).
+
+  - [34] extended subjectivity to fine-grained concurrency, showcased
+    by the lock example, implemented on top of CAS. It didn't explore
+    any concurrent objects beyond that.
+
+  - [39] observed that reasoning about linearizable data structures in
+    terms of "linearization points" can be encoded in a mere auxiliary
+    state, via the notion of subjective time-stamped histories,
+    allowing one to specify common concurrent objects (e.g., snapshots
+    and stacks), whose "effect" can be expressed as a single
+    "sequential update".
+
+The key new contribution of this work on top of [31,34,39] is an
+observation that auxiliary histories (1) can be subjects of other
+invariants besides just adherence to sequential executions (for
+instance, be _concurrency-aware_ in the meaning of [21]) and (2) can
+be used to logically capture intermediate interference, therefore
+enabling quantitative reasoning about outcomes of concurrent
+executions (e.g., in the spirit of QQC). This observation enabled
+reasoning about data structures, which were never previously
+approached from the perspective of a program logic or mechanically
+verified. We showcased it by the case studies, all formally proved in
+Coq.

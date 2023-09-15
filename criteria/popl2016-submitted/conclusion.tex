@@ -1,0 +1,59 @@
+%\vspace{-4pt}
+
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+%\vspace{-2pt}
+
+In this paper we have presented a number of formalization techniques,
+enabling specification and verification of highly scalable
+non-linearizable concurrent objects and their clients in Hoare-style
+program logics.
+%
+Specifically, we have explored several reasoning patterns, all
+involving the idea of formulating execution histories as an instance
+of auxiliary state and then making these histories to be a subject of
+object-specific invariants, capturing the expected concurrent object
+behavior.
+%
+In particular, we have discovered that quantitative logic-based
+reasoning about concurrent behaviors can be done by storing relevant
+information about interference directly into the entries of a logical
+auxiliary history, a pattern which we later demonstrated to be
+beneficial in the client-side proofs.
+
+We believe that our results help to bring the Hoare-style reasoning
+approach into the area of non-linearizable concurrent data structures
+and open a number of exciting opportunities for the field of
+logic-based concurrency verification.
+
+For instance, by ascribing interference-sensitive quantitative specs
+in the spirit of~\eqref{eq:qc-spec} to relaxed concurrent
+libraries~\cite{Henzinger-al:POPL13}, one can assess the applicability
+of a particular library implementation for its clients, that can
+tolerate the anomalies caused by interference, as long as they can
+logically infer the desired safety assertions from the library spec,
+as we did in Section~\ref{sec:qclients}.
+%
+Since logical approaches enable reasoning about higher-order
+concurrent data
+structures~\cite{Svendsen-al:ESOP13,Turon-al:ICFP13,Sergey-al:ESOP15},
+we envision the possibility of giving parametric logical specs to such
+generic relaxed constructions as diffracting/elimination
+trees~\cite{Shavit-Touitou:TCS97,Shavit:CACM11} that, once
+instantiated with suitably specified stacks or pools on the leaves,
+would yield a provably correct, highly scalable concurrent container
+implementation.
+
+
+% Acknowledgements:
+
+% Michael Emmi
+% Pierre Ganty
+% Andrea Cerone
+% Anton Podkopaev
+
+% \todo{Generalizing the construction of the counting network to
+%   arbitrary diffracting trees}
+
+% \todo{Elimination and diffracting trees~\cite{Shavit-Touitou:TCS97}.}

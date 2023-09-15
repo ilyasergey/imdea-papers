@@ -1,0 +1,182 @@
+\section{Discussion}
+%\section{Client-side reasoning}
+\label{sc:discussion}
+
+\begin{comment}
+%\gad{Section 4 should emphasize that we are hiding colors,
+%  end-points, and whatever `` internal'' aspects of the concurroid in
+%  client reasoning. This might require to connet with the proof
+%  outline from Figure~\ref{fig:weird:code} in the appendix. We should
+%  say that this internal only ``leak'' through the
+%  definition/instantiations of $\stableorder$.}
+
+%% \gad{This section now needs two parts: (i) a first part about the
+%%   clients and (ii) a second part discussing the \emph{principality} of
+%%   scan's specs}
+
+%% We already argued in Section~\ref{sc:formal} that the Hoare triples
+%% from Figure~\ref{fig:specs} capture precisely what linearizability
+%% would be used for, namely that the operations of the snapshot object
+%% can be sequenced. The triples do so without the intermediary
+%% sequential specifications for {\tt write} and {\tt scan}, and the
+%% attending simulation proofs.  In this section, we argue that our
+%% approach via Hoare logic can still do a bit more, specifically in the
+%% cases of client side reasoning, and reasoning about parallel
+%% composition.
+
+%% By relying on FCSL, we immediately inherit the separation logic
+%% mechanism for reasoning about programs with nested parallel
+%% composition (i.e., dynamic, well-bracketed, forking and joining). We
+%% refer the interested reader to the Appendix~\ref{sc:background} for a
+%% brief background on FCSL, and the separation-logic style inference
+%% rule for parallel composition that requires that program state, real
+%% and auxiliary, satisfies the properties of a Partial Commutative
+%% Monoid, or PCM (and indeed, our histories form a PCM under the
+%% operation of disjoint union, with the empty history as a unit). This
+%% gave us a thread-local way to reason about programs, via local
+%% variables such as $\histS$ and $\histO$, rather than relying on global
+%% abstractions, such as \emph{thread-id}s, to specify the behavior of
+%% each thread.  This is in contrast to linearizability, whose very
+%% definition requires identifying threads by thread-ids, thus focusing
+%% on programs that are a top-level parallel composition of a fixed
+%% number of sequential threads, but not providing convenient
+%% abstractions for reasoning about nested parallel compositions.
+
+%As a first point, we argue that the pre- and postcondition ascribed
+%to {\tt write} and {\tt scan} in Section~\ref{sc:formal} are
+%\emph{principal}, in that they can be used in larger program contexts
+%without modification. This is not the case in most other verification
+%methods, where programs, once verified, typically still have to be
+%refactored wrt.~auxiliary state and code \emph{on a per-context
+%basis}~\cite{Owicki-Gries:CACM76,Jacobs-Piessens:POPL11}. By using
+%\emph{local} variables such as $\histS$ and $\histO$ to name the
+%per-thread history, we avoid the need for refactoring. Such locality
+%is supported by the FCSL inference rule for parallel
+%composition~\cite{LeyWild-Nanevski:POPL13,Nanevski-al:ESOP14}. The
+%rule is somewhat unusual, but please see Appendix~\ref{sc:background}
+%for a brief description. What matters, however, is that reasoning in
+%clients is done strictly out of the specs of {\tt write} and {\tt
+%scan}. Notice that, while these expose the existence of the logical
+%ordering $\stableorder$ and how some individual events may be related
+%in it, they \emph{do not} expose the actual definition of
+%$\stableorder$ in terms of colors, or any other internal of the
+%auxiliary state and code. Other snapshot implementations can provide
+%their own definition of $\stableorder$.
+
+\gad{This part was not useful in Section~\ref{sc:clients}.}
+
+As a brief example of reasoning about parallel composition, it is
+possible to prove that the program
+%
+$ 
+P_1 = {\mathtt{write}}\ (x, 1) \parallel {\mathtt{write}}\ (y, 2)
+$
+%
+satisfies the spec which says that two events are executed, in an
+unspecified order. Then we can reason about a larger program, say
+$
+  P_2 = P_1; {\mathtt{write}}\ (x, 3)
+$
+out of that spec, to prove that $P_2$ executes three events, with the
+write of $3$ appearing last. 
+%
+Moreover, the \emph{substitution principle} holds; that is, the proof
+remains valid, even if we replace $P_1$ by another program, say
+%
+$
+P'_1 = {\mathtt{write}}\ (x, 1); {\mathtt{write}}\ (y, 2)
+$
+which satisfies a stronger spec (explicitly ordering the two events),
+but which \emph{can be weakened} to the spec of $P_1$ by forgetting the
+ordering by means of strengthening the precondition and weakening the
+postcondition, as customary in Hoare logic. Thus, our client proofs
+\emph{can ignore} the internal thread-structure of component programs.
+
+\gad{The rest of this section will have to be merged either with the
+  Related Work, or the conclusions}
+
+\end{comment}
+
+\input{readpair}
+
+
+
+
+The substitution principle can be pushed further. In particular, we
+can use a different snapshot algorithm, without modifying the proofs
+of $P_1$, $P_2$, $P'_1$ or any other client, as long as \jywrite\ and
+\jyscan\ satisfy the expected specs.
+%
+We have confirmed this property on the toy example given in
+Figure~\ref{fig:readpair} (we present only \jyscan, as \jywrite\ is
+trivial)~\cite{SergeyNB+ESOP15}. In this example, the snapshot
+structure consists of pointers $x$ and $y$ storing tuples $(c_x, v_x)$
+and $(c_y, v_y)$, respectively. $c_x$ and $c_y$ are the payload of $x$
+and $y$, whereas $v_x$ and $v_y$ are version numbers, internal to the
+structure. Writes to $x$ and $y$ increment the version number. {\tt
+  Scan} reads $x$, $y$ and $x$ again, in succession, but avoids
+snapshot inconsistency by restarting if the two version numbers of $x$
+differ. The definition of $\stableorder$ used to satisfy the specs
+equals the real time one, as no dynamic reordering is needed.
+
+%\gad{Why are we not calling read-pair by it's name?}
+%%
+%\an{Well, because we're trying to make the parallel with the Jayanti's
+%  code. By calling it {\tt scan}, the connection is immediately
+%  made. Speaking of names, I'm more concerned that we name with {\tt
+%    write} two different things. The primitive memory operation should
+%  probably be renamed into $x := v$ or {\tt assign}.}
+%%
+%\gad{I understand. But I was refering to the algorithm and not the
+%  methods.}
+
+%% \gad{Add HERE!: Clients}
+
+\gad{Add HERE!: Readpair's proof outline w/ this paper's spec and
+  instance of getters/ stable order etc.}
+
+\gad{Reviewers --and Ralf-- complain about its not quite obvious that
+  our spec is useful. We need to make an effort here to convice them
+  that our assertions are useful for clients.}
+
+  %% \gad{The simple sequential {\tt two\_scan} example will help here,
+  %%   as it showcases the need for ``sequential`` and the stable ideal
+  %%   inclusion on histories. }
+
+\gad{Aleks' comments on 04/10 wrt. why our spec is better than what
+  linearizability provides, even if the spec looks a priory more
+  complicated. \\ We could reduce the spec by (rule of consequence)
+  weakening, to get the assertion of the sequential spec $r
+  =\mathsf{eval}\ \hist $, but that would not be useful for client
+  reasoning, as you would be losing the information needed to combine
+  the client in parallel with others: take the example in Figure~2 --
+  the client, we've (almost) proved in Coq-- and a linearization of
+  the client on the left and the center {\tt l: write x 2; c: scan; l:
+    write y 1 } and do a proof using the sequential spec. Now if you
+  are given a different linearization, {\tt l: write x 2; l: write y
+    1; c: scan () }, you need to re do the proof. Moreover, there is
+  no way to scale up adding more threads, if you add the client on the
+  right, r, none of the proofs youy have can be reused. \\ In our
+  setting, and with our specs, client reasoning depends solely on the
+  API for scan and write, regardless of the different linearizations
+  of a program. We use this to our advantage while building up the
+  proof for the client in Figure~2.  }
+
+%% \gad{Structure the proof outlines for the clients in the same why we
+%%   have done in coq}
+%%
+%% \paragraph{Clients} \gad{Let's see what we have right now:}  
+
+%% \begin{enumerate}
+%%   \item[i] two sequential scans, and a proof that whatever the second
+%%     scanner returned is at least as new as the second, and moreover
+%%     the two snapshots are consistent, ie, the snapshot in the first
+%%     call is still a snapshot with the histories and orderings defined
+%%     by the second call. Morever, the stable order 
+
+%%   \item[ii] The composite client building up to Figure~2.
+    
+%%   \item[iii] The latter with hide? \gad{We might not have time to hack
+%%     it in in Coq, but we could do it by hand, and then upload it}.
+ 
+%% \end{enumerate}

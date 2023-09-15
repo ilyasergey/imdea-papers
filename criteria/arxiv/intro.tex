@@ -1,0 +1,410 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Formally defining the behavior of highly parallel concurrent objects
+is a fundamental challenge, which requires the program designer to
+find a trade-off between the desired performance on a multicore
+processor, possibly enabled by reduced contention, and the safety
+guarantees, implied by the chosen correctness conditions.
+ 
+Traditionally, the correctness of concurrent objects is defined using
+\emph{event histories},\footnote{Here, \emph{event} stands for a call
+  to or a return from an object's method.}  by (\emph{i}) providing a
+\emph{specification set}, describing all ``basic'' behaviors that the
+object's client might observe when using it, and (\emph{ii}) fixing a
+\emph{consistency condition} that relates the concurrently observable
+behaviors to the ones in the specification set.
+% 
+In the majority of the cases, the specification set is taken to be the
+histories of the concurrent object's \emph{sequential} behaviors, in
+which the calls are immediately followed by the corresponding returns.
+ 
+The most well-known concurrent correctness condition is
+\emph{linearizability}~\cite{Herlihy-Wing:TOPLAS90}, which requires
+for each concurrent history of an object to exist a mapping to a
+sequential history, such that the ordering of two operations, defined
+as matching call/return pairs, is preserved if they are performed by
+the same thread, or if they do not overlap.
+% 
+In the twenty five years since it invention, linearizability has been
+shown to be remarkably scalable as a correctness condition, widely
+applicable to capture the behavior of implementations of multiple
+concurrent objects with intuitive sequential specifications, such as
+stacks, queues, sets, locks, snapshots and their combinations, and
+even suitable for automatic synthesis of some concurrent
+objects~\cite{Vechev-Yahav:PLDI08}. Thanks to the compositional proof
+method, based on \emph{linearization points}, proofs of
+linearizability in most of the cases are amenable for practical
+computer-aided
+verification~\cite{Burckhardt-al:PLDI10,Derrick-al:TOPLAS11,Vafeiadis:CAV10,Amit-al:CAV07,Shacham-al:OOPSLA11}.
+%
+Furthermore, linearizability with respect to a sequential
+specification implies observational
+refinement~\cite{Filipovic-al:TCS10,Emmi-al:PLDI15}, which allows one
+to verify the client code of linearizable concurrent objects
+efficiently by replacing the actual object implementation with its
+\emph{atomic} counterpart.
+
+However, in order to be linearizable with respect to a sequential
+specification, an implementation of a concurrent object should
+inherently incorporate certain costly synchronization
+primitives~\cite{Attiya-al:POPL11}, which then become points of high
+contention and prevent efficient
+parallelization~\cite{Shavit:CACM11}. The way to remedy this situation
+for enabling better scalability is to change the semantics of a
+concurrent object, \ie, the correctness criterion, redefining its
+admissible behaviors.
+
+The outlined \emph{history-based} approach for concurrency
+specification allows one to relax the semantics of a concurrent object
+by either changing the specification set to include other histories
+than just the sequential ones, or by changing the consistency
+condition, typically quantifying over the possible interference
+patterns, which can be observed while using the object. The first
+option is taken, for example, in the
+works~\cite{Hemed-Rinetzky:PODC14,Henzinger-al:POPL13}, resulting in
+such correctness-defining frameworks as \emph{concurrency-aware
+  linearizability} and \emph{quantitative relaxation},
+correspondingly. The second option is exemplified by such concurrency
+correctness criteria as \emph{quiescent
+  consistency}~\cite{Aspnes-al:JACM94,Derrick-al:FM14},
+\emph{quantitative quiescent
+  consistency}~\cite{Jagadeesan-Riely:ICALP14},
+\emph{quasi-linearizability}~\cite{Afek-al:OPODIS10}, and \emph{local
+  linearizability}~\cite{Haas-al-local15}.
+
+Adopting a new correctness condition for concurrent objects comes with
+a price. First, in order to make the newly developed criterion
+\textbf{(a)} \emph{scalable}, one has to prove it to be compositional
+with respect to combination of multiple concurrent data
+structures. Second, in order to make it \textbf{(b)} \emph{practical},
+one needs to supply it with a principled proof technique, enabling
+efficient correctness checking. Finally, to make it \textbf{(c)}
+\emph{relevant for the program verification at large}, one has to
+devise a method for exploiting the provided safety guarantees for the
+sake of reasoning about client code that uses the concurrent object.
+%
+While compositionality was formally established for most of the listed
+above
+criteria~\cite{Aspnes-al:JACM94,Jagadeesan-Riely:ICALP14,Afek-al:OPODIS10,Haas-al-local15},
+only few of them were equipped with proof
+techniques~\cite{Derrick-al:FM14,Zhang-al:ASE13}, and we are not aware
+of any correctness conditions other than linearizability being
+employed for client-side reasoning. This state of affairs makes us
+pose the following research question:
+
+\vspace{4pt}
+\noindent
+\textbf{Q:} \emph{Is there a generic specification approach that
+  allows one to formally define adequate correctness conditions for
+  arbitrary concurrent objects, immediately enjoying the properties
+  \emph{\textbf{(a)}--\textbf{(c)}}}?
+%
+\vspace{4pt}
+
+\noindent
+We seek an answer to this question by exploring the opportunities,
+opened by the recent advances in the \emph{state-based} approach for
+concurrency verification using \emph{Hoare-style program logics}.
+
+In modern program logics for
+concurrency~\cite{Feng-al:ESOP07,Vafeiadis-Parkinson:CONCUR07,Feng:POPL09,DinsdaleYoung-al:ECOOP10,Nanevski-al:ESOP14,Svendsen-Birkedal:ESOP14,ArrozPincho-al:ECOOP14,Jung-al:POPL15,Raad-al:ESOP15,Fu-al:CONCUR10},
+specifications (or \emph{specs}) for methods of concurrent objects
+(and programs in general) are represented by \emph{Hoare tuples}
+$\spec{P}~e~\spec{Q}@\ucon$, where $e$ is a program, $P$ is a
+precondition that constrains a state in which the program is safe to
+run, and $Q$ is a postcondition, describing a state upon the program's
+termination. The last component of the tuple, $\ucon$, whose exact
+syntax is different for various program logics, is typically referred
+to as a \emph{concurrent protocol} or \emph{concurrent resource}.
+%
+% \an{Why not call $U$ a \emph{resource}, instead of concurrent
+%   protocol.  Protocol is the name that has been pushed by CAP, but
+%   resource is what everyone \emph{before} such as Brookes and O'Hearn,
+%   have used for the concept.}
+% 
+% \is{Okay, I added the concurrent resource as an alternative. I don't
+%   think it's important which name has appeared earlier, but in my
+%   opion the world ``protocol" better explains the purpose of the
+%   concept, whereas ``resource'' can be confused with the actual state,
+%   e.g., heap.}
+%
+It defines the invariants of the shared state, that are respected by
+all threads working with it
+concurrently~\cite{Nanevski-al:ESOP14,OHearn:TCS07} and/or the allowed
+state changes that the threads can make depending on the roles they
+take in the protocol~\cite{Jones:TOPLAS83}.
+%
+To ensure thread-locality of the concurrent Hoare-style specs, the
+assertions $P$ and $Q$, should be proven \emph{stable} with respect to
+the concurrent protocol, \ie, they should be invariant under possible
+changes that interfering environment threads can make to the state
+according to $\ucon$.
+
+Program logics provide a naturally compositional way to specify
+concurrency: once a concurrent object is verified against a suitable
+spec, its code is not required to be re-examined ever
+again. Therefore, specification and verification of the client
+programs (including other data structures that use the object) can be
+performed out of the object's spec.
+%
+Program logics were used with a great success to specify and verify
+such concurrent data structures and algorithms as
+barriers~\cite{Dodds-al:POPL11,Hobor-Gherghina:ESOP11},
+indices~\cite{ArrozPincho-al:OOPSLA11}, flat
+combiner~\cite{Turon-al:ICFP13,Sergey-al:ESOP15}, shared graph
+manipulation~\cite{Raad-al:ESOP15,Sergey-al:PLDI15}, as well as their
+multiple client programs.
+%
+Program verification in such logics is done structurally, \ie, by
+systematically applying syntax-directed inference rules, until the
+spec is proven, and by now several mechanized tools for logic-based
+reasoning about concurrency has been
+released~\cite{Sergey-al:PLDI15,Appel-al:BOOK14}.
+
+That is, the program logics-based approach seems like an answer to the
+question we posed above, as logical specs satisfy the properties
+\textbf{(a)}--\textbf{(c)}. But in order to fully adopt it, we first
+need to figure out how to express the existing patterns of
+\emph{history-based} reasoning in terms of \emph{state-based} logical
+specs.
+%
+Several attempts to do so have been taken
+recently~\cite{Fu-al:CONCUR10,Gotsman-al:ESOP13,Sergey-al:ESOP15,OHearn-al:PODC10},
+however, all these works were focusing exclusively on specifying
+\emph{linearizable} concurrent objects, thus, making us to rephrase
+the question \textbf{Q} as follows:
+
+\vspace{4pt}
+\noindent
+\textbf{Q$'$:} \emph{Can we employ existing program logics for
+  specifying \textbf{non-linearizable} concurrent objects and
+  reasoning about their clients?}
+% 
+\vspace{4pt}
+
+\vspace{-8pt}
+\noindent
+In this paper we answer to this question affirmatively.
+
+\subsection{Logic-based specifications for concurrent objects}
+\label{sec:logic-based-spec}
+
+We build our solution on the recently made observation that histories,
+describing relevant atomic changes in the logical state of a
+concurrent object, can be expressed as an instance of \emph{auxiliary
+  state}~\cite{Sergey-al:ESOP15} (a generalization of auxiliary, or
+\emph{ghost}, variables~\cite{Owicki-Gries:CACM76}, customary in
+logic-based concurrency verification).
+%
+That is, reasoning about histories follows exactly the same patterns
+that reasoning about \emph{heaps} follows in separation
+logic~\cite{Reynolds:LICS02}.
+%
+We then use the expressive power of concurrent protocols to leverage
+this observation for specifying and verifying non-linearizable
+concurrent objects.  
+%
+% \an{Throw in the word "separation logic" somewhere here, to make the
+%   point of our observation more precise. Strictly speaking, that you
+%   can have histories as ghosts was an old observation (they even call
+%   them "history variables" in the model checking works). Our
+%   observation was that \emph{separation logic} can natually and
+%   compositionally handle history variables, using the algebraic
+%   structure of PCMs.}
+%
+% \is{okay, done}
+%
+
+In particular, we show how to define invariants of a concurrent object
+in a way that they constrain the real and auxiliary state, capturing a
+suitable specification set of histories (\cf (\emph{i})), \eg,
+\emph{concurrency-aware} one.
+%
+The freedom to define histories in any way we need (as they are just
+an instance of auxiliary state) allows us to record additional logical
+information into them, capturing quantitative aspects of the expected
+interference. In combination with a possibility to describe the
+allowed changes in the real and auxiliary state of an object, it
+provides us with a technique to express and verify diverse consistency
+conditions on the histories (\cf (\emph{ii})).  
+
+What is crucial for capturing the essence of most of these conditions
+is the ability to formally quantify in \emph{thread-local} assertions
+over the arbitrary effects produced by \emph{other} interfering
+threads and the ``shape'' of the environment (\eg, a number of threads
+running concurrently with the one being specified).
+%
+% \an{It sounds like we also need to work in the word
+%   \emph{subjectivity}, in order to express what's new in our approach,
+%   and why the previous work didn't quite succeed in capturing what we
+%   propose. The point should be that quiescent consistency, and others,
+%   just naturally want to have access to the contributions of others.}
+%
+% \is{okay, check the paragraphs above and below.}
+%
+Such ability, dubbed \emph{subjectivity}, has been introduced in the
+recently developed \emph{Subjective} and \emph{Fine-grained Concurrent
+  Separation Logics}, SCSL~\cite{LeyWild-Nanevski:POPL13} and
+FCSL~\cite{Nanevski-al:ESOP14}. This is the reason why we have chosen
+to use FCSL as a specification and verification framework.
+%
+% While some other logics could have been employed for this role (see
+% Section~\ref{sec:related} for discussion on alternatives),
+
+In addition to the native support of subjectivity, FCSL was appealing
+to us because of its uniform model of thread-local resources, which is
+based on \emph{partial commutative monoids} (PCMs) and can be
+instantiated to reason about arbitrary state, auxiliary or real, such
+as heaps, thread capabilities, and, indeed, histories.
+%
+Finally, FCSL has been implemented as a mechanized tool for concurency
+verification~\cite{Sergey-al:PLDI15}, enabling provably sound
+computer-aided reasoning about highly optimized concurrent objects,
+whose state invariants tend to be quite complicated.
+
+% \an{This section reads meekly, but it's the
+%   most important one.  It should be strenghtened by bringing up the
+%   points about subjectivity further above, as I said.  Subjectivity as
+%   a crucial and most important idea, which makes all the
+%   difference. If we don't mention it, peple like Noam Rinetzky or
+%   Cesar Sanches will not get the feel of what's different.
+%   Subjectivity is the delta that makes us succeed where everyone else
+%   went into wrong directions.  Also, we should be more proud of our
+%   work. It doesn't matter if "other logics" could have been
+%   used. Subjectivity has been invented by SCSL and in the fine-grained
+%   setting by FCSL. Just because some copy-cats later decided to
+%   implement it in their logics doesn't mean we should bow to them. So
+%   I think we don't need to mention "other logics can do it" part. Just
+%   say that we use FCSL to explain the ideas of this paper, because
+%   FCSL is based on, and introduced the idea of subjectivity.  Of
+%   course, this should be done after subjectivity has been promoted
+%   further above as the main idea that makes everything fly.}
+
+\subsection{Contributions and paper outline}
+\label{sec:contr-paper-outl}
+
+In the remainder of the paper, we demonstrate the viability of the
+logic-based approach for defining correctness conditions for highly
+parallel concurrent objects by formally specifying and verifying two
+concurrent data structures: an \emph{elimination-based exchange
+  channel}~\cite{Scherer-al:SCOOL05} (or simply \emph{exchanger}) and
+a simple \emph{counting network}~\cite{Aspnes-al:JACM94}, whose
+behavior was previously described only in terms of dedicated
+criteria~\cite{Hemed-Rinetzky:PODC14,Derrick-al:FM14,Jagadeesan-Riely:ICALP14}. We
+then argue for the adequacy of the provided specs by modularly
+verifying a series of concurrent client programs, which employ these
+data structures.
+
+\noindent
+Specifically, in this work we make the following contributions:
+
+\vspace{2pt}
+
+\begin{itemize}
+
+\item We describe a series of novel reasoning patterns that unify
+  state-based and history-based approaches for specification and
+  verification of concurrent objects.
+
+\item We provide the first formal logic-based specification of an
+  \emph{elimination-based concurrent
+    exchanger}~\cite{Scherer-al:SCOOL05} in the spirit of
+  concurrency-aware linearizability~\cite{Hemed-Rinetzky:PODC14}
+  (Section~\ref{sec:overview});
+
+\item We specify and formally verify of a realistic client of the
+  exchanger adapted directly from the \code{java.util.concurrent}
+  library documentation~\cite{ExchangerClass} (Section~\ref{sec:cal}).
+
+\item We give the first logical specification to a simple
+  \emph{counting network}~\cite{Aspnes-al:JACM94} and verify two its
+  clients, exploiting the implications of the proved spec in the
+  spirit of \emph{quiescent consistency}~\cite{Derrick-al:FM14} and
+  \emph{quantitative quiescent
+    consistency}~\cite{Jagadeesan-Riely:ICALP14}
+  (Section~\ref{sec:counting}).
+
+\item We supply all examples from the paper with proof scripts that
+  were mechanically checked in the Coq proof
+  assistant~\cite{Coq-manual,Bertot-Casteran:BOOK,Sergey-al:PLDI15}.
+
+\end{itemize}
+
+\vspace{2pt}
+
+\noindent
+Section~\ref{sec:background} provides necessary minimal background on
+program logics for concurrency and key concepts of
+FCSL~\cite{Nanevski-al:ESOP14}. In Section~\ref{sec:discussion} we
+discuss other possible applications of the proposed approach for
+reasoning about concurrent objects. We cover the relevant related work
+in Section~\ref{sec:related} and conclude in
+Section~\ref{sec:conclusion}.
+
+\an{We should have in the intro with a paragraph like follows: That
+  linearizability can adequatly be replaced by Hoare-style reasoning
+  has been already argued by the previous work on HOCAP and ICAP,
+  which employ the method of parametrization (to be skethed in the
+  related work section). In this paper, we argue that similar
+  replacement can be carried out for three other alternative
+  consistency criteria such as Concurrency-aware linearizability
+  (CAL), quiescent consistency, and quantitative quiescent
+  consistency. Moreover, the last two consistency criteria seem
+  impossible to address by a method of parametrization, at least
+  without some significant and complicated meta-theoretic additions
+  (e.g., prophecy variables), whereas here we show how they can be
+  easily supplanted using reasoning based on subjectivity combined
+  with histories.}
+
+\is{I disagree with the remark by Aleks almost entirely. First, I'm
+  sick and tired of giving credit to CAP-like approaches for something
+  they don't have enev a slight idea how to do. While I'll most
+  certainly put something on them into the related work, I don't want
+  to have enything on them in the intro, otherwise there will be
+  another round of what we've seen already a year ago.
+%  
+  Second, I don't think that remark on prophecies is sound: the
+  counting network example doesn't have anything reminiscent to
+  prophecy-requiring linearization points. That is, any comparison to
+  LP-based methods, as they're done in CAP, is dangerous and
+  misleading, as (a) they might be able to do it via some other
+  callback-related mumbo-jumbo (or they might not, but we'll get a
+  strong reject on that grounds anyway, just like the last tim), or
+  (b) they indeed cannot do it, but this fact has nothing to with with
+  their prophecies-related troubles. 
+%
+  Finally, the only people who will be able to understand this
+  comments are those who will give us strong reject because of it
+  (just like the last time). That is why I suggest us to focus bringin
+  Henzinger and Rinetzky-like crown on our side by speaking the
+  language they understand.
+%
+  So, the bottom line: I'm strongly against any specific on
+  CAP-related logics or any of this stuff in the intro.
+}
+
+\an{Gee, that's a strong sentiment. I will just reiterate that HOCAP
+  and ICAP have suggested that Hoare logic should replace
+  linearizability. It seems prudent to be generous and give them
+  credit for that, especially as it doesn't cost us anything
+  (basically, just one line of space), and doesn't diminish from our
+  contribution at all. A year ago, we got rejected form POPL precise
+  because we didn't have a forward-pointer in the intro to the related
+  work section, where the comparison was done. They accused us in the
+  after-rebutal comment of setting '`wrong expectations'' in our
+  intro. After that, in the ESOP version, we did put the forward
+  pointer. So, I really don't think a forward pointer would hurt us
+  here, and can only help. As for prophecies, I just put them as a
+  side comment. I don't think we really have to mention them. We could
+  simply say that its unclear that parametrization can be used to
+  handle quiescense and quantitativeness, wihtout speculiating what's
+  needed to fix that. I do personally think that prophecies will
+  probably be OK for that, if they can get them. But then, I think
+  they'll never get them, precisely because subjectivity and histories
+  is what you need here :-). As for Henzinger and Rinetzky crowd:
+  well, Philippa will be reviewing this, so expect to get someone from
+  the CAP crowd too.}
+
+
+%\lipsum[1-4]

@@ -1,0 +1,96 @@
+We thank the reviewers for their feedback, and respond to their
+concerns.
+
+=====[Reviewer #73A]======
+
+* Using "self"/"other" as an improvement on CAP-based approaches.
+
+The self/other split of thread-owned resources makes it possible to
+use hiding as a language constructor, restricting the interference as
+shown at the end of Section 3. Among other things, it allowed us to
+prove the full correctness of 'span' algorithm. In contrast, CoLoSL (a
+successor of CAP) provides only a partial proof, without showing that
+the tree is spanning. The latter seems quite difficult without an
+analogue of our hiding, which neither CoLoSL nor other CAP-based
+approaches support. One might try to use fractional permissions
+instead, but that looks overwhelming.
+
+There are other essential uses of the self/other dichotomy in our
+code. They include specification of a pair snapshot, derivation of
+sequential stack specification, and verification of producer/consumer
+algorithm out of the stack spec (Section 6). We didn't present the
+details due to space constraints.
+
+Neither of the CAP-based approaches has been implemented as a formal
+tool, which could support verification of examples. Until that
+happens, a formal comparison of approaches is impossible.
+
+=====[Reviewer #73B]======
+
+* The need for PCMs. 
+
+PCMs enable general and compositional representation of thread-owned
+state (auxiliary or real), which can be split between parallel
+threads, as argued in [Ley-Wild and Nanevski 2013]:
+
+- Commutativity accounts for commutativity of parallel composition of
+  threads. For example, combination of state assigned to threads t1
+  and t2 doesn't depend on whether these threads are composed as 
+  (t1 || t2) or (t2 || t1). The same applies to associativity.
+
+- Partiality captures the fact that not all splits/combinations of
+  state are valid. For instance, a lock, as a resource, cannot be held
+  simultaneously by two or more threads, hence "Locked (*) Locked" is
+  undefined.
+
+The PCMs employed by examples in this paper are:
+
+- disjoint sets (spanning tree, FC, ticketed lock);
+- heaps (thread-local state);
+- natural numbers with addition and zero (CG increment);
+- mutual exclusion PCM (CAS-lock, ticketed lock, FC);
+- time-stamped histories (snapshot, stack, producer/consumer);
+- client-provided PCMs (FC, locks);
+- "lifted" PCMs -- products of basic PCMs (FC, locks). 
+
+All these cases are treated uniformly by the FCSL framework, due to
+the unifying algebraic structure.
+
+* The description of pointer types is confusing.
+
+Indeed, by "value" we meant a "target value" of a pointer. We will
+clarify.
+
+* a tool [...] for automatic verification
+
+As we note in introduction, verification in FCSL is not fully
+automated, but rather interactive, due to undecidability of some
+properties in program specs.
+
+* ... pruning a DAG down to a spanning tree ...
+
+Actually, the graph may have cycles (see Fig. 3).
+
+=====[Reviewer #73C]======
+
+* The role of concurroids.
+
+Concurroids are STSs that describe a bound on how a thread and its
+environment may modify the state. In this sense, they are a structured
+form of Rely/Guarantee relations from older methods such as [Jones
+1983, Vafeiadis and Parkinson 2007, Feng 2009].
+
+* Is accounting for properties (1)-(4) sufficient to build a scalable
+  concurrency verifier?
+
+We consider it an open question.
+
+By choosing FCSL for implementation, we tried to cover all aspects
+that we are aware of to be necessary for proving functional
+correctness of interesting concurrent programs. To the best of our
+knowledge, none of the existing program logics or verification tools
+has been put to use in verification of all our case studies for full
+functional correctness.
+
+That said, we believe that our implementation is a significant step
+forward compared to related work.

@@ -1,0 +1,100 @@
+We thank the reviewers for the detailed feedback. 
+
+### Reviewers A, B, and D
+
+  - _What are the contributions wrt. [34,31,39]?_
+
+The novel contributions are the observations that auxiliary histories
+can be subjects of invariants beyond mere adherence to sequential
+executions (eg, be _concurrency-aware_) and can be used to capture
+intermediate interference, allowing for quantitative reasoning about
+outcomes of concurrent executions (eg, in the spirit of QQC). These
+observations, surprisingly, enabled reasoning about non-linearizable
+data structures _and their clients_, which were never previously
+approached from the perspective of program logics or mechanically
+verified.
+
+### Reviewers A and B
+
+ - _Why FCSL is the best way to do it?_
+
+The paper _doesn't_ argue for FCSL as the only logic to encode custom
+correctness conditions. However, we believe that FCSL's explicit
+"other" state provides the most straightforward way to do so. The
+logics like CAP and TaDA, from our experience and personal
+communication with their authors, require implementing a much more
+sophisticated structure of capabilities to encode histories and their
+invariants, "snapshot" interference and, most importantly, express
+explicit quiescence (which in FCSL is done via hiding).
+
+### Reviewer A
+
+  - _What did you mean by "instead of proving theorems..."?_
+
+The logic is indeed proven sound in [34]. What we didn't prove
+formally is that, for instance, the Exchanger spec is equivalent to
+CAL, and that the counting network spec is equivalent to
+QC/QQC. Instead, we showcased the specs via clients, relying on the
+properties inherent for CAL/QC/QQC.
+
+**[Q1]** This means that matched offers are those that are currently
+  _posed_, but not yet _acknowledged_ by the corresponding
+  threads. Assertions about other threads' offers in `m_J` are
+  _non-stable_ (as the offers might be immediately collected by other
+  threads) and are not required for the verification.
+
+**[Q2]** Your understanding is correct. This is how we relate
+  immediate values in pre-/post-states.
+
+**[Q3]** The spec for `ex_seq(vs,nil)` is simpler, hence we decided to
+  present it. The general loop invariant for `ex_seq(vs,acc)` is in
+  Coq proofs.
+
+**[Q4]** We prove that instrumented atomic actions preserve the
+  invariant, therefore, the whole program, being just a composition of
+  actions, doesn't "go wrong" with respect to it. These proofs
+  correspond to column **Inv** of Table 1.
+
+**(1)** Yes.
+
+### Reviewer C
+
+  - _Demonstrate your ideas on a simpler program_
+
+In the program below `x` is shared, `tmp` is a local variable, write
+and read are atomic, but the overall procedure is not.
+
+```
+weakIncr() {
+  tmp <- read(x);
+  write(x, tmp + 1);
+  return tmp;
+}
+```
+
+Updates might be "lost" due to interference. However, we can express
+the correctness condition bounding the discrepancy between the
+returned result and the "ideal" one.
+
+This can be done via histories and tokens, but here we don't need to
+store interference to history entries. The (self+other) history H is
+just a sequence of values stored to `x` (e.g., `[0, 1, 1, ...]`) with
+possible repetitions. Tokens (self+other) correspond to the threads
+willing to increment, so a fresh token is dispensed at the moment of
+`read`.
+
+The postcondition would then state:
+
+`{ 0 <= size(H) - res <= #(all ever dispensed other-tokens) }`
+
+That is, with more concurrent increments, the discrepancy between the
+ideal result (size of the post-history `H`) and the actual one (`res`)
+grows, yet it's bounded by the number of interfering calls ever
+made. If we only call `weakIncr` sequentially, it is "precise".
+
+  - _Compare to Views_
+
+Views are a framework for proving _logics_ sound, not to prove
+_programs_.  The patterns and reasoning abstractions that we identify
+in this paper may be encodable in other logics that are instances of
+_Views_ (eg, [10]), and we have compared against them in Related Work.

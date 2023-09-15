@@ -1,0 +1,267 @@
+\section{Introduction}
+\label{sec:intro}
+
+It has been long recognized that efficient concurrency is of crucial
+importance for high-performant software. Unfortunately, proving
+correctness of concurrent programs, in which several computations can
+be executed in parallel, is difficult due to the large number of
+possible interactions between concurrent processes/threads on shared
+data structures.
+
+
+% \ab{Can we also make the point that: fine-grained concurrent
+%   algorithms are heavily used in concurrent data structure libraries
+%   (cite?) and calls to such library functions in client code is
+%   ubqiquitous (cite?). Therefore it is essential that the libraries be
+%   proved correct. ``Verify once, use often''.}
+
+% \is{I put this point into the abstract and added later in the intro to
+%   the ``compositional" bullet of the framework description.}
+
+One way to deal with the complexity of verifying concurrent code is to
+employ the mechanisms of so-called \emph{coarse-grained}
+synchronization, \ie, locks. By making use of locks in the code, the
+programmer ensures mutually-exclusive thread access to critical
+resources, therefore, reducing the proof of correctness of concurrent
+code to the proof of correctness of \emph{sequential} code. While
+sound, this approach to concurrency prevents one from taking full
+advantage of parallel computations. An alternative is to implement
+shared data structures in a \emph{fine-grained} (\ie, lock-free)
+manner, so the threads manipulating such structures would be reaching
+a consensus via the active use of non-blocking read-modify-write
+operations (\eg, compare-and-swap) instead of locks.
+
+Despite the clear practical advantages of the fine-grained approach to
+the implementation of concurrent data structures, it requires
+significant expertise to devise such structures and establish
+correctness of their behavior.
+%
+%  with respect to standard criteria, such as
+% \emph{linearizability}~\cite{Herlihy-Wing:TOPLAS90}.
+% %
+% Moreover, in the presence of advanced programming features, such
+% as higher-order functions, pointer aliasing, and internal parallelism,
+% linearizability by itself might not be sufficient as a criteria to
+% ensure the full functional correctness of a concurrent program, and
+% its generalizations to match these programming features are a topic of
+% ongoing active
+% research~\cite{Cerone-al:ICALP14,Gotsman-Yang:CONCUR12}.
+
+In this paper, we focus on \emph{program logics} as a generic approach
+to specify a program and formally prove its correctness \wrt the given
+specification.
+%
+In such logics, program specifications (or specs) are represented by
+Hoare triples $\spec{P}~c~\spec{Q}$, where $c$ is a program being
+described, $P$ is a precondition that constrains a state in which the
+program is safe to run, and $Q$ is a postcondition, describing a state
+upon the program's termination.
+%
+Modern logics are sufficiently \emph{expressive}: they can reason
+about programs operating with first-class executable code,
+locally-spawned threads and other features omnipresent in modern
+programming.
+%
+Verifying a program in a Hoare-style program logic can be done
+\emph{structurally}, \ie, by means of systematically applying
+syntax-directed inference rules, until the spec is proven.
+
+
+Importantly, logic-based verification of fine-grained concurrency
+requires reasoning about a number of concepts that don't have direct
+analogues in reasoning about sequential or coarse-grained concurrent
+programs:
+
+\begin{itemize}[itemindent=0pt] 
+
+\item[(1)] \textbf{Custom resource protocols.} Each shared data
+  structure (\ie, a \emph{resource}) that can be used by several
+  threads concurrently, requires a specific ``evolution protocol'', in
+  order to enforce preservation of the structure's consistency.
+% 
+  In contrast to the coarse-grained case, where the protocol is fixed to
+  be locking/unlocking, a fine-grained resource comes with its own
+  notion of consistency and protocol.
+  
+\item[(2)] \textbf{Interference and stability.} Absent locking, local reasoning
+  about a shared resource from a single thread's perspective should manifest
+  the admissible changes that
+  can be made by other threads that interfere with the current one. Every thread-local assertion about a fine-grained data structure's state 
+  should be \emph{stable}, \ie, invariant under possible concurrent
+  modifications of the resource.
+%
+%   \ab{This doesn't differentiate between coarse grained and fine
+%     grained, like the others do.}
+% %
+% \is{Ok, I've added a note about absence of locking, which is exactly
+%   the difference between CG and FG cases.}
+
+\item[(3)] \textbf{Helping.} This concurrent pattern appears in
+  fine-grained programs due to relaxing the {mutual exclusion} policy;
+  thus several threads can simultaneously operate with a single shared
+  resource. The ``helping'' happens when a thread is scheduled for a
+  task involving the resource, but the task is then accomplished by
+  \emph{another} thread; however, the result of the work, once the
+  task is completed, is ascribed to the initially assigned thread.
+%
+  % \ab{Here it isn't clear what ascribing ``contribution'' to initially
+  %   assigned thread means. Or why such contribution is important.}
+%
+  %   \is{Okay, changed the contribution to the ``result of the
+  %   work''.}
+
+\end{itemize}
+%
+\noindent
+%
+In addition, Hoare-style reasoning about coarse- or fine-grained
+concurrency requires a form of (4) \textbf{auxiliary state} to
+partially expose the internal threads' behavior and relate local
+program assertions to global invariants, accounting for specific
+threads' contributions into a resource~\cite{Jones:TR09}.
+%
+
+These aspects, critical for Hoare-style verification of fine-grained
+concurrent programs, have been recognized and formalized in one form
+or another in a series of recently published works by various
+authors~\cite{Feng-al:ESOP07,Vafeiadis-Parkinson:CONCUR07,Feng:POPL09,DinsdaleYoung-al:ECOOP10,Jacobs-Piessens:POPL11,Turon-al:ICFP13,Nanevski-al:ESOP14,Svendsen-Birkedal:ESOP14,ArrozPincho-al:ECOOP14,Jung-al:POPL15,Raad-al:colosl},
+providing logics of increasing expressivity and compositionality.
+% 
+In formal proofs of correctness of concurrent libraries, that are
+based upon these logical systems, the complexity is \emph{not} due to
+the libraries' sizes in terms of lines of code, but predominantly due
+to the intricacy of the corresponding data structure invariant, and
+the presence of thread interference and helping. This fact, in
+contrast to proofs about sequential and coarse-grained concurrent
+programs, requires one to establish stability of every intermediate
+verification assertion.
+%
+Needless to say, manual verification of fine-grained concurrent
+programs therefore becomes a challenging and error-prone task, as it
+is too easy for a human prover to forget about a piece of
+resource-specific invariant or to miss an intermediate assertion that
+is unstable under interference; thus the entire reasoning can be
+rendered unsound.
+%
+
+Since the process of structural program verification in a Hoare-style
+logic is largely mechanical, there have been a number of recent
+research projects that target mechanization and automation of the
+verification process by means of embedding it into a general-purpose
+proof
+assistant~\cite{Nanevski-al:ICFP08,Nanevski-al:POPL10,Shao:CACM10,Chlipala:PLDI11},
+or implementing a standalone verification
+tool~\cite{Leino-Muller:ESOP09,Cohen-al:TPHOL09,Jacobs-al:NFM11}. However,
+to the best of our knowledge, none of the existing tools has yet
+adopted the logical foundations necessary for compositional reasoning
+about all of the aspects (1)--(4) of fine-grained concurrency. This is
+the gap which we intend to fill in this work.
+
+In this paper, we present a framework for mechanized verification of
+fine-grained concurrent programs based on the recently proposed
+\emph{Fine-grained Concurrent Separation Logic} (FCSL) by
+Nanevski~\etal~\cite{Nanevski-al:ESOP14}.\footnote{Hereafter, we
+  will be using the acronym FCSL to refer both to the Nanevski \etal's
+  logical framework and to our implementation of it.}
+% 
+FCSL is a library and an embedded domain-specific language (DSL) in
+the dependently-typed language of Coq Proof
+Assistant~\cite{Coq-manual}.
+% 
+Due to its logical foundations, FCSL, as a verification tool and
+methodology for fine-grained concurrency,~is:
+
+\begin{itemize}[leftmargin=*]
+
+\item \textbf{Uniform:} FCSL's specification model is based on two
+  basic constructions: \emph{state-transition systems} (STSs) and
+  \emph{partial commutative monoids} (PCMs). The former describe
+  concurrent protocols and thread interference, whereas the latter
+  provide a generic treatment of shared resources and thread
+  contributions, making it possible to encode, in particular, the
+  helping pattern. Later in this paper, we will demonstrate how these
+  two components are sufficient to specify a large spectrum of
+  concurrent algorithms, data structures, and synchronization
+  mechanisms, as well as to make the proofs of verification
+  obligations to be uniform.
+
+\item \textbf{Expressive}: FCSL's \emph{specification} fragment is
+  based on the propositional fragment of Calculus of Inductive
+  Constructions (CIC) \cite{Bertot-Casteran:BOOK}. Therefore, FCSL can
+  accommodate and compose arbitrary mathematical theories, \eg, PCMs,
+  heaps, arrays, graphs, \etc.
+%
+% , as well as encoding arbitrary
+%   algebraic structures. 
+
+\item \textbf{Realistic:} FCSL's \emph{programming} fragment features
+  a complete toolset of modern programming abstractions, including
+  user-defined algebraic datatypes, first-class functions and pattern
+  matching. That is, any Coq program is also a valid FCSL program.
+  % 
+  The monadic nature of FCSL's embedding into
+  Coq~\cite{Nanevski-al:ICFP06} makes it possible to encode a number
+  of computational effects, \eg, thread spawning and general
+  recursion. This makes programming in FCSL similar to programming in
+  functional languages, such as ML or Haskell.
+
+\item \textbf{Compositional:} Once a library is verified in FCSL
+  against a suitable spec, its code is not required to be re-examined
+  ever again: all reasoning about the client code of that library can
+  be conducted out of the specification. 
+  %
+  The approach is thus scalable: even though the proofs for some
+  libraries might be large, they are done just once.
+
+\item \textbf{Interactive:} FCSL benefits from the infrastructure,
+  provided by Coq's fragment for mechanized reasoning, enhanced by
+  Ssreflect extension~\cite{Gonthier-al:TR}.
+% 
+  % \ab{We discussed replacing interactive by compositional on Friday. I
+  %   think a discussion on compositionality/spec reuse is more critical
+  %   here. We can talk about interactive verification as commentary at
+  %   the end of the bullets.}
+%
+  % \is{Okay, I've added a separate point, as I think both these things
+  %   should be mentioned.}
+%
+  While the verification process can't be fully automated (as full
+  functional correctness of concurrent programs often requires stating
+  specs in terms of higher-order predicates), the human prover
+  nevertheless can take advantage of all of Coq's tools to discharge
+  proof obligations.
+
+\item \textbf{Foundational:} The soundness of FCSL as a logic has been
+  proven in Coq \wrt a version of denotational semantics for
+  concurrent programs in the spirit of
+  Brookes~\cite{Brookes:TCS07}. Moreover, since FCSL program specs are
+  encoded as Coq types, the soundness result scales to the
+  \emph{entire programming language} of Coq, not just a toy core
+  calculus. This ensures the absence of bugs in the whole verification
+  tool and, as a consequence, correctness of any program, which is
+  verified in~it.
+
+\end{itemize}
+
+\noindent
+Our implementation of FCSL, unanimously accepted by PLDI'15 AEC, is
+available online with examples and the user
+manual~\cite{Sergey-al:PLDI15TR}.
+
+In the remainder of the paper, we will introduce the FCSL framework by
+example, specifying and verifying full functional correctness of a
+characteristic fine-grained program---a concurrent spanning tree
+algorithm.
+%
+Starting from the intuition behind the algorithm, we will demonstrate
+the common stages of program verification in FCSL.
+%
+We next explain some design choices in the implementation
+of FCSL, and report on our experience of verifying a number of
+benchmark concurrent programs and data structures: locks, memory
+allocator, concurrent stack and its clients, an atomic snapshot
+structure and non-blocking universal constructions.
+%
+We conclude with a comparison to related logical frameworks
+and tools, and a discussion on future work.
+

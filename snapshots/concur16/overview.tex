@@ -1,0 +1,148 @@
+\section{Verification challenge and main ideas}
+\label{sc:overview}
+
+\input{jy-snapshot2}
+
+%\newcommand{\fx}{\mathtt{fx}}
+%\newcommand{\fy}{\mathtt{fy}}
+%\newcommand{\x}{\mathtt{x}}
+%\newcommand{\y}{\mathtt{y}}
+%\newcommand{\s}{\mathtt{S}}
+
+\newcommand{\fx}{fx}
+\newcommand{\fy}{fy}
+\newcommand{\x}{x}
+\newcommand{\y}{y}
+\newcommand{\s}{S}
+
+Jayanti's snapshot algorithm~\cite{Jayanti:STOC05} provides the
+functionality of a shared array of size $m$, operated on by two
+procedures: {\tt write}, which stores a given value into an element,
+and {\tt scan}, which returns the array's contents. We use the
+\emph{single-writer}/\emph{single-scanner} version of the algorithm,
+which assumes that at most one thread writes into an element, and at
+most one thread invokes the scanner, at any given time.
+% 
+%where a thread acquires a writer lock for a particular element before
+%writing into it, and a scanner before scanning. A scanner lock does
+%not preclude writing, and a writer lock for an element does not
+%preclude scanning, or writing into other elements. 
+This is the simplest of Jayanti's algorithms, but it already exhibits
+linearization points of dynamic nature. We also
+restrict the array size to $m=2$ (i.e., we consider two pointers $\x$
+and $\y$, instead of an array). This removes some tedium from
+verification, but exhibits the same conceptual challenges.
+ 
+The difficulty in this snapshot algorithm is ensuring that the scanner
+returns sound values of $\x$ and $\y$. A naive scanner, which simply
+reads $\x$ and $\y$ in succession, is unsound. To see why, consider
+the following scenario, starting with $\x=5$, $\y=0$. The scanner
+reads $\x$, but before it reads $\y$, another thread preempts it, and
+changes $\x$ to $2$ and $\y$ to $1$. The scanner continues to read
+$\y$, and returns $\x=5, \y=1$, but this was never the contents of the
+memory.
+
+To ensure a sound snapshot, Jayanti's algorithm internally keeps
+additional \emph{forwarding pointers} $\fx$ and $\fy$, and a boolean
+\emph{scanner bit} $\s$. The implementation is given in
+Figure~\ref{fig:jayanti-snapshot}, and \emph{assumes} the
+single-writer/single-scanner setup (the assumption can be enforced
+with wrapper locking code, which we omit here for simplicity, but
+consider in our Coq proofs).
+%
+The intuition is as follows. A writer storing $v$ into $p$ (line~2),
+will additionally store $v$ into the forwarding pointer for $p$
+(line~5). If the scanner missed the write and instead read the old
+value of $p$ (line~10), it will have a chance to catch $v$ via the
+forwarding pointer (line~12). The scanner bit $S$ is used by writers
+(line~3) to detect a scan in progress, and forward $v$.
+
+\input{jy-histories2}
+ 
+As Jayanti proves, this implementation is linearizable. Informally,
+every overlapping calls to {\tt write} and {\tt scan} can be
+rearranged to appear as if they occurred sequentially.  To illustrate,
+consider the program in Figure~\ref{fig:weird:code}, and one possible
+interleaving of its primitive memory operations in
+Figure~\ref{fig:weird:exec}. The threads {\tt l}, {\tt c}, and {\tt
+  r}, start with $\x = 5, \y = 0$.
+%
+The thread {\tt c} is scheduled first, and through lines~2-6 sets the
+scanner bit, clears the forwarding pointers, and reads $\x = 5, \y =
+0$. Then {\tt l} intervenes, and in lines~7-11, overwrites $\x$ with
+$2$, and seeing $\s$ being set, forwards $2$ to $\fx$. Next, {\tt r}
+and {\tt l} overlap, writing $3$ into $\x$ and $1$ into $\y$. However,
+while $1$ gets forwarded to $\fy$ (line 13), $3$ is not forwarded to
+$\fx$, because $\s$ was turned off in line 15. Thus, when {\tt c}
+reads the forwarded values (lines 18, 19), it returns $\x = 2, \y =
+1$. 
+
+While $\x\,{=}\,2, \y\,{=}\,1$ was never the contents of the memory,
+returning this snapshot is nevertheless justified because we can
+\emph{pretend} that the scanner \emph{missed} {\tt r}'s write of
+$3$. Specifically, the events in Figure~\ref{fig:weird:exec} can be
+\emph{reordered} to represent the following sequential execution.
+%
+\begin{equation}
+\mathtt{write\, (x, 2);\ write\, (y,1);\ scan\, ();\ write\, (x,
+  3)} \label{eq:lin}
+\end{equation}
+The client programs cannot discover that a different scheduling
+actually took place in real time, because they can access the internal
+state of the algorithm only via {\tt write} and {\tt scan}.
+
+This kind of temporal reordering is the most characteristic aspect of
+linearizability proofs, which typically describe the reordering by
+listing the linearization points of each procedure. At a linearization
+point, the procedure's operations can be spliced into the execution
+history as an uninterrupted chunk. For example, in Jayanti's proof,
+the linearization point of {\tt scan} is at line~11
+(Figure~\ref{fig:jayanti-snapshot}), where the scanner bit is
+unset. The linearization point of {\tt write}, however, may vary. If
+{\tt write} starts before an overlapping {\tt scan}'s line 11, and
+moreover, the {\tt scan} misses the {\tt write} (note the dynamic
+nature of this property), then {\tt write} should appear after {\tt
+  scan}; that is, the {\tt write}'s linearization point is right after
+{\tt scan}'s linearization point at line~11. 
+%
+Otherwise, {\tt write}'s linearization point is at line~2.
+%
+In the former case, {\tt write} has a \emph{future-dependent},
+\emph{non-local}, \emph{non-regional} linearization point, as we can
+only identify it in the execution of {\tt scan} in a different thread,
+and only \emph{after} the execution of {\tt write} has terminated. For
+instance, in Figure~\ref{fig:weird:exec} the execution of the second
+{\tt write} in \texttt{l} terminates at step 14, yet the decision of
+its position in the linearization order is taken only when the scanner
+is at step 15.
+
+
+\input{jy-reorder}
+
+Obviously, the high-level pattern of the proof requires tracking a
+logical ordering of the {\tt write} and {\tt scan} events, which
+differs from the real time. As the logical ordering is inherently
+dynamic, depending on properties such as {\tt scan} missing a {\tt
+  write}, we formalize it in Hoare logic, by keeping it as a list of
+events in auxiliary state that can be dynamically reordered as
+needed. For example, Figure~\ref{fig:reorder:before} shows the
+situation in the execution of {\tt scan} that we reviewed above, where
+the logical ordering coincides with real-time ordering, but is unsound
+for the snapshot $\x=2, \y=1$ that {\tt scan} wants to return. In that
+case, the auxiliary code with which we annotate {\tt scan},
+will change the list in-place, as shown in
+Figure~\ref{fig:reorder:after}.
+
+Our challenge then lies in reconciling the following two conflicting
+requirements. First, we need to implement the reordering discipline so
+that the subsequent calls to {\tt write} and {\tt scan} preserve the
+established logical order of the past events. This will be
+accomplished by introducing yet further structures into the auxiliary
+state and code. Second, we have to engineer Hoare triples for {\tt
+  write} and {\tt scan} to be \emph{intuitive} and \emph{usable} by
+clients, but also to \emph{not expose} the specifics of the reordering
+discipline, which is internal to the snapshot object. 
+%We discuss these issues next.
+
+
+

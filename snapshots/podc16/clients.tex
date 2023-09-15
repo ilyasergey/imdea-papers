@@ -1,0 +1,131 @@
+\section{Discussion}
+%\section{Client-side reasoning}
+\label{sec:clients}
+
+While proving linearizability of a concurrent data structure is
+usually an end of the verification effort, for us it matters how Hoare
+specs are then used in client-side proofs. We discuss this aspect of
+our approach, and contrast with linearizability.
+
+As a first point, we argue that the pre- and postcondition ascribed to
+{\tt write} and {\tt scan} in Section~\ref{sc:formal} are
+\emph{principal}, in that they can be used in larger program contexts
+without modification. This is not the case in most other verification
+methods, where programs, once verified, typically still have to be
+refactored wrt.~auxiliary state and code \emph{on a per-context
+  basis}~\cite{Owicki-Gries:CACM76,Jacobs-Piessens:POPL11}. By using
+\emph{local} variables such as $\histS$ and $\histO$ to name the
+per-thread history, we avoid the need for refactoring. Such locality
+is supported by the FCSL inference rule for parallel
+composition~\cite{LeyWild-Nanevski:POPL13,Nanevski-al:ESOP14}. The
+rule is somewhat unusual, but please see Appendix~\ref{sc:background}
+for a brief description. What matters, however, is that reasoning in
+clients is done strictly out of the specs of {\tt write} and {\tt
+  scan}. Notice that, while these expose the existence of the logical
+ordering $\jleq$ and how some individual events may be related in it,
+they \emph{do not} expose the actual definition of $\jleq$ in terms of
+colors, or any other internal of the auxiliary state and code. Other
+snapshot implementations can provide their own definition of $\jleq$.
+
+Second, while linearizability only relates a procedure to a simpler
+variant, in our setting we can give specs and proofs to arbitrary
+compositions of such procedures. For example, it is possible to prove
+that the program
+%
+$ 
+P_1 = {\mathtt{write}}\ (x, 1) \parallel {\mathtt{write}}\ (y, 2)
+$
+%
+satisfies the spec which says that two events are executed, in an
+unspecified order. Then we can reason about a larger program, say
+$
+  P_2 = P_1; {\mathtt{write}}\ (x, 3)
+$
+out of that spec, to prove that $P_2$ executes three events, with the
+write of $3$ appearing last. 
+%
+Moreover, the \emph{substitution principle} holds; that is, the proof
+remains valid, even if we replace $P_1$ by another program, say
+%
+$
+P'_1 = {\mathtt{write}}\ (x, 1); {\mathtt{write}}\ (y, 2)
+$
+which satisfies a stronger spec (explicitly ordering the two events),
+but which \emph{can be weakened} to the spec of $P_1$ by forgetting the
+ordering by means of strengthening the precondition and weakening the
+postcondition, as customary in Hoare logic. Thus, our client proofs
+\emph{can ignore} the internal thread-structure of component programs.
+
+\input{readpair}
+
+The substitution principle can be pushed further. In particular, we
+can use a different snapshot algorithm, without modifying the proofs
+of $P_1$, $P_2$, $P'_1$ or any other client, as long as {\tt write}
+and {\tt scan} satisfy the expected specs.
+%
+We have confirmed this property on the toy example given in
+Figure~\ref{fig:readpair} (we present only {\tt scan}, as {\tt write}
+is trivial)~\cite{Sergey-al:ESOP15}. In this example, the snapshot
+structure consists of pointers $x$ and $y$ storing tuples $(c_x, v_x)$
+and $(c_y, v_y)$, respectively. $c_x$ and $c_y$ are the payload of $x$
+and $y$, whereas $v_x$ and $v_y$ are version numbers, internal to the
+structure. Writes to $x$ and $y$ increment the version number. {\tt
+  Scan} reads $x$, $y$ and $x$ again, in succession, but avoids
+snapshot inconsistency by restarting if the two version numbers of $x$
+differ. The definition of $\jleq$ used to satisfy the specs equals the
+real time one, as no dynamic reordering is needed.
+
+%\gad{Why are we not calling read-pair by it's name?}
+%%
+%\an{Well, because we're trying to make the parallel with the Jayanti's
+%  code. By calling it {\tt scan}, the connection is immediately
+%  made. Speaking of names, I'm more concerned that we name with {\tt
+%    write} two different things. The primitive memory operation should
+%  probably be renamed into $x := v$ or {\tt assign}.}
+%%
+%\gad{I understand. But I was refering to the algorithm and not the
+%  methods.}
+
+\begin{comment}
+\begin{enumerate}
+\item Show some silly clients, to illustrate how the specs work. 
+
+  \gad{Let's see what we have right now:}  
+  \begin{itemize}
+  \item[i] One thread example: show that write x 3; write y 5; scan ()
+    allows us to infer that the ordering of x and y was preserved and
+    furthermore the timestamps of the return value would allows us to
+    infer when the interfering threads happened in time, compared to
+    our contributions.
+
+  \item[ii] two sequential scans, and a proof that whatever the second
+    scanner returned was not in the visible results of the first one.
+
+  \item[iii] Some clients with $\mathbf{hide}$?. \gad{At some point we
+    said that we should try to use hide as a leverage against Khyza et
+    al.}
+  \end{itemize}
+
+\gad{The first two are the ones I'm working on right now to test the
+  new set of rules}.
+  
+\item Emphasize that the client reasoning depends solely on the API
+  for scan and write.
+\item In particular, we could have another implementation of snapshot,
+  and the same spec can be given. Quickly describe readpair. \is{It
+    will be easier if it makes an appearance in the intro.} Point to
+  the previous paper, and show which spec we gave there. Argue that by
+  rule of consequence, this can trivially be coerced into the spec we
+  have here.
+\item Probably again avoid talking about FCSL background. When
+  describing the proof outlines for the clients, talk your way around
+  the splitting, zigzagging, hiding (if we end up using
+  hiding). \is{In my talks I typically say it's the way to restrict
+    the interference, and the concurrency crowd is happy with it. For
+    instance, Noam's last time reaction to this was like ``oh, sure,
+    you just assume that your all threads are just t1 and t2, that's a
+    trivial assumption to enforce!''}
+\end{enumerate}
+
+\end{comment}
+

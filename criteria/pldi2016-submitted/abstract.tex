@@ -1,0 +1,29 @@
+\begin{abstract}
+
+  Designing efficient concurrent objects often requires abandoning the
+  standard specification technique of \emph{linearizability} in favor
+  of more relaxed correctness conditions.
+%
+  However, the variety of alternatives makes it difficult to choose
+  which condition to employ, and how to compose them when using
+  objects specified by different conditions.
+
+  %The lack of syntactic verification methods for most of these
+  %criteria poses challenges in their systematic adoption and
+  %mechanization.
+
+  In this work, we propose a \emph{uniform} alternative in the form of
+  Hoare logic which can explicitly capture---in the auxiliary
+  state---the interference of environment threads.
+%
+  We demonstrate the expressiveness of our method by verifying a
+  number of concurrent objects and their clients, which have so far
+  been specified only by non-standard conditions of
+  \emph{concurrency-aware linearizability}, \emph{quiescent}, and
+  \emph{quantitative quiescent consistency}.
+% 
+  We report on the implementation of the ideas in an existing
+  Coq-based tool, providing the first mechanized proofs for all the
+  examples in the paper.
+
+\end{abstract}

@@ -1,0 +1,123 @@
+\documentclass[reprint,nocopyrightspace,10pt,onecolumn]{sigplanconf}
+
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage{latexsym}
+\usepackage{graphicx}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{listings}
+\usepackage{float}
+\usepackage[scaled]{helvet}
+\usepackage[noend]{algorithmic}
+\usepackage{mathrsfs}
+\usepackage{mathpartir}
+\usepackage{dsfont}
+\usepackage{stmaryrd}
+\usepackage{url}
+\usepackage{textcomp} 
+\usepackage[colorlinks=true,allcolors=blue,breaklinks,draft=false]{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{alltt}
+\usepackage{bbm}
+\usepackage{alltt}
+\usepackage{verbdef}
+\usepackage{xspace}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage{lipsum}
+%\usepackage{doi}
+\usepackage[strut=on,labelfont=bf]{caption}
+%\usepackage[nottoc,numbib]{tocbibind}
+\usepackage{blindtext} % generates a dummy document
+
+% \usepackage{natbib}
+% \bibpunct();A{},
+% \let\cite=\citep
+
+% For turned column headers 
+\usepackage{adjustbox} 
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{pifont}
+ 
+\input{defs}
+
+% Keep footnotes on one page
+\interfootnotelinepenalty=10000 
+
+%\setlength{\parindent}{0.15in}
+\setlength{\topsep}{0cm}
+\setlength{\parskip}{0.35\baselineskip plus 0.2\baselineskip minus 0.1\baselineskip}
+\titlespacing*{\section}{0pt}{*0.8}{*0.8} 
+\titlespacing*{\subsection}{0pt}{*0.8}{*0.5}
+\titlespacing*{\subsubsection}{0pt}{*0.8}{*0.5}
+\titlespacing*{\paragraph}{0pt}{*0.3}{*0.3}
+
+
+% SSReflect listings 
+\input{lstcoq}
+\lstset{style=Coq}
+
+% Hyphenation
+\hyphenation{Veri-Fast}
+
+% Bibtgex tweaks
+\setcitestyle{square}
+\defcitealias{Coq-manual}{Coq proof assistant}
+
+\begin{document}
+
+
+\special{papersize=8.5in,11in}
+
+\authorinfo{Aleksandar Nanevski${^1}$ \and Ilya Sergey${^2}$ \and Ruy Ley-Wild${^3}$\\[3pt]
+  \and Anindya Banerjee${^1}$ \and Germ\'{a}n Andr\'{e}s Delbianco${^{1,4}}$}
+{${^1}$IMDEA Software Institute, Spain \and ${^2}$University College
+  London, UK \\[3pt]
+  ${^3}$LogicBlox, USA
+  \and ${^4}$Universidad Polit\'{e}cnica de Madrid, Spain}{}
+
+% \authorinfo{Ilya Sergey\vspace{-5pt}}
+%            {IMDEA Software Institute\vspace{-5pt}}
+%            {ilya.sergey@imdea.org}
+
+% \authorinfo{Aleksandar Nanevski\vspace{-5pt}}
+%            {IMDEA Software Institute\vspace{-5pt}}
+%            {aleks.nanevski@imdea.org}
+
+% \authorinfo{Anindya Banerjee\vspace{-5pt}}
+%            {IMDEA Software Institute\vspace{-5pt}}
+%            {anindya.banerjee@imdea.org}
+
+\title{
+  Mechanized Verification of Fine-grained Concurrent Programs \\
+  in Fine-grained Concurrent Separation Logic }
+
+\subtitle{User Manual and Code Commentary}
+\maketitle
+
+\begin{center}
+\vspace{-40pt}
+\today
+%\vspace{20pt}  
+\end{center}
+
+\input{content}
+\input{examples}
+
+% \acks
+% \todo{Acknowledgments, if needed.}
+
+%\newpage
+
+
+\addcontentsline{toc}{section}{References}
+%\setlength{\bibsep}{1pt plus 0.3ex}
+\bibliographystyle{plain}
+\softraggedright
+\bibliography{bibmacros,references,proceedings}
+
+\end{document}
+
+

@@ -1,0 +1,1421 @@
+\section{An Overview of Fine-Grained Resources}
+\label{sec:overview}
+
+There are three different aspects along which fine-grained resources
+can be composed: space (\ie, states), ownership, and time (\ie, 
+transitions). In this section, we describe how to represent these
+aspects in the assertion logic of \SCST.
+
+\subsubsection{Space} The heap belonging to a fine-grained
+resource,\footnote{Or just resource for short. Later on, we 
+  explicitly identify CSL resources as \emph{coarse-grained}.} is
+explicitly identified by a \emph{resource label}. We use assertions in
+the ``points-to'' style of separation logic, to name resources and
+identify their respective heaps.
+%
+For example, the assertion 
+\[{\small
+\hlabel_1 \jpts h_1 \lsep \hlabel_2 \jpts h_2
+}\]
+%
+describes a state in which the heaps $h_1$ and $h_2$ are associated
+with the resources labeled $\hlabel_1$ and $\hlabel_2$,
+respectively. 
+%\footnote{The superscript $j$ will be explained momentarily.} 
+The connective $\lsep$ ensures that $\hlabel_1$ and $\hlabel_2$ are
+distinct labels, and that $h_1$ and $h_2$ are disjoint heaps. The
+superscript $j$ indicates that the heaps are \joint (shared), \ie, can
+be accessed by any thread, even though they are owned by the resources
+$\hlabel_1$ and $\hlabel_2$, respectively.
+
+%
+The heaps $h_1$ and $h_2$ are not described by means of points-to
+assertions, but are built using operators for singleton heaps $x \hpts
+v$ and disjoint union $\hunion$.  
+%
+For example, the heap of the resource $\hlock$, which explicitly
+encodes a coarse-grained resource with the resource invariant
+$I$~\cite{OHearn07} may be described by the assertion 
+%
+\[
+{\small
+\hlock \jpts ((lk \hpts b) \hunion h) \aand \mathsf{if}\ b\ \mathsf{then}\ h = \hempty\ \mathsf{else}\  I\ h.\tag{\arabic{tags}}\refstepcounter{tags}\label{resinv}\\
+}
+\]
+%
+The assertion exposes the fact that the heap owned by $\hlock$
+contains a boolean pointer $lk$ encoding a lock that protects the heap
+$h$. The conditional conjunct is a \emph{pure} (\ie, label-free)
+assertion, which describes an aspect of the ownership transfer
+protocol of CSL. When the lock is not taken (i.e. $b =
+\mathsf{false}$), the heap $h$ satisfies the resource invariant. When
+the lock is taken, the heap is transfered to the private ownership of
+the locking thread, so $h$ equals the empty heap, but $lk$ remains in
+the ownership of $\hlock$.
+
+\subsubsection{Ownership}
+\label{sec:ownership}
+Data in \SCST may be owned by a resource, as illustrated above, or by
+individual threads. The thread-owned data, however, is also
+associated with a resource, which it refines with \emph{thread-relative} information.
+%
+For example, the resource $\hlock$ owns a pointer $lk$ which
+operationally implements a lock. However, just knowing that the lock
+is taken or not is not enough for reasoning purposes; we need to
+know which thread has taken it, if any. Thus, we
+associate with each thread an extra bit of $\hlock$-related
+information, $\lockOwn$ or $\lockNown$, which will identify the
+lock-owning thread as follows. 
+
+Following the idea of
+\emph{subjectivity}~\cite{LeyWild-Nanevski:POPL13}, \SCST assertions
+are interpreted in a thread-relative way. We use \self to name the
+interpreting thread, and \other to name the combination of all other
+threads running concurrently with \self (\ie, the environment of
+\self). We use two different assertions to describe thread-relative
+views: $\hlabel \spts v$ and $\hlabel \opts v$. The first is true in
+the \self thread, if \self's view of the resource $\hlabel$ is
+$v$. The second is true in the \self thread, if \other's view of the
+resource $\hlabel$ is $v$.
+%
+In this sense, the $\hlabel \jpts v$ describes the resource's view of
+the data.
+%Finally, some heap might be owned by neither \self or \other thread,
+%but by the resource itself.
+%
+%In this sense, we refer to a resource-owned heap as \emph{joint}
+%(hence the assertion $\hlabel \jpts v$), as logically it is not
+%private to any specific thread.
+%
+In the case of $\hlock$, the thread that acquired the lock will
+validate the assertion:
+\[
+{\small
+\hlock \spts \lockOwn \aand \hlock \jpts (lk \hpts \mathsf{true}),
+}
+\]
+%
+while the symmetric assertion holds in all other threads at the same
+moment of time:
+\[
+{\small
+\hlock \jpts (lk \hpts \mathsf{true}) \aand \hlock \opts \lockOwn.
+}\]
+%
+In general, the values of the \self and \other views for \emph{any
+  resource} are elements of some resource-specific \emph{partial
+  commutative monoid} (PCM)~\cite{LeyWild-Nanevski:POPL13}. A PCM is a
+set with a commutative and associative operation $\join$ with a unit
+element. $\join$ combines the \self and \other views into a view of
+the parallel composition of \self and \other threads. The $\join$
+operation is commutative and associative because parallel composition
+of threads is commutative and associative, and the unit element models
+the view of the idle thread. Partiality models impossible thread
+combinations.
+%
+For example, the elements of $O = \{\lockNown, \lockOwn\}$ represent
+thread-relative views of the lock $lk$. $O$ forms a PCM under the
+operation defined as $x \join \lockNown = \lockNown \join x = x$, with
+$\lockOwn \join \lockOwn$ undefined. The unit element is $\lockNown$,
+and the undefinedness of the last combination captures that two
+threads can't simultaneously own the lock. Notice that heaps form a
+PCM under disjoint union, with the $\hempty$ heap as unit. Thus, they
+too obey the discipline required of the general \self and \other
+components. 
+%
+
+
+Anticipating $\hlock$-related examples in Section~\ref{sec:reasoning},
+we combine thread-relative views of the lock with thread-relative
+views of the lock-protected heap $h$. We parametrize the resource
+$\hlock$ by a PCM $U$, which the user may choose depending on the
+application. Then we use assertions over \emph{pairs}, such as $\hlock
+\spts (\mL, \gL)$ and $\hlock\opts (\mE, \gE)$, to express that $\mL,
+\mE \in O$ are views of the lock $lk$, and $\gL, \gE \in U$ are views
+of the heap $h$.
+The following assertion illustrates how the different \SCST primitives
+combine. It generalizes~(\ref{resinv}) and defines the valid states of
+the resource $\hlock$.
+%
+\[
+{\small
+\begin{array}{l}
+\hlock \spts (\mL, \gL) \aand \hlock \opts (\mE, \gE) \aand \hlock \jpts ((lk \hpts b) \hunion h) \aand \hbox{}\tag{\arabic{tags}}\refstepcounter{tags}\label{lock}\\
+\mathsf{if}\ b\ \mathsf{then}\ h = \hempty \aand \mL \join \mE = \lockOwn\ \mathsf{else}\ 
+I\ (\gL \join \gE)\ h \aand \mL \join \mE = \lockNown
+\end{array}
+}\]
+%
+The assertion states that if the lock is taken ($b = \mathsf{true}$)
+then the heap $h$ is given away, otherwise it satisfies the resource
+invariant $I$. In either case, the thread-relative views $\mL$, $\mE$,
+$\gL$ and $\gE$ are consistent with the resource's views of $lk$ and
+$h$. Indeed, notice how $\mL$, $\mE$ and $\gL, \gE$ are first
+$\join$-joined (by the $\join$-operations of $O$ and $U$,
+respectively) and then related to $b$ and $h$; the former implicitly
+by the conditional, the latter explicitly, by the resource invariant
+$I$, which is now parametrized by $\gL \join \gE$.
+%\vspace{-2mm}
+\paragraph{Private heaps}
+In addition to a private view of a resource, a thread may own a
+private heap as well. We describe such thread-private heaps by means
+of the same thread-relative assertions, but with a different resource
+label. We consider a dedicated resource for \emph{private heaps}, with
+a dedicated label $\hpriv$. Then we can write, say, $\hpriv \spts x
+\hpts 4$ to describe a heap consisting of a pointer $x$ private to the
+\self thread. By definition, $\hpriv \jpts \hempty$, \ie, the \joint
+heap of the $\hpriv$ resource is always empty.
+
+\subsubsection{Time}
+\label{sec:time}
+
+Fine-grained reasoning requires characterization of the possible
+changes the threads can make to the state. We encode such a
+characterization as relations between states of possibly
+\emph{multiple resources} (\ie, using multiple labels).
+%
+For example, coarse-grained resources require that upon successful
+acquisition, the resource's heap is transfered into the private
+ownership of the acquiring thread. In our fine-grained encoding, the
+transition can be represented as follows:
+%
+\[
+{\small
+\begin{array}{l@{\ \lsep\ }l@{\ \aand\ }l}
+\hpriv \spts \hL & (\hlock \spts (\lockNown, \gL) & \hlock \jpts ((lk \hpts \mathsf{false}) \hunion h)) \rightsquigarrow \hbox{}
+\tag{\arabic{tags}}\refstepcounter{tags}\label{trans} \\ 
+\hpriv \spts {(\hL \hunion h)} & (\hlock \spts (\lockOwn, \gL) & \hlock \jpts (lk \hpts \mathsf{true}))
+\end{array}
+}\]
+%
+This transition preserves heap \emph{footprints}, in the sense that
+the domain of the combined heaps in the source of the transition
+equals the domain in the target of the transition. We refer to such
+transitions as \emph{internal}. Footprint preservation is an essential
+property, as it facilitates composing and framing transitions. In
+particular, adding additional labels and heaps with non-overlapping
+footprint to a source of an internal transition is guaranteed to
+produce non-overlapping footprints in the target of the transition as
+well.
+
+We also consider \emph{external} transitions that \emph{can} acquire
+and release heaps. We use external transitions to build internal
+ones. For example, the above internal transition over $\hpriv$ and
+$\hlock$ resources can be obtained as an interconnection (to be
+defined in Section~\ref{sec:formalization}) of two external
+transitions, each operating on an individual label.
+%
+\[
+{\small
+\begin{array}{r@{\ \ }c@{\ \ }l}
+\hpriv \spts \hL & \overset{+h}{\rightsquigarrow} & \hpriv \spts {(\hL \hunion h)}
+\tag{\arabic{tags}}\refstepcounter{tags}\label{externals}\\
+\hlock \spts (\lockNown, \gL) \aand \hlock \jpts ((lk \hpts
+\mathsf{false}) \hunion h) & \overset{-h}{\rightsquigarrow} & \hlock
+\spts (\lockOwn, \gL) \aand \hlock \jpts lk \hpts \mathsf{true}
+\end{array}
+}\]
+%
+The transition over $\hpriv$ takes a heap $h$ as an input and attaches
+it to the \self heap. The transition over $\hlock$ gives the heap $h$
+as an output. When interconnected, the two transitions exchange the
+ownership of $h$ between the $\hlock$ and $\hpriv$,
+producing~(\ref{trans}).
+
+A \emph{concurroid} is an STS that formally represents a collection of
+resources. Each state of the STS contains a number of components,
+identified by the labels naming the individual resources. Each
+concurroid contains one internal transition, and an arbitrary number
+of external ones. The internal transition describes how threads
+specified by the concurroid may change their state in a single step. 
+%
+%
+The external transitions are the ``dangling wires'', which provide
+means for composing different concurroids by \emph{entangling} them,
+\ie, interconnecting (some or all of) their dually polarized external
+transitions, to obtain a larger concurroid.
+
+For example, if $P$ is the concurroid for private heaps (containing a
+single label $\hpriv$), and $L_{\{\hlock,lk,I\}}$ is the concurroid
+for a lock (with a single label $\hlock$, lock pointer $lk$ and
+protected heap described by the coarse-grained resource invariant
+$I$), we could construct the entangled concurroid
+$\CSL_{\{\hlock,lk,I\}} = P \entangle L_{\{\hlock,lk,I\}}$ that
+captures the heap ownership-exchange protocol~(\ref{trans}) of CSL for
+programs with \emph{one coarse-grained resource}.\footnote{The formal
+  definition of the $\entangle$ is postponed until
+  Section~\ref{sec:formalization}.}  The entanglement can be iterated,
+to obtain an STS for \emph{two coarse-grained resources}
+$\CSL_{\{\hlock, lk, I\}, \{\hlock', lk',I'\}} =
+\CSL_{\{\hlock,lk,I\}} \entangle L_{\{\hlock',lk',I'\}}$, and so on.
+%
+In this way, concurroids generalize the notion of resource context
+from the \textsc{ResourceCSL} rule, with entanglement modeling the
+addition of new resources to the context.
+
+
+
+\section{Reasoning with Concurroids}
+\label{sec:reasoning}
+%
+% In this section, we present main reasoning principles of \SCST.
+%
+\subsubsection{Auxiliary definitions} A PCM-map is a finite map from
+labels (isomorphic to $\mathsf{nat}$) to $\Sigma_{{\mathbb
+    U}{:}\textrm{pcm}} \mathbb U$. It associates each label with a
+pair of a PCM $\mathbb U$ and a value $v \in \mathbb U$. A heap-map is
+a finite map from labels to heaps.
+%
+If $m_1, m_2$ are PCM-maps, then $m_1 \zip m_2$ is defined as
+$\hempty \zip \hempty = \hempty$, and $((\hlabel
+\hpts_{\mathbb U} v_1) \hunion m'_1) \zip ((\hlabel \hpts_{\mathbb U} v_2)
+\hunion m'_2) = (\hlabel \hpts_{\mathbb U} v_1 \join v_2) \hunion (m'_1 \zip
+m'_2)$, and undefined otherwise.
+% 
+By overloading the notation, we define state $w$ as a triple
+$\state{\mathself}{\mathjoint}{\mathother}$, where $\mathself,
+\mathother$ are PCM-maps, and $\mathjoint$ is a heap-map. We
+abbreviate $\state{{\hlabel \hpts v_s}}{{\hlabel \hpts v_j}}{{\hlabel
+    \hpts v_o}}$ with $\hlabel \hpts \state{{v_s}}{{v_j}}{{v_o}}$.
+%
+$w$ is valid if $w.\mathself$, $w.\mathjoint$, $w.\mathother$ have the
+same domain as PCM-maps, ${w.\mathself} \zip {w.\mathother}$ is
+defined, and the heaps in $w.\mathself$, $w.\mathjoint$ and
+$w.\mathother$ are disjoint (if $w.\mathself$ and $w.\mathother$
+contain heaps in their codomain). State flattening ${\flatten {w}}$ is
+the disjoint union of all such heaps. $w_1 \hunion w_2$ is the
+pairwise disjoint union of component maps of $w_1$ and $w_2$. The
+semantics of the main \SCST assertions is provided in
+Figure~\ref{fig:broccoli}. The subjective assertions (\eg, $w \models
+\hlabel \spts v$) constrain the value of one state component, assuming
+others to be existentially quantified over.
+
+\begin{figure}[t]
+
+\[
+{\small
+\begin{array}[t]{ll}
+w \models \top & \mbox{iff always}\\
+w \models \hlabel \spts v & \mbox{iff valid $w$, and $w.\mathself = \hlabel \hpts v$}\\ 
+w \models \hlabel \jpts h & \mbox{iff valid $w$, and $w.\mathjoint = \hlabel \hpts h$}\\
+w \models \hlabel \opts v & \mbox{iff valid $w$, and $w.\mathother = \hlabel \hpts v$}\\
+w \models p \aand q & \mbox{iff $w \models p$ and $w \models q$}\\
+w \models p \lsep q & \mbox{iff valid $w$, and $w = w_1 \hunion w_2$, and $w_1 \models p$ and $w_2 \models q$}\\
+w \models p \wand q & \mbox{iff for every $w_1$, valid $w \hunion w_1$ and $w_1 \models p$ implies $w \hunion w_1 \models q$}\\
+w \models p \ssep q & \mbox{iff valid $w$, and $w.\mathself= \mathself_1 \hunion \mathself_2$, and}\\
+ & \hphantom{\mbox{iff}}\ \mbox{$\state{\mathself_1}{w.\mathjoint}{{\mathself_2} \zip {w.\mathother}}
+   \models p$ and $\state{\mathself_2}{w.\mathjoint}{{\mathself_1} \zip
+   {w.\mathother}} \models q$}\\
+w \models \mathsf{this}\ w' & \mbox{if $w = w'$}\\
+\hphantom{w} \models p \downarrow h & \mbox{iff for every valid $w$, $w
+  \models p$ implies $\flatten w = h$}
+\end{array}}
+\]
+\caption{Semantics of selected \SCST assertions. }
+\label{fig:broccoli}
+\end{figure}
+
+\SCST specifications take the form of Hoare 4-tuple
+$\stconc{p}{c}{q}{U}$ expressing that the thread $c$ has a
+precondition $p$, postcondition $q$, in a state space and under
+transitions defined by the concurroid $U$, which in \SCST takes the
+role of a resource context from CSL. We next present the
+characteristic inference rules of \SCST.
+
+\vspace{4pt}
+
+\noindent\textbf{Parallel composition}~
+The rule for parallel composition in \SCST is similar to
+\textsc{ParCSL}, with $\Gamma$ replaced by a concurroid $U$, which we
+will define formally in Section~\ref{sec:formalization}.
+%
+%The special case is the \textsc{Frame} rule, obtained by instantiating
+%$c_2$ with the idle thread.
+%
+\begin{mathpar}
+{\small
+  \inferrule*[Right={Par}] {\stconc{p_1}{c_1}{q_1}{U}
+    \\ \stconc{p_2}{c_2}{q_2}{U}} {\stconc{p_1 \ssep p_2}{c_1
+      \parallel c_2}{q_1 \ssep q_2}{U}}\and
+}\end{mathpar}
+%
+The \textsc{Par} rule uses \emph{subjective separating conjunction}
+$\ssep$ (see \cite{LeyWild-Nanevski:POPL13} and
+Figure~\ref{fig:broccoli}) to split the state of $c_1 \parallel c_2$
+into two. The split states contain the same labels, and equal \joint
+portions, but the \self and \other portions are recombined to match
+the thread-relative views of $c_1$ and $c_2$. When the parent thread
+forks the children $c_1$ and $c_2$, the PCM values in the parent's
+\self components are split between the children (similarly $\lsep$
+splits heaps in CSL), while the children's \other component are
+implicitly induced to preserve overall $\join$-total (\ie, $c_1$'s
+\other view includes $c_2$'s \self view, and vice versa).
+%
+For example, in the case of
+%assertions with 
+one label $\hlabel$, we have 
+%
+\begin{mathpar}
+{\small
+\hlabel \spts a \join b \aand %\hlabel \jpts h \aand 
+  \hlabel \opts c \implies 
+  (\hlabel \spts a \aand %\hlabel \jpts h \aand 
+   \hlabel \opts c \join b) \ssep 
+  (\hlabel \spts b \aand %\hlabel \jpts h \aand 
+   \hlabel \opts c \join a).
+}
+\end{mathpar}
+%
+The implication encodes the idea of a forking shuffle from RG, but via
+states, rather than transitions as in RG. It allows us to use the
+\emph{same} concurroid $U$ to specify the transitions of both $c_1$
+and $c_2$ in \textsc{Par}, much like \textsc{ParCSL} uses the same
+context $\Gamma$. Essentially, we rely on the recombination of views
+to select the transitions of $U$ available to each of $c_1$ and $c_2$,
+instead of providing distinct transitions for $c_1$ and $c_2$ as in
+\textsc{ParRG}.
+
+We commonly encounter cases where the \other views are
+existentially abstracted, hence the conjuncts %$\hlabel \jpts -$ and
+$\hlabel \opts -$ are omitted. In those cases, we have the simplified
+bi-implication:
+%
+\[
+{\textstyle 
+\hlabel \spts a \join b \iff \hlabel \spts a \ssep \hlabel \spts b
+\tag{\arabic{tags}}\refstepcounter{tags}\label{biimpl}
+%\end{array}
+}
+\] 
+%
+The implications generalize to $\sstar$-separated assertions with more
+than one distinct label.
+
+We illustrate \textsc{Par} and $\sstar$ with the example of concurrent
+incrementation~\cite{Owicki-Gries:CACM76,LeyWild-Nanevski:POPL13} in a
+setting of a concurroid $\CSL_{\hlock,lk,I}$ (\ie, private state and
+one lock).  The lock $lk$ protects a shared integer pointer $x$, that
+is, the resource invariant is $I\ (a:nat)\ (h : heap) \eqdef h = x
+\hpts a$.  For the nat argument, we chose the PCM structure under
+addition; thus, an assertion $\hlock \spts (-, \gL)$ expresses that
+the \self thread has added $\gL$ to $x$, and dually for $\hlock \opts
+(-, \gE)$. Therefore, whenever the lock is not taken, $x$ stores the
+sum $\gL + \gE$. This follows from interpreting $\join$ with $+$ in
+the lock state invariant~(\ref{lock}).
+
+%by property~(\ref{lock}), we have
+%\[
+%\hlock \spts (\lockNown, \gL) \aand \hlock \opts (\lockNown, \gE)
+%\implies \hlock \jpts (lk \hpts \mathsf{false}) \hunion (x \hpts \gL + \gE)
+%\]
+%and $\gL$ and $\gE$ capture how much \self and \other threads have
+%added to $x$, respectively.
+
+Procedure $\mathsf{incr}(n)$ acquires the lock to ensure exclusive
+access to $x$, increments $x$ by $n$, and releases the lock.
+%
+In \SCST, it has the following specification:
+%
+\begin{mathpar}
+{\small
+\begin{array}{c}
+\stconc{\hpriv \spts \hempty \lsep \hlock \spts (\lockNown, 0)}{\mathsf{incr}(n)}{\hpriv \spts \hempty \lsep \hlock \spts
+  (\lockNown, n)}{\CSL_{\hlock,lk,I}}
+\end{array}
+}\end{mathpar}
+%
+The specification states that $\mathsf{incr}$ runs in an empty private
+heap (hence by framing, in any larger heap), the lock is not
+owned by the calling thread initially, and will not be owned in the
+end. The addition of calling thread to $x$ increases from $0$ to $n$
+(hence by framing, from $m$ to $m + n$).
+%
+We now prove that %can use the \textsc{Par} rule to prove that
+$\mathsf{incr}(i) \parallel \mathsf{incr}(j)$ increments $x$ by $i+j$.
+%omitting the concurroid annotation $@\CSL_\hlock$ from the proof
+%outline.
+%
+\newcommand{\parex}[3]{{\hpriv \spts #1 \lsep \hlock \spts (#2, #3)}}
+\newcommand{\parunit}[1]{{\parex{\hempty}{\lockNown}{#1}}}
+%
+\begin{mathpar}
+{\small
+  \begin{array}{c||c}
+    \multicolumn{2}{c}{\spec{\parunit{0}}}\\
+    \multicolumn{2}{c}{\spec{\parex{\hempty\hunion\hempty}{\lockNown\join\lockNown}{0+0}}}\\
+    \multicolumn{2}{c}{\hspace{-2mm}\spec{(\parunit{0}) \ssep (\parunit{0})}}\\
+    \spec{\parunit{0}} & \spec{\parunit{0}}\\
+    \funname{incr}(i) & \funname{incr}(j)\\
+    \spec{\parunit{i}} & \spec{\parunit{j}}\\
+    \multicolumn{2}{c}{\hspace{-1mm}\spec{(\parunit{i}) \ssep (\parunit{j})}}\\
+    \multicolumn{2}{c}{\spec{\parunit{i+j}}}
+  \end{array}
+}
+\end{mathpar}
+%
+The proof uses the bi-implication~(\ref{biimpl}) to move between
+$\sstar$-separated assertions and $\join$-joined views.  The proof is
+compositional in the sense that the same verification of
+$\mathsf{incr}$ is used as a black box in both parallel threads, with
+the subproofs merely instantiating the parameter $n$ with $i$ and $j$
+respectively.
+
+\subsubsection{Injection}
+\label{sec:injection}
+%
+The \textsc{Par} rule requires $c_1$ and $c_2$ to share the same
+concurroid $U$, which describes the totality of their resources. If
+the threads use different concurroids, they first must be brought into
+a common entanglement, via the rule \textsc{Inject}.
+%
+%Changing the concurroid of a program is achieved by the
+%\textsc{Inject} rule. \an{Is this really space axis?} It's similar to \textsc{Frame},
+%but it changes the concurroid and splits the state in a different way.
+\begin{mathpar}
+{\small
+\inferrule*[Right={Inject}]
+  {\stconc{p}{c}{q}{U}\\
+   \mbox{$r$ stable under $V$}}
+  {\stconc{p \lsep r}{\mathsf{inject}\ c}{q \lsep r}{U \entangle V}}
+}\end{mathpar}
+%
+If $c$ is verified wrt.~ concurroid $U$, it can be \emph{injected}
+(i.e. coerced) into a larger concurroid $U \entangle V$. In programs,
+we use the explicit coercion $\mathsf{inject}$ to describe the change
+of ``type'' from $U$ to $U \entangle V$.
+%
+Reading the rule bottom-up, it says we can ignore $V$, as $V$'s
+transitions and $c$ operate on disjointly-labeled state. $V$ may
+change $U$'s state by communication, but the change is bounded by
+$U$'s external transitions. Thus, we are justified in verifying $c$
+against $U$ alone.  In this sense, \textsc{Inject} may be seen as
+generalizing the rule for resource context weakening of CSL.
+
+The connective $\lsep$ splits the state according
+to labels of $U$ and $V$; $p$ and $q$ describe the part labeled by
+$U$, and $r$ describes the part labeled by $V$.
+%
+Since $r$ describes both the prestate and poststate, it has to be
+\emph{stable}~\cite{fcsl-coqscripts} under $V$; that is, determine a
+subset of $V$'s states that remains fixed under 
+transitions the \other thread takes over the labels from $V$.
+%
+% \footnote{Formal
+%   definition of stability is in Appendix~\ref{sec:stability}.}
+
+
+We illustrate \textsc{Inject} and stability by verifying
+$\mathsf{incr}$. To set the stage, we need atomic commands for reading
+from and writing to a pointer $x$. These have the following obvious
+specification relative to the concurroid $P$ for private state:
+%
+\[
+{\small
+\begin{array}{rcl}
+  \spec{\hpriv \spts x \hpts v} & {\mathsf{read}\ x} & \spec{\hpriv \spts x
+    \hpts v \aand \result = v} @P\\
+  \spec{\hpriv \spts x \hpts -} & {\mathsf{write}\ x\ v} & \spec{\hpriv \spts x
+    \hpts v} @P
+\end{array}
+}\]
+The commands for acquiring and releasing $\hlock$ exchange
+ownership of the protected pointer $x$. Thus, they have specifications
+relative to the concurroid $\CSL_{\hlock,lk,I} = P \entangle
+L_{\hlock,lk,I}$, which we have already used before.
+
+\[
+{\small
+\begin{array}{c}
+\spec{\hpriv \spts \hempty \lsep \hlock \spts (\lockNown, 0)}\\
+{\mathsf{acquire}}\\
+\spec{\exists \gE. \hpriv \spts x \hpts \gE \lsep (\hlock \spts
+  (\lockOwn, 0) \aand \hlock \opts (-, \gE))}{@\CSL_{\hlock,lk,I}}
+\end{array}
+}\]
+\[
+{\small
+\begin{array}{c}
+\spec{\hpriv \spts x \hpts \gL + \gE \lsep (\hlock \spts
+  (\lockOwn, 0) \aand \hlock \opts (-, \gE))}\\
+{\mathsf{release}}\\
+\spec{\hpriv \spts \hempty \lsep \hlock \spts (\lockNown, \gL)}{@\CSL_{\hlock,lk,I}}
+\end{array}
+}\]
+%
+$\mathsf{acquire}$ assumes that $\hlock$ is not taken, and that the
+\self thread so far has added $0$ to $x$. Thus, the overall contents
+of $x$ is $0 + \gE = \gE$, where $\gE$ is the addition of the \other
+threads. Note that $\mathsf{acquire}$ does not have to be
+atomic:\footnote{The implementation of $\mathsf{acquire}$ and
+  $\release$ relies on atomic actions (Section~\ref{sec:logic}),
+  specific for a particular concurroid, \eg $\CSL_{\hlock,lk,I}$.} as
+implemented, it just spins on $lk$, and after acquisition, $x$ is
+transferred into the private heap of \self.
+%
+$\gE$ must be existentially quantified, because \other's may
+add to $x$ while $\mathsf{acquire}$ is spinning.
+
+$\mathsf{release}$ assumes that $\hlock$ is taken by \self, and that
+prior to taking $\hlock$, \self and \other have added $0$ and $\gE$ to
+$x$, respectively. After acquiring $x$, \self has mutated it, so that
+its contents is $\gL + \gE$. After releasing, $x$ is moved from the
+private heap to the \joint portion of $\hlock$. The postcondition
+does not mention $x$, as once in \joint, $x$'s contents becomes
+unstable. Indeed, \other may acquire the lock and change $x$ after
+$\mathsf{release}$ terminates. However, \other can't change the \self
+view of $x$, which is now set to $\gL$.
+
+The following proof outline presents the implementation and
+verification of $\mathsf{incr}(n)$.
+%
+\[
+{\small
+\begin{array}{l}
+\spec{\hpriv \spts \hempty * \hlock \spts (\lockNown, 0)}\\
+\mathsf{acquire};\\
+\spec{\exists \gE. \hpriv \spts x \hpts \gE \lsep (\hlock \spts
+  (\lockOwn, 0) \aand \hlock \opts (-, \gE))}\\
+\result \leftarrow \mathsf{inject}\ (\mathsf{read}\ x);\\
+\spec{\exists \gE. \hpriv \spts x \hpts \gE \aand \result = \gE \lsep (\hlock \spts
+  (\lockOwn, 0) \aand \hlock \opts (-, \gE))}\\
+\mathsf{inject}\ (\mathsf{write}\ x\ (\result + n));\\
+\spec{\exists \gE. \hpriv \spts x \hpts n + \gE \lsep (\hlock \spts
+  (\lockOwn, 0) \aand \hlock \opts (-, \gE))}\\
+\mathsf{release}\\
+\spec{\hpriv \spts \hempty \lsep \hlock \spts (\lockNown, n)}\\
+\end{array}
+}\]
+%
+\textsc{Inject} is used twice, to coerce $\mathsf{read}$ and
+$\mathsf{write}$ from the concurroid $P$ to
+$\CSL_{\hlock,lk,I}$. These commands manipulate the contents of
+$\hpriv$, but retain the framing predicate $\hlock \spts (\lockOwn, 0)
+\aand \hlock \opts (-, \gE)$.  This predicate is stable
+wrt.~$L_{\hlock,lk,I}$. Intuitively, because $\self$ owns $\hlock$,
+\other can't acquire $x$ and add to it. Thus, no matter what \other
+does, $\gE$ and the framing predicate remain invariant.
+
+%The predicate can't be invalidated by
+%\other, \ie, it's stable wrt.~$L_\hlock$. Indeed, because \self owns
+%$\hlock$, \other can't acquire $x$ and change its contribution
+%$\gE$.\an{This point, that $\gE$ can't be changed unless the lock is
+%  taken, should be made more prominent further up. I need a paragraph
+%  informally describing the protocol implemented by $L_\hlock$.}
+
+%
+To simplify the proof, we have not emphasized the invariance of $\gE$
+between calls to $\mathsf{acquire}$ and $\mathsf{release}$, even
+though it is the case (we could do it using the rule \textsc{Exist}
+from Figure~\ref{fig:rules}). However, this invariance is what allowed
+us to calculate the contribution of \self to $x$ as $n$ (\ie, final
+contents of $x$ minus~$\gE$). Without tracking $\gE$, we would not
+know how much of the final contents of $x$ is attributable to \self,
+and how much to \other.
+
+\vspace{4pt}
+
+\noindent\textbf{Hiding}~
+%
+refers to the ability to construct a concurroid $V$ from the
+thread-private heap, in a scope of a thread $c$. The children forked
+by $c$ can interfere on $V$'s state, respecting $V$'s transitions, but
+$V$ is hidden from the environment of $c$. To the environment, $V$'s
+state changes look like changes of the private heap of $c$. In this sense, hiding
+generalizes the \textsc{ResourceCSL} rule to fine-grained resources.
+%
+\begin{mathpar}
+{\small
+\begin{array}{c}
+\inferrule*[Right={Hide}]
+{\stconc{\hpriv\spts h \lsep p}{c}{\hpriv\spts h' \lsep q}{(P
+    \entangle U) \entangle V} \and \text{(omitted side condition on $U$ and $V$)}}
+{\stconc{\Psi\ g\ h \lsep (\Phi\,(g) \wand p)}{\mathsf{hide}_{\Phi, g}\ c}{\exists g'. \Psi\ g'\ h' \lsep (\Phi\,(g') \wand q)}{P \entangle U}}
+\and
+\\
+\mbox{where}\ \Psi\ g\ h = \exists k{:}\mathsf{heap}.\, \hpriv \spts {h \hunion k} \aand \Phi\,(g) \downarrow k
+\end{array} 
+}\end{mathpar}
+%
+Since installing $V$ consumes a chunk of private heap, the rule
+requires the overall concurroid to support private heaps, \ie, to be
+an entanglement $P \entangle U$, where $P$ is the concurroid for
+private heaps, and $U$ is arbitrary (it is also possible to generalize
+the rule so as to be not tied to the specific concurroid $P$,
+see~\cite{fcsl-coqscripts}).
+%
+The omitted side condition on $U$ and $V$ is essential for the
+existence of entanglement and will be explained in
+Section~\ref{sec:logic}.
+%
+When $U$ is of no interest, we set it to the empty concurroid $E$
+(Section~\ref{sec:formalization}), for which $P \entangle E = P$. 
+
+In programs, we use the explicit coercion $\mathsf{hide}_{\Phi, g}$ to
+indicate the change of type from $(P \entangle U) \entangle V$ to $P
+\entangle U$. 
+%
+The annotation $\Phi(g)$ corresponds to a set of \emph{concrete
+  states} of a concurroid $V$ to be created. Its parameter $g$ is a
+meaningful abstraction of such a set (\eg, $(\mL, \gL)$ for the $
+L_{\{\hlock,lk,I\}}$ concurroid) and can be thought of as an
+``abstract state''.  In the rule \textsc{Hide}, $g$ is the initial
+abstract state, \ie, upon creation, the state of $V$ satisfies
+$\Phi\,(g)$.
+%
+In the premise of the \textsc{Hide} rule, the predicates $\hpriv \spts
+-$ describe the behavior of $c$ on the private heaps, while $p$ and
+$q$ describe the state of the labels belonging to $U$ and $V$.  In the
+conclusion, $\Psi\ g\ h$ and $\Psi\ g'\ h'$ map the abstract states
+$g$ and $g'$ into private heaps $h$ and $h'$. This follows from the
+definition of $\Psi$, in which $\Phi\,(g)\downarrow k$ indicates that
+states satisfying $\Phi\,(g)$ \emph{erase} to the private heap $k$
+(see Figure~\ref{fig:broccoli}).  Thus, changes that $c$ imposes on
+abstract states, appear as changes to private heaps for
+$\mathsf{hide}_{\Phi, g}\ c$.
+
+In the conclusion, the assertion $\Phi\,(g) \wand p$ states that
+attaching any state satisfying $\Phi\,(g)$ to the chunk of the initial
+state identified by the labels from $U$ produces a state in which $p$
+holds, ``compensating'' for the component $k$ in $\Psi$. That is, $p$
+corresponds to an abstract state $g$ and $c$ can be safely executed in
+such a state. The rule guarantees that if $c$ terminates with a
+postcondition $q$, then $q$ corresponds to some abstract state $g'$.
+
+We illustrate the rule with a proof outline for program
+$\mathsf{hide}_{\Phi, g}\ (\mathsf{incr}(n))$. We show how to choose
+$\Phi$ and $g$ so that the program implements the following
+functionality. It starts with only the concurroid $P$, and the private
+heap containing pointers $lk$ and $x$. It locally installs $L_{\hlock,
+  lk, I}$, which makes $x$ a shared pointer, protected by the lock
+$lk$. It runs $\mathsf{incr}(n)$, after which the local concurroid is
+disposed, and $lk$ and $x$ return to the private heap. We prove that
+if initially $x \hpts 0$, then in the end $x \hpts n$.
+%
+The abstract states are pairs $(\mL, \gL)$, encodings of the \self
+views of the concrete state of $\hlock$. $\Phi$ maps a \self view into
+a predicate on the full state of $\hlock$, specifying \joint and
+\other views as well.
+%
+\[
+{\small
+\begin{array}{rcl}
+  \Phi\ (\mL, \gL) & = & \hlock \spts (\mL, \gL) \aand \hlock \opts (\lockNown, 0) \aand \hbox{}\\
+  & & \mathsf{if}\ \mL = \lockNown\ \mathsf{then}\ \hlock \jpts ((lk \hpts
+  \mathsf{false)} \hunion (x \hpts \gL))\ \mathsf{else}\ \hlock \jpts (lk \hpts \mathsf{true})
+\end{array}
+}\]
+%
+We choose the initial state $g = (\mL, \gL) = (\lockNown, 0)$:
+indicating that the lock is installed with $lk$ unlocked, and $x$ set
+to $0$.
+%
+
+The proof outline uses the facts that $\Phi\ (\lockNown, \gL)
+\downarrow lk \hpts \mathsf{false} \hunion x \hpts \gL$, and thus
+$\Psi\ (\lockNown, \gL)\ \hempty = \hpriv \spts lk \hpts
+\mathsf{false} \hunion x \hpts 0$. Also, $\Phi\ (\mL, \gL) \wand
+\hlock \spts (\mL', \gL')$ is equivalent to $(\mL, \gL) = (\mL',
+\gL')$ in the label-free state.
+%
+\[
+{\small
+\begin{array}{l}
+  \spec{\hpriv \spts lk \hpts \mathsf{false} \hunion x \hpts 0} @ P\\
+  \spec{\Psi\ (\lockNown, 0)\ \hempty} @ P\\
+  \spec{\Psi\ (\lockNown, 0)\ \hempty \lsep (\Phi\ (\lockNown, 0)
+    \wand \hlock \spts (\lockNown, 0))} @ P\ (= P \entangle E)\\
+  \mathsf{hide}_{\Phi,(\lockNown, 0)}\ \begin{array}[t]{l}
+        \spec{\hpriv \spts \hempty * \hlock \spts (\lockNown, 0)} @
+        \CSL_{\hlock, lk, I}\ (= P \entangle E \entangle L_{\hlock,lk,I}) \\
+        \mathsf{incr}(n)\\
+        \spec{\hpriv \spts \hempty * \hlock \spts (\lockNown, n)} @ \CSL_{\hlock, lk, I}
+        \end{array}\\
+  \spec{\exists g_2. \Psi\ g_2\ \hempty \lsep (\Phi\ g_2 \wand \hlock \spts
+  (\lockNown, n))} @ P\\
+  \spec{\Psi\ (\lockNown, n)\ \hempty} @ P\\
+  \spec{\hpriv \spts lk \hpts \mathsf{false} \hunion x \hpts n} @ P
+\end{array}
+}\]
+%
+The soundness of \textsc{Hide} depends on a number of semantic
+properties of $\Phi$~\cite{fcsl-coqscripts}.
+%\footnote{Listed in
+ % Appendix~\ref{sec:phi-properties}.}
+%
+The most important one is that
+states in the range of $\Phi$ have fixed \other views for every label
+$\hlabel$ of~$V$; equivalently, that environment threads for the
+program $\mathsf{hide}_{\Phi,g_1}\ c$ do not interfere with $c$ on the
+states of $V$: all interference on $V$ is \emph{hidden} within the
+$\mathsf{hide}$-section.  
+%
+\begin{mathpar}
+{\small
+\mbox{if $w_1 \models \Phi\ g_1 \aand (\hlabel \opts v_1 \lsep \top)$
+  and $w_2 \models \Phi\ g_2 \aand (\hlabel \opts v_2 \lsep \top)$
+  then $v_1 = v_2$}
+}
+\end{mathpar}
+%
+Concretely for our example, $\Phi\ g \aand (\hlock \opts v)$ implies
+$v = (\lockNown, 0)$, thus the above property clearly holds.
+
+\section{Concurroids Abstractly}
+\label{sec:formalization}
+
+A concurroid is a 4-tuple $V = (\cal{L}, \cal{W}, \tau, \cal{E})$
+where: (1) $\cal L$ is a set of labels, where a label is a nat; (2)
+$\cal W$ is the \emph{set of states}, each state $w \in \cal W$ having
+the structure described in Section~\ref{sec:reasoning}; (3) $\tau$ is
+the \emph{internal transition}, which is a relation on $\cal W$; (4)
+$\cal E$ is a set of pairs $(\alpha, \rho)$, where $\alpha$ and $\rho$
+are \emph{external transitions} of $V$. An external transition is a
+function, mapping a heap $h$ into a relation on $\cal W$. The
+components must satisfy a further set of requirements, discussed next.
+
+\vspace{5pt}
+
+\noindent\textbf{State properties}~
+%
+Every state $w \in \cal W$ is $\mathsf{valid}$ as defined in
+Figure~\ref{fig:broccoli}, and its label footprint is $\cal L$, \ie
+$\mathsf{dom}\ (w.\mathself) = \mathsf{dom}\ (w.\mathjoint) =
+\mathsf{dom}\ (w.\mathother) = {\cal L}$. Additionally, $\cal W$
+satisfies the property:
+%
+\begin{mathpar}
+{\small
+\begin{array}{ll}
+\textit{Fork-join closure:} & \forall t{:}\textrm{PCM-map}\ldot w \zig t \in {\cal W} \iff w \zag t \in {\cal W}, \\
+& \mbox{where}\ w \zig t = \state{t \zip
+  w.\mathself}{w.\mathjoint}{w.\mathother}, 
+\mbox{and}\ w \zag t = \state{w.\mathself}{w.\mathjoint}{t \zip w.\mathother}
+\end{array}
+}
+\end{mathpar}
+% 
+The property requires that $\cal W$ is closed under the realignment of
+\self and \other components, when they exchange a PCM-map $t$ between
+them. Such realignment is part of the definition of $\ssep$, and thus
+appears in proofs whenever the rule \textsc{Par} is used, \ie
+whenever threads fork or join. Fork-join closure ensures that if a
+parent thread forks in a state from $\cal W$, then the child threads
+are supplied with states which also are in $\cal W$, and dually for
+joining.
+
+\vspace{5pt}
+
+\noindent\textbf{Transition properties}~
+%
+A concurroid transition $\gamma$ is a relation on $\cal W$ satisfying:
+%
+\begin{mathpar}
+{\small
+\begin{array}{ll}
+\textit{Guarantee:} & (w, w') \in \gamma \implies w.\mathother = w'.\mathother\\
+\textit{Locality:} & \forall t{:}\textrm{PCM-map}\ldot 
+  w.\mathother = w'.\mathother \implies (w \zag t, w' \zag t) \in \gamma \implies (w \zig t, w' \zig t) \in \gamma
+\end{array}
+}
+\end{mathpar}
+%
+Guarantee restricts $\gamma$ to only modify the \self and \joint
+components. Therefore, $\gamma$ describes the behavior of a viewing
+thread in the subjective setting, but not of the thread's
+environment. In the terminology of Rely-Guarantee
+logics~\cite{jones83,Feng-al:ESOP07,Feng:POPL09,Vafeiadis-Parkinson:CONCUR07},
+$\gamma$ is a \emph{guarantee} relation. To describe the behavior of
+the thread's environment, i.e. obtain a \emph{rely} relation, we
+merely \emph{transpose} the \self and other components of $\gamma$:
+%
+\begin{mathpar}
+{\small
+\gamma^\top = \{(w_1^\top, w_2^\top) \mid (w_1, w_2) \in \gamma\},\ 
+\mbox{where $w^\top = \state{w.\mathother}{w.\mathjoint}{w.\mathself}$}.
+}
+\end{mathpar}
+%
+In this sense, \SCST transitions always encode \emph{both} guarantee and rely
+relations.
+
+Locality ensures that if $\gamma$ relates states with a certain \self
+components, then $\gamma$ also relates states in which the \self
+components have been simultaneously \emph{framed} by a PCM-map $t$,
+\ie, enlarged according to $t$. It thus generalizes the notion of
+locality from separation logic~\cite{Reynolds02}, with a notable
+difference. In separation logic, the frame $t$ materializes out of
+nowhere, whereas in \SCST, $t$ has to be appropriated from \other;
+that is, taken out from the ownership of the environment.
+
+An \emph{internal} transition $\tau$ is a transition which is
+\emph{reflexive} and preserves heap footprints. An \emph{acquire}
+transition $\alpha$, and a \emph{release} transition $\rho$ are
+functions mapping heaps to transitions which extend and reduce heap
+footprints, respectively, as formalized below.  An external transition
+is either an acquire or a release transition. If $(\alpha, \rho) \in
+\cal E$, then $\alpha$ is an acquire transition, and $\rho$ is a
+release transition.
+%
+\begin{mathpar}
+{\small
+\begin{array}{ll}
+\textit{Footprint preservation:} & 
+ (w, w') \in \tau \implies \mathsf{dom}\ \flatten{w} = \mathsf{dom}\ \flatten{w'}\\
+\textit{Footprint extension:} &
+ \forall h{:}\mathrm{heap}\ldot (w, w') \in (\alpha\ h) \implies \mathsf{dom}\ (\flatten{w} \hunion h) = \mathsf{dom}\ \flatten{w'}\\
+\textit{Footprint reduction:} &
+ \forall h{:}\mathrm{heap}\ldot (w, w') \in (\rho\ h) \implies \mathsf{dom}\ (\flatten{w'} \hunion h) = \mathsf{dom}\ \flatten{w}
+\end{array}
+}
+\end{mathpar}
+Internal transitions are reflexive so that programs specified by such
+transitions may be \emph{idle} (\ie, transition from a state to
+itself). Footprint preservation requires internal transitions to
+preserve the domains of heaps obtained by state flattening. Internal
+transitions may exchange the ownership of subheaps between the \self
+and \joint components, or change the contents of individual heap
+pointers, or change the values of non-heap (\ie, auxiliary) state,
+which flattening erases. However, they cannot add new pointers to a
+state or remove old ones, which is the task of external transitions,
+as formalized by Footprint extension and reduction.
+%\an{Do I need this definition:
+%The \emph{environment stepping} relation $\zeta$ of $V$ unions the
+%transposed versions of the internal and all external transitions of
+%$V$, and then takes a transitive closure.
+%\[
+%\zeta = (\tau^\top \cup \bigcup_{h, (\alpha, \rho)\in \cal E}\ (\alpha\ h)^\top \cup (\rho\ h)^\top)^*
+%\]}
+%
+\begin{example}[The concurroid for private state]
+ $P = (\{\hpriv\}, {\cal W}_P,
+  \tau_P, \{(\alpha_P, \rho_P)\})$, with 
+%
+\begin{mathpar}
+{\small
+\begin{array}{lcl}
+{\cal W}_P & = & \left\{~\hpriv \hpts \state{\hL}{\hempty}{\hE} \mid \mbox{$\hL$ and
+    $\hE$ disjoint heaps}~\right\}\mbox{, and}\\
+(w, w') \in \tau_P & \iff & w.\mathself = \hpriv \hpts \hL,
+w'.\mathself = \hpriv \hpts \hL', \mathsf{dom}\ \hL = \mathsf{dom}\
+\hL', w.\mathother = w'.\mathother\\
+(w, w') \in \alpha_P\ h & \iff & w.\mathself = \hpriv \hpts \hL,
+w'.\mathself = \hpriv \hpts \hL \hunion h, w.\mathother = w'.\mathother\\
+(w, w') \in \rho_P\ h & \iff & w.\mathself = \hpriv \hpts \hL \hunion
+h, w'.\mathself = \hpriv \hpts \hL, w.\mathother = w'.\mathother
+\end{array}
+}
+\end{mathpar}
+%
+The internal transition admits arbitrary footprint-preserving change
+to the private heap $\hL$, while the acquire and release transitions
+simply add and remove the heap $h$ from $\hL$.
+%The transitiosn internal transition $\tau_P$, \emph{acquire} transition
+%$\alpha_P$, and \emph{release} transition $\rho_P$ are defined over
+%states $w, w' \in {\cal W}_P$ satisfying $w.\mathother =
+%w'.\mathother$, which implies the Guarantee property.  They are
+%defined as follows, where $h$ is an arbitrary heap which is acquired
+%and released by $\alpha_P$ and $\rho_P$ respectively.
+%\[
+%\begin{array}{lcl}
+%(w, w') \in \tau_P & \iff & w.\mathself = \hpriv \hpts \hL, w'.\mathself = \hpriv \hpts \hL', \mathsf{dom}\ \hL = \mathsf{dom}\ \hL'\\
+%(w, w') \in \alpha_P\ h & \iff & w.\mathself = \hpriv \hpts \hL, w'.\mathself = \hpriv \hpts \hL \hunion h\\
+%(w, w') \in \rho_P\ h & \iff & w.\mathself = \hpriv \hpts \hL \hunion h, w'.\mathself = \hpriv \hpts \hL
+%\end{array}
+%\]
+\end{example}
+
+\begin{example}[The concurroid for a lock]$L_{\hlock,lk,I} = (\{\hlock\}, {\cal
+  W}_L, \tau_L, \{(\alpha_L, \rho_L)\})$, with\\ ${\cal W}_L = \{~w \mid w
+\models~\mbox{assertion}~\eqref{lock}~\}$, and (assuming $w.\mathother = w'.\mathother$
+everywhere):
+%
+\begin{mathpar}
+{\small
+\begin{array}{lcl}
+(w, w') \in \tau_L & \iff & w = w'\\
+(w, w') \in \alpha_L\ h & \iff & 
+\begin{array}[t]{llll}
+w.\mathself & = \hlock \hpts (\lockOwn, \gL), & w.\mathjoint & = \hlock \hpts (lk \hpts \mathsf{true}), \\
+w'.\mathself & = \hlock \hpts (\lockNown, \gL'), & w'.\mathjoint & = \hlock \hpts ((lk \hpts \mathsf{false}) \hunion h)
+\end{array}\\
+(w, w') \in \rho_L\ h & \iff & 
+\begin{array}[t]{llll}
+w.\mathself & = \hlock \hpts (\lockNown, \gL), & w.\mathjoint & = \hlock \hpts ((lk \hpts \mathsf{false}) \hunion h), \\
+w'.\mathself & = \hlock \hpts (\lockOwn, \gL), & w'.\mathjoint & = \hlock \hpts (lk \hpts \mathsf{true})
+\end{array}
+\end{array}
+}
+\end{mathpar}
+%
+The internal transition admits no changes to the state $w$. The
+$\alpha_L$ transition corresponds to unlocking, and hence to the
+acquisition of the heap $h$. It flips the ownership bit from
+$\lockOwn$ to $\lockNown$, the contents of the $lk$ pointer from
+$\mathsf{true}$ to $\mathsf{false}$, and adds the heap $h$ to the
+resource state. The $\rho_L$ transition corresponds to locking, and is
+dual to $\alpha_L$. When locking, the $\rho_L$ transition keeps the
+auxiliary view $\gL$ unchanged. Thus, the resource ``remembers'' the
+auxiliary view at the point of the last lock. Upon unlocking, the
+$\alpha_L$ transition changes this view into $\gL'$, where $\gL'$
+is some value that is coherent with the acquired heap $h$, \ie, which
+makes the resource invariant $I\ (\gL \join \gE)\ h$ hold, and thus,
+the whole state belongs to ${\cal W}_L$.
+\end{example}
+
+\vspace{4pt}
+
+\noindent\textbf{Entanglement}~
+%
+Let $U = ({\cal L}_U, {\cal W}_U, \tau_U, {\cal E}_U)$ and $V = ({\cal
+  L}_V, {\cal W}_V, \tau_V, {\cal E}_V)$, be concurroids. The entanglement $U
+\entangle V$ is a concurroid with the label component ${\cal L}_{U
+  \entangle V} = {\cal L}_U \cup {\cal L}_V$. 
+%
+The state set component combines the individual states of $U$ and $V$
+by unioning their labels, while ensuring that the labels contain only
+non-overlapping heaps.
+\begin{mathpar}
+{\small
+{\cal W}_{U \entangle V} = \{w \hunion w' \mid w \in {\cal W}_U,
+w' \in {\cal W}_V, \mbox{and $\flatten {w}$ disjoint from $\flatten{w'}$}\}
+}
+\end{mathpar}
+To define the transition components of $U \entangle V$, we first need
+the auxiliary concept of transition interconnection. Given transitions
+$\gamma_U$ and $\gamma_V$ over ${\cal W}_U$ and ${\cal W}_V$,
+respectively, the interconnection $\gamma_1 \relentangle \gamma_2$ is
+a transition on ${\cal W}_{U \entangle V}$ which behaves as $\gamma_U$
+(resp. $\gamma_V$) on the part of the states labeled by $U$
+(resp. $V$).  
+%
+\begin{mathpar}
+{\small
+\gamma_1 \relentangle \gamma_2 = \{({w_1} \hunion {w_2}, {w'_1} \hunion {w'_2})
+\mid (w_i, w'_i) \in \gamma_i, w_1 \hunion w_2, w'_1 \hunion w'_2 \in
+{\cal W}_{U \entangle V}\}.
+} 
+\end{mathpar}
+%
+The internal transition of $U \entangle V$ is defined as follows,
+where $\mathsf{id}_U$ is the diagonal of ${\cal W}_U$.
+%
+\begin{mathpar}
+{\small
+\tau_{U \entangle V} = (\tau_U \relentangle \mathsf{id}_V) \cup
+(\mathsf{id}_U \relentangle \tau_V) \cup
+\bigcup_{\scriptsize{\begin{array}{c}h, (\alpha_U, \rho_U)\in{\cal
+        E}_U, (\alpha_V, \rho_V)\in{\cal E}_V\end{array}}} (\alpha_U\ h
+\relentangle \rho_V\ h) \cup (\alpha_V\ h \relentangle \rho_U\ h).
+}
+\end{mathpar}
+%
+Thus, $U
+\entangle V$ steps internally whenever $U$ steps and $V$ stays idle,
+or when $V$ steps and $U$ stays idle, or when there exists a heap $h$
+which $U$ and $V$ exchange ownership over by synchronizing their
+external transitions.
+
+\begin{example}
+The transitions $\alpha_p$ of $P$ and $\rho_L$ of $L_{\hlock,lk,I}$
+have already been described in display~(\ref{externals}) of
+Section~\ref{sec:overview}, but using assertions, rather than
+semantically. The display~(\ref{trans}) of Section~\ref{sec:overview}
+presents the interconnection $\alpha_P\ h \relentangle \rho_L\ h$,
+which moves $h$ from $L_{\hlock,lk,I}$ to $P$, and is part of the
+definition of $\tau_{P \entangle L_{\hlock,lk,I}}$. The latter further
+allows moving $h$ in the opposite direction ($\alpha_L\ h \relentangle
+\rho_P\ h)$, independent stepping of $P$ ($\tau_P \relentangle
+\mathsf{id}_L$) and of $L_{\hlock,lk,I}$ ($\mathsf{id}_P \relentangle
+\tau_L$).
+\end{example}
+
+
+The external transitions of $U \entangle V$ are those of $U$, framed
+wrt.~the labels of $V$.
+%
+\begin{mathpar}
+{\small
+{\cal E}_{U \entangle V} = \{(\lambda h\ldot (\alpha_U\ h) \relentangle \mathsf{id}_V,
+\lambda h\ldot (\rho_U\ h) \relentangle \mathsf{id}_V) \mid (\alpha_U, \rho_U) \in {\cal E}_U\}
+}
+\end{mathpar}
+%
+We note that ${\cal E}_{U \entangle V}$ somewhat arbitrarily chooses
+to frame on the transitions of $U$ rather than those of $V$. In this
+sense, the definition interconnects the external transitions of $U$
+and $V$, but it keeps those of $U$ ``open'' in the entanglement, while
+it ``shuts down'' those of $V$. The notation $U \entangle V$ is meant
+to symbolize this asymmetry. The asymmetry is important for our
+example of encoding CSL resources, as it enables us to iterate the
+(non-associative) addition of new resources as $((P \entangle
+L_{\hlock_1, lk_1, I_1}) \entangle L_{\hlock_2, lk_2, I_2}) \entangle
+\cdots $ while keeping the external transitions of $P$ open to
+exchange heaps with new resources.
+
+Clearly, many ways exist to interconnect transitions of two
+concurroids and select which transitions to keep open. In our
+implementation, we have identified several operators implementing
+common interconnection choices, and proved a number of equations and
+properties about them (\eg, all of them validate an instance of the
+\textsc{Inject} rule). We also show a version of the \textsc{Inject}
+rule with a different operator
+$(\rentangle)$~\cite{fcsl-coqscripts}. However, as none of these
+operators is needed for the examples in this paper, we omit them.
+
+% \footnote{Appendix~\ref{sec:ticketed} shows a
+%   version of the \textsc{Inject} rule with a different operator
+%   $(\rentangle)$ (Section~\ref{sec:verify-lock-proc}).}
+
+\begin{lemma} 
+%
+$U \entangle V$ is a concurroid. 
+%
+\end{lemma}
+%
+We can also reorder the iterated addition of lock concurroids.
+%
+\begin{lemma}[Exchange law] $(U \entangle V) \entangle W = (U
+  \entangle W) \entangle V$.\end{lemma}
+
+We close the section with the definition of the concurroid $E$ which
+is the right unit of the entanglement operator $\entangle$. $E$ is
+defined as $E = (\emptyset, {\cal W}_E, id, \emptyset)$, where ${\cal
+  W}_E$ contains only the empty state (i.e. the state with no
+labels).
+
+\section{Language and Logic}
+\label{sec:logic}
+
+In the tradition of axiomatic program logics, the language of \SCST
+splits into purely functional expressions $e$ ($v$ when the expression
+is a value), and commands $c$ with the effects of divergence, state and
+concurrency. We also include procedures $F$, for commands with
+arguments.
+
+\vspace{5pt}
+
+\noindent\textbf{\SCST commands}~
+%
+A command $c$ satisfies the Hoare tuple $\stconcTy{p}{c}{A}{q}{U}$ if
+$c$'s effect on states respects the internal transition of the
+concurroid $U$, $c$ is \emph{memory-safe} when executed from a state
+satisfying $p$, and concurrently with any environment that respects
+the transitions (internal and external) of $U$. Furthermore, if $c$
+terminates, it returns a value of type $A$ in a state satisfying
+$q$. Formally, $q$ may use a dedicated variable $\result$ of type $A$
+to name the return result.\footnote{When $A = \mathsf{unit}$, we
+  suppress the type and the variable $\result$, as we did in previous
+  sections.}
+%
+\SCST uses a {\em procedure tuple},
+$\forall{x}{:}{B}\ldot\stconcTy{p}{f\,(x)}{A}{q}{U}$, to specify a
+potentially recursive higher-order procedure $f$ taking an argument
+$x$ of type $B$ to a result of type $A$. The assertions $p$ and $q$
+may depend on $x$. \SCST does not treat first-order looping commands,
+as these are special cases of recursive procedures. In the case of
+recursive procedures, $p$ and $q$ in the procedure tuple together
+correspond to a loop invariant, and typically are provided by the
+programmer.
+
+%We use Cartesian products $A_1\,{\times}\,A_2$ for functions with more
+%than one argument, but curry the function for readability.
+
+%\paragraph{Syntax}
+The syntax of commands and procedures is as follows. 
+\begin{mathpar}
+{\small
+\begin{array}{rcl}
+c & ::= & x \leftarrow c_1; c_2 \mid c_1 \parallel c_2 \mid \mathsf{if}\ e\ \mathsf{then}\ c_1\ \mathsf{else}\ c_2 \mid F(e) \mid 
+%%& & 
+\mathsf{return}\ v \mid \mathsf{act}\ a \mid \mathsf{inject}\ c \mid \mathsf{hide}_{\Phi,g}\ c\\
+F & ::= & f \mid \mathsf{fix}\ f\ldot x\ldot c
+\end{array}
+}\end{mathpar}
+%
+Commands and procedures include \emph{atomic actions}
+$\mathsf{act}\ a$, a monadic unit $\mathsf{return}\ v$ that returns
+$v$ and terminates, a monadic bind (\ie sequential composition) $x
+\leftarrow c_1; c_2$ that runs $c_1$ then substitutes its result $v_1$
+for $x$ to run $c_2$ (we write $c_1; c_2$ when $x \not\in
+\mathsf{FV}(c_2)$), parallel composition $c_1 \parallel c_2$, a
+conditional, a procedure application $F(e)$, a procedure variable $f$,
+a fixed-point construct for recursion, and injection and hiding
+commands.
+
+\vspace{5pt}
+
+\noindent\textbf{Judgments and inference rules}~
+%
+The \SCST judgments are {\em hypothetical} under a context $\Gamma$
+that maps \emph{program variables} $x$ to their type and
+\emph{procedure variables} $f$ to their specification. We allow each
+specification to depend on the variables declared to the~left.
+%
+\begin{mathpar}
+{\small
+\figsize
+\Gamma ::= \cdot\mid  \Gamma, \mathit{x}{:}A \mid \Gamma,\forall \mathit{x}{:} B. \stconcTy{p}{\mathit{f} (\mathit{x})}{A}{q}{U}
+}\end{mathpar}
+%
+$\Gamma$ does not bind logical variables. In first-order Hoare logics,
+logical variables are implicitly universally quantified with global
+scope. In \SCST, we limit their scope to the Hoare tuples in which
+they appear.  This is required for specifying recursive procedures,
+where a logical variable may be instantiated differently in each
+recursive call~\cite{Kleymann:FAC99}.  We also assume a formation
+requirement on Hoare tuples $\mathsf{FLV}(p) \supseteq
+\mathsf{FLV}(q)$, \ie, that all free logical variables of the
+postcondition also appear in the precondition.
+
+\begin{figure*}[t]
+\centering
+{\scriptsize
+\begin{mathpar}
+\inferrule*[Right={\scriptsize{Seq}}]
+ {\Gamma \vdash \stconcTy{p}{c_1}{B}{q}{U} \\ 
+  \Gamma, x:B \vdash \stconcTy{[x/\result]q}{c_2}{A}{r}{U} \\
+  x \not\in \mathsf{FV}(r)}
+ {\Gamma \vdash \stconcTy{p}{x \leftarrow c_1; c_2}{A}{r}{U}}
+\and
+\inferrule*[Right={\scriptsize{Par}}]
+  {\Gamma \vdash \stconcTy{p_1}{c_1}{A_1}{q_1}{U} \\
+   \Gamma \vdash \stconcTy{p_2}{c_2}{A_2}{q_2}{U}}
+  {\Gamma \vdash \stconcTy{p_1 \ssep p_2}{c_1 \parallel c_2}{A_1 \times A_2}{[\pi_1\,{\result}/\result]q_1 \ssep [\pi_2\,{\result}/\result]q_2}{U}}
+\and
+\inferrule*[Right={\scriptsize{Hyp}}]
+  {\forall x{:}B\ldot \stconcTy{p}{f(x)}{A}{q}{U} \in \Gamma}
+  {\Gamma \vdash \forall x{:}B\ldot \stconcTy{p}{f(x)}{A}{q}{U}}
+\and
+\inferrule*[Right={\scriptsize{Conseq}}]
+  {\Gamma \vdash \stconcTy{p_1}{c}{A}{q_1}{U} \\
+   \Gamma \vdash (p_1, q_1) \sqsubseteq (p_2, q_2)}
+  {\Gamma \vdash \stconcTy{p_2}{c}{A}{q_2}{U}}
+\and
+\inferrule*[Right={\scriptsize{Frame}}]
+  {\Gamma \vdash \stconcTy{p}{c}{A}{q}{U} \\
+  \mbox{$r$ stable under $U$}}
+  {\Gamma \vdash \stconcTy{p\ssep r}{c}{A}{q \ssep r}{U}}
+\and
+\inferrule*[Right={\scriptsize{If}}]
+  {\Gamma \vdash \stconcTy{e = \mathsf{true}\aand p}{c_1}{A}{q}{U}\\
+   \Gamma \vdash \stconcTy{e = \mathsf{false}\aand p}{c_2}{A}{q}{U}}
+  {\Gamma \vdash \stconcTy{p}{\mathsf{if}\ e\ \mathsf{then}\ c_1\ \mathsf{else}\ c_2}{A}{q}{U}}
+\and
+\inferrule*[Right={\scriptsize{Conj}}]
+  {\Gamma \vdash \stconcTy{p_1}{c}{A}{q_1}{U}\\
+   \Gamma \vdash \stconcTy{p_2}{c}{A}{q_2}{U}}
+  {\Gamma \vdash \stconcTy{p_1 \aand p_2}{c}{A}{q_1 \aand q_2}{U}}
+\and
+\inferrule*[Right={\scriptsize{Exist}}]
+  {\Gamma \vdash \stconcTy{p}{c}{A}{q}{U}\\ 
+   \alpha \not\in\mathsf{dom}\ \Gamma}
+  {\Gamma \vdash \stconcTy{\exists \alpha{:}B\ldot p}{c}{A}{\exists \alpha{:}B\ldot q}{U}}
+\and
+\inferrule*[Right={\scriptsize{Ret}}]
+  {\Gamma \vdash e: A \\ \mbox{$p$ stable under $U$}}
+  {\Gamma \vdash \stconcTy{p}{\mathsf{return}~e}{A}{p \aand \result = e}{U}}
+\and
+\inferrule*[Right={\scriptsize{Fix}}]
+  {\Gamma, \forall x{:}B\ldot\stconcTy{p}{f(x)}{A}{q}{U}, x{:}B \vdash \stconcTy{p}{c}{A}{q}{U}}
+  {\Gamma \vdash \forall x{:}B\ldot\stconcTy{p}{(\mathsf{fix}\ f\ldot x\ldot c)(x)}{A}{q}{U}}
+\and
+\inferrule*[Right={\scriptsize{App}}]
+  {\Gamma \vdash \forall x{:}B\ldot \stconcTy{p}{F(x)}{A}{q}{U}\\
+   \Gamma \vdash e : B}
+  {\Gamma \vdash \stconcTy{[e/x]p}{F(e)}{A}{[e/x]q}{U}}
+\and
+\inferrule*[Right={\scriptsize{Inject}}]
+  {\Gamma \vdash \stconcTy{p}{c}{A}{q}{U}\\
+    \mbox{$r$ stable under $V$}}
+  {\Gamma \vdash \stconcTy{p \lsep r}{\mathsf{inject}\ c}{A}{q \lsep r}{U \entangle V}}
+\and
+\inferrule*[Right={\scriptsize{Hide}}]
+{\Gamma \vdash \stconc{\hpriv\spts h \lsep p}{c}{\hpriv\spts h' \lsep q}{(P \entangle U) \entangle V}
+ \and \text{$P$, $U$ and $V$ have disjoint sets of labels}}
+{\Gamma \vdash \stconc{\Psi\ g\ h \lsep (\Phi\,(g) \wand p)}{\mathsf{hide}_{\Phi, g}\ c}{\exists g'. \Psi\ g'\ h' \lsep (\Phi\,(g') \wand q)}{P \entangle U}}
+\and
+\mbox{where}\ \Psi\ g\ h = \exists k{:}\mathsf{heap}.\, \hpriv \spts {h \hunion k} \aand \Phi\,(g) \downarrow k
+\and
+\inferrule*[Right={\scriptsize{Action}}]
+  {a = (U, A, \sigma, \mu)\ \mbox{is an action}\\
+   \Gamma \vdash (\sigma \aand \mathsf{this}\ w, \lambda w'\ldot (w, w', \result) \in \mu) \sqsubseteq (p, q)\\
+   \mbox{$p, q$ stable under $U$}}
+  {\Gamma \vdash \stconcTy{p}{\mathsf{act}\ a}{A}{q}{U}}
+\end{mathpar}}
+\caption{\SCST inference rules.}\label{fig:rules}
+\end{figure*}
+
+The inference rules of the Hoare tuple judgments for commands and
+procedures are presented in Figure~\ref{fig:rules}. We note that the
+assertions and the annotations in the rules (\eg, $\Phi$ in the
+\textsc{Hide} rule) may freely use the variables in $\Gamma$. To
+reduce clutter, we silently assume the checks that all such
+specification level-entities are well-typed in their respective
+contexts $\Gamma$.
+
+We have already discussed \textsc{Par}, \textsc{Inject} and
+\textsc{Hide} rules in their versions where the return type $A =
+\mathsf{unit}$. The generalization to arbitrary $A$ is
+straightforward.
+%
+A side condition of $\textsc{Hide}$ ensures that the sets of labels of
+$P$, $U$ and $V$ don't clash, so the entanglement $(P \entangle U)
+\entangle V$ is defined.
+%
+ The rule \textsc{Frame} is a special case of
+\textsc{Par} when $c_2$ is taken to be the idle thread (\ie, $c_2 =
+\mathsf{return} ()$). Just like in the rule \textsc{Ret}, we need to
+prove the framing assertion $r$ stable, to account for the
+interference of the \other threads. The rule \textsc{Fix} requires
+proving a Hoare tuple for the procedure body, under a hypothesis that
+the recursive calls satisfy the same tuple. The procedure
+\textsc{APP}lication rule uses the typing judgment for expressions
+$\Gamma \vdash e : A$, which is the customary one from a typed
+$\lambda$-calculus, so we omit its rules; in our formalization in Coq,
+this judgment will correspond to the CiC's typing judgment. The
+\textsc{Conseq} rule uses the judgment $\Gamma \vdash (p_1, q_1)
+\sqsubseteq (p_2, q_2)$, which generalizes the customary side
+conditions $p_2\,{\implies}\,p_1$ for strengthening the precondition
+and $q_1\,{\implies}\,q_2$ for weakening the postcondition, to deal
+with the local scope of logical variables~\cite{fcsl-coqscripts}.
+%
+%(it is defined in the appendix). 
+The other rules are standard from Hoare logic, except the
+\textsc{Action} rule for \emph{atomic actions}. We devote the rest of
+the section to~it.
+
+\vspace{5pt}
+
+\noindent\textbf{Atomic actions}~
+%
+Actions perform atomic steps from state to state, such as, \eg,
+realigning the boundaries between, or changing the contents of \self,
+\joint and \other state components. The actions thus serve to
+\emph{synchronize} the changes to operational state (\ie, heaps), with
+changes to the logical information required for verification (\ie
+\emph{auxiliary}, or \emph{abstract}, parts of the state: $\gL$,
+$\gE$,~\etc). If the logical information is erased, that is, if the
+states are flattened to heaps, then an action implements a single
+atomic memory operation such as looking up or mutating a heap pointer,
+CAS-ing over a heap pointer, or performing some other atomic
+\emph{Read-Modify-Write} operation~\cite[\S~5.6]{Herlihy-Shavit:08}.
+%In a degenerate case, the action may be a
+%no-op.
+%
+How an action manipulates the logical state is up to the user,
+depending on the application: we provide a formal definition of
+actions, and require that user's choices adhere to the definition.
+
+An action is a 4-tuple $a = (U, A, \sigma, \mu)$ where: (1) the
+concurroid $U$ whose internal transition $a$ respects, (2) the type
+$A$ of the action's return value, (3) the predicate $\sigma$ on states
+describing the states in which the action could be executed, and (4)
+the relation $\mu$ relating the initial state, the ending state, and
+the ending result of the action. 
+%
+$\sigma$ and $\mu$ are given in a large-footprint style, giving fully
+the heaps and the auxiliaries they accept.
+
+For example, consider the action $\mathsf{release}$ used in
+Section~\ref{sec:reasoning} to release a lock and transfer the pointer
+$x$ from a private heap of a thread to the ownership of the lock
+resource. This action is over the entangled concurroid $\CSL_{\hlock,
+  lk, I} = P \entangle L_{\hlock,lk,I}$ as it transfers the ownership
+of $(x \hpts -)$. Its return value type is $A = \mathsf{unit}$. It can
+be executed in states in which the lock is taken by the \self thread,
+and the pointer $x$ is in the private heap. The contents of $x$ is $\gL + \gL'
++ \gE$, for some $\gL$ and $\gL'$, so that once $x$ is transfered to the ownership
+of the lock resource, it satisfies the resource invariant. Thus:
+%
+\begin{mathpar}
+{\small
+\begin{array}{lclcl}
+w \in \sigma & \iff & w & = & 
+        \hpriv \hpts \state{x \hpts (\gL + \gL' + \gE) \hunion \hL}{\hempty}{\hE} \hunion \hbox{}\\
+& & & & \hlock \hpts \state{(\lockOwn, \gL')}{lk \hpts \mathsf{true}}{(\lockNown, \gE)}\\
+(w, w', \result) \in \mu & \iff & 
+w & = & \hpriv \hpts \state{x \hpts (\gL + \gL' + \gE) \hunion \hL}{\hempty}{\hE} \hunion \hbox{}\\
+& & & &  \hlock \hpts \state{(\lockOwn, \gL')} {lk \hpts \mathsf{true}}{(\lockNown, \gE)}\aand\hbox{}\\
+& & w' & = & \hpriv \hpts \state{\hL}{\hempty}{\hE} \hunion \hbox{}\\
+& & & & \hlock \hpts \state{(\lockNown, \gL + \gL')}{lk \hpts \mathsf{false} \hunion x \hpts (\gL + \gL' + \gE)}{(\lockNown, \gE)}
+\end{array}}
+\end{mathpar}
+%
+Once the states are flattened into heaps, the $\sigma$ and $\mu$
+components of $\mathsf{release}$ reduce to describing the behavior of
+a memory mutation on the pointer $lk$. For example, the relation
+$\flatten {\mu} = \{(\flatten w, \flatten {w'}, r) \mid (w, w', r) \in
+\mu\}$ relates $(h, h', r)$ iff
+%
+\begin{mathpar}
+{\small
+\begin{array}{lcl}
+h & = & (x \hpts (\gL + \gL' + \gE)) \hunion \hL \hunion (lk \hpts \mathsf{true}) \hunion \hE \\
+h' & = & (x \hpts (\gL + \gL' + \gE)) \hunion \hL \hunion (lk \hpts \mathsf{false}) \hunion \hE
+\end{array}
+}
+\end{mathpar}
+%
+Thus, operationally, $\mathsf{release}$ can be implemented as a single
+mutation to the $lk$ pointer. 
+%
+% The extended version of the paper~\cite{fcsl-coqscripts} contains the
+% formal definition of the requirements on actions and their erasures
+
+% \footnote{The appendix contains the
+%   formal definition of the requirements on actions and their
+%   erasures.}
+
+The inference rule \textsc{Action} takes an action $a = (U, A, \sigma,
+\mu)$ and checks that $a$ satisfies that $\sigma$ can be strengthened
+into $p$ and $\mu$ can be weakened into $q$. As $\mu$ is not a
+postcondition itself, but a relation taking input states, we first
+introduce a fresh logical variable $w$ to name the input state using a
+predicate $\mathsf{this}$. Then the predicate expressing post states
+for the action is computed out of $\mu$ and $w$, and it is this
+predicate that's weakened into $q$. $p$ and $q$ must be stable
+wrt.~$U$,
+%
+in order to account for the possibility that an interference of the
+environment appears just before, or just after, the action is
+executed.
+
+\vspace{4pt}
+
+\noindent\textbf{Soundness and Implementation}~
+%
+We have established the soundness of \SCST by exhibiting a
+denotational model based on \emph{action
+  trees}~\cite{LeyWild-Nanevski:POPL13,fcsl-coqscripts}, which are a
+variation on Brookes' action trace semantics, so we can formulate the
+following theorem.
+%
+\begin{theorem} 
+  \SCST is sound with respect to the denotational model of action
+  trees.
+\end{theorem}
+%
+We developed the model in the logics of Calculus of Inductive
+Constructions, thus, the model is a shallow embedding in Coq, and its
+implementation is available on-line~\cite{fcsl-coqscripts}.
+%
+The implementation also defines denotational semantics for constructs
+and ascribes them types corresponding to rules in
+Figure~\ref{fig:rules}. These type ascriptions require proofs, and
+together establish soundness of the logic, although rules/types in the
+implementation differ somewhat from those in Figure~\ref{fig:rules},
+facilitating encoding in Coq: (1)~they use binary postconditions,
+(2)~pre-/postconditions are in higher-order logic over heaps and PCMs,
+instead of notation from Figure~\ref{fig:broccoli}, (3)~they infer
+weakest-pre-/strongest-postconditions and (4)~assertions are
+stabilized. The correspondence between the implementation and
+Figure~\ref{fig:rules} is straightforward, but established by hand.
+
+
+% \footnote{See
+%   Appendix~\ref{sec:semantics} for details of the semantics and the proof
+%   of soundness.} 
+%
+
+
+

@@ -1,0 +1,65 @@
+\section*{Optional appendices}
+
+\section{Some background on FCSL}
+\label{sc:background}
+
+A state of a resource in FCSL, such as that of snapshot data structure
+discussed in this paper, always consists of three distinct auxiliary
+variables that we name $a_\lcl$, $a_\env$ and $a_\joint$. These stand
+for the abstract self state, other state, and shared (joint) state.
+
+However, the user can pick the types of these variables based on the
+application. In this paper, we have chosen $a_\lcl$ and $a_\env$ to be
+histories, and have correspondingly named them $\histS$ and $\histO$.
+On the other hand, $a_\joint$ consists of all the other auxiliary
+components that we discussed, such as the variables $\histJ$, $\E$,
+$\C$, $\sx$, $\sy$, $\wx$ and $\wy$. These variables become merely
+projections out of $a_\joint$.
+
+It is essential that $a_\lcl$ and $a_\env$ have a common type, which
+moreover, exhibits the algebraic structure of a \emph{partial
+  commutative monoid} (PCM). A PCM requires a partial binary operation
+$\bullet$ which is commutative and associative, and has a unit. In the
+case of histories, the partial operation is disjoint union $\hunion$
+with $\mathsf{empty}$ history as the unit. PCMs are important, as they
+give a generic way to define the inference rule for parallel
+composition.
+%
+\[
+%\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:parrule}
+{\small{
+\begin{array}{c}
+\specK{\{P_1\}}\ e_1\ \specK{\{Q_1\}} \quad \specK{\{P_2\}}\ e_2\ \specK{\{Q_2\}} \\[2pt]
+\hline\\[-7pt]
+\specK{\{P_1 \circledast P_2\}}\ e_1 \parallel e_2\ \specK{\{[r.1/r]Q_1 \circledast [r.2/r]Q_2\}} 
+\end{array}
+}}
+\]
+%
+Here, $\circledast$ is defined as follows.
+\[
+%\tag{\normalsize \arabic{tags}}\refstepcounter{tags}\label{eq:ssep}
+\begin{array}{c}
+(P_1 \circledast P_2)(a_\lcl, a_\joint, a_\env) \iff \exists x_1~x_2\ldot a_\lcl = x_1 \bullet x_2, \hbox{}\\
+ P_1 (x_1, a_\joint, x_2 \bullet a_\env), P_2 (x_2, a_\joint, x_1 \bullet a_\env)
+\end{array}
+\]
+%
+%
+The inference rule, and the definition of $\circledast$, formalize the
+intuition that when a parent thread forks $e_1$ and $e_2$, then $e_1$
+is part of the environment for $e_2$ and vice-versa. This is so
+because the \emph{self} component $a_\lcl$ of the parent thread is
+split into $x_1$ and $x_2$; $x_1$ and $x_2$ become the \emph{self}
+parts of $e_1$, and $e_2$ respectively, but $x_2$ is also added to the
+\emph{other} component $a_\env$ of $e_1$, and dually, $x_1$ is added
+to the \emph{other} component of $e_2$.
+
+As discussed in Section~\ref{sec:clients}, this makes our specs of
+{\tt scan} and {\tt write} \emph{principal}. Many other logics that
+employ auxiliary state, going back to Owicki and
+Gries~\cite{Owicki-Gries:CACM76}, require that their procedures are
+annotated for a specific number and forking pattern of interfering
+threads. When this pattern changes, the programs have to be
+reannotated, and proofs redone. But this is not the case in FCSL.
+

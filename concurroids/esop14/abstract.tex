@@ -1,0 +1,32 @@
+\begin{abstract}
+
+  We present a novel model of concurrent computations with shared
+  memory and provide a simple, yet powerful, logical framework for
+  uniform Hoare-style reasoning about partial correctness of coarse-
+  and fine-grained concurrent programs.
+%
+  The key idea is to specify arbitrary resource protocols as
+  communicating \emph{state transition systems} (STS) that describe
+  valid states of a resource and the transitions the resource is
+  allowed to make, including transfer of heap ownership.
+
+  We demonstrate how reasoning in terms of communicating STS makes it
+  easy to crystallize behavioral invariants of a resource. We also
+  provide \emph{entanglement} operators to build large systems from an
+  arbitrary number of STS components, by interconnecting their lines
+  of communication.
+%
+  Furthermore, we show how the classical rules from the Concurrent
+  Separation Logic (CSL), such as scoped resource allocation, can be
+  generalized to fine-grained resource management. This allows us to
+  give specifications as powerful as Rely-Guarantee, in a concise,
+  scoped way, and yet regain the compositionality of CSL-style
+  resource management.
+%
+  We proved the soundness of our logic with respect to the
+  denotational semantics of action trees (variation on Brookes' action
+  traces). We formalized the logic as a shallow embedding in Coq and
+  implemented a number of examples, including a construction of
+  coarse-grained CSL resources as a modular composition of various
+  logical and semantic components.
+\end{abstract}

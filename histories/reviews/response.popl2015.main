@@ -1,0 +1,75 @@
+We thank the reviewers for feedback and respond to their main
+concerns.
+
+===[#68A]===
+
+[Are non-linearizable libraries handleable?]
+
+Yes. The flat-combiner example isn't linearizable in the traditional
+sense. Recent work [3] had to generalize linearizability to support
+flat-combiner.
+
+===[#68B]=== 
+
+[Abstract over concurroids?]
+
+The Coq embedding of FCSL is integral to the paper and provides for
+free the ability to abstract over any semantic category, including
+values, types, predicates, and certainly concurroids. Such abstraction
+has been done for locks (see Appendix E5 of [22]'s extended
+version). Thus, we believe we could give a general spec for stacks,
+though we haven't done that yet.
+
+[Use separating conjunction?]
+
+It's non-trivial to scale SL notation to concurrency in general. The
+usual approach initiated by RGSep [33] includes a modality for shared
+state. With subjectivity, we would also require a modality for "other"
+state, and a number of laws relating modalities with other assertion
+connectives. This makes everything a bit heavy. Instead, we chose to
+stick with explicit heap (or general PCM) variables. Working with heap
+variables *is* pleasant, and has to be done in Coq anyway, since Coq
+lacks support for BI contexts. This has been argued before in
+[Nanevski, Vafeiadis, Berdine (POPL'10)].
+
+===[#68C]===
+
+[Overselling, delivering less.]
+
+Nowhere do we promote FCSL as being more expressive than the related
+works CaReSL/Jacobs[17]/HOCAP/iCAP/TaDA/L&F. In Section 6 we clearly
+mention that we don't provide the same granularity abstraction as
+TaDA/iCAP. We've even sketched how relying on prime PCM elements will
+scale to overcome the limitation. So we're puzzled by the
+"overselling" comment. For more on how to get a form of (2), see
+below.
+
+We disagree that the current limitation implies that our approach is
+"delivering less". There're things we can't do, but others can, and
+vice versa. For example, iCAP is the most developed of the existing
+logics, but it's our understanding that it can't currently express the
+spec for readPair similar to ours, because readPair doesn't change the
+state (and a change apparently is required by the viewshift
+mechanism).
+
+[The paper presents a logic...]
+
+As we have clearly stated, our paper is not about a new logic, but
+about a new specification method based on the observation that
+histories are PCMs, just like heaps. We expect the method will be
+useful to other logics, independent of their expressiveness, but they
+will have to be extended with subjectivity. We chose FCSL because it
+was most convenient for us.
+
+[Observation about histories is "hardly surprising"...]
+
+Contrarily, we find it very surprising that histories *with
+subjectivity* suffice to produce simple, general, and novel specs and
+proofs of quite interesting programs. As of now, we haven't needed
+code-as-resources, tokens, fractional permissions,
+permission-dependent actions, view-shifts, speculations, etc., which
+all add bulk to concurrency logics. Simple PCMs and subjectivity
+sufficed to unify FCSL to the extent that proofs of example programs
+could be mechanized. This is crucial to build confidence in a
+logic. None of the related systems has been sufficiently optimized to
+do the same (at best, they mechanize meta-theory only).

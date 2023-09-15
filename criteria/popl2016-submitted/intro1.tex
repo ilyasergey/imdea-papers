@@ -1,0 +1,850 @@
+
+%\vspace{-2pt}
+\section{Introduction}
+\label{sec:introduction}
+
+% Traditionally, the correctness of a concurrent object is reasoned
+% using its method call/return histories, and follows two steps. The
+% first step is to define a specification set that describes all
+% ``basic'' behaviors that the object's client might observe when using
+% it. The second step is to fix a consistency condition that
+% relates the object's concurrently observable behaviors to the ones in
+% the specification set.
+% % 
+% Typically, the specification set is taken to be the
+% sequential behaviors of a concurrent object, in
+% which the calls to the object's methods are immediately followed by the 
+% corresponding returns.
+% %
+% \is{The paragraph above doesn't seem to contribute in the followin
+%   intro at its present structure. Can we drop it at all or, may be,
+%   move to the related work?}
+ 
+Linearizability~\cite{Herlihy-Wing:TOPLAS90} remains the most
+well-known correctness condition for concurrent objects. It has been
+used to argue the correctness of a variety of concurrent objects such
+as stacks, queues, sets, locks, snapshots, and their
+combinations---all of which have intuitive sequential specifications
+(specs).
+%
+For each concurrent history of an object, linearizability requires
+that there exist a mapping to a sequential history, such that the
+ordering of two matching call/ return pairs is preserved either if
+they are performed by the same thread, or if they do not overlap.
+%
+However, enforcement of linearizability is expensive: an
+implementation of a concurrent object must inherently incorporate
+costly synchronization primitives~\cite{Attiya-al:POPL11}, which then
+become points of high contention and prevent efficient parallelization
+\cite{Shavit:CACM11}. Moreover, many concurrent objects are inherently
+\emph{non-linearizable}. In the presence of concurrent interference,
+the behaviors of these programs are observably different from their
+sequential behaviors: linearizability is not flexible enough to
+capture their behaviors, as observed in several recent works
+\cite{Hemed-Rinetzky:PODC14,Shavit:CACM11,Derrick-al:FM14,Jagadeesan-Riely:ICALP14}.
+
+% The way to remedy this situation
+% and to enable scalability is to change the semantics of a concurrent
+% object and to redefine its admissible behaviors. \ab{Not happy yet with this
+% para.}
+
+This paper therefore focuses on reasoning about non-linearizable
+concurrent objects and their clients, such as counting
+networks~\cite{Aspnes-al:JACM94} or an elimination-based
+exchanger~\cite{Scherer-al:SCOOL05}.
+%
+% In the presence of concurrent interference, the behaviors of these programs are observably different from their sequential
+% behaviors. Linearizability is therefore not flexible enough to
+% capture their behaviors as observed in several recent works~\cite{Hemed-Rinetzky:PODC14,Shavit:CACM11,Derrick-al:FM14,Jagadeesan-Riely:ICALP14}.
+%\ab{Ugh. This sounds weak.}
+%
+% who term them ``concurrency-aware concurrent objects'',
+%
+% \is{I don't think Rinetzky is so special that his should work should
+%   have a dedicated mentioning here. Hence, I maked this statement a
+%   bit more general and supplied some citations.}
+%
+%
+% \an{Maybe say why? \Ie, we can use the criticism from CAL. Because
+%   linearizability reduces a concurrent object to a sequential
+%   approximation, and sometimes this needs to be relaxed, because the
+%   behavior of the program in the presence of concurrent interference,
+%   is different from its sequential behavior.}
+%
+% ``their behavior in the presence of concurrent (overlapping)
+% operations is, and should be, \emph{observably different} from their
+% behavior in the sequential setting''~\cite{Hemed-Rinetzky:PODC14}.
+% 
+To reason about such data structures, a variety of novel consistency
+conditions and correctness criteria have been developed:
+concurrency-aware linearizability (CAL)~\cite{Hemed-Rinetzky:PODC14},
+quiescent consistency (QC)~\cite{Aspnes-al:JACM94},
+quasi-linearizability (QL)~\cite{Afek-al:OPODIS10}, quantitative
+relaxation~\cite{Henzinger-al:POPL13}, quantitative quiescent
+consistency (QQC)~\cite{Jagadeesan-Riely:ICALP14}, local
+linearizability~\cite{Haas-al-local15}, to name a few.
+% \an{Are
+%   the phrases consistency condition and correctness criteria
+%   synonymous? How about consistency criteria and correctness
+%   condition? We seem to use all 4 interchangeably. Should we
+%   streamline?} \is{From the related literature, I observe
+%   \emph{correctness criteria} and \emph{correctness condition} to be
+%   synonyms. In contrast, \emph{consistency condition} is used to
+%   denote the way concurrent behaviors are related to ones in
+%   specification set (\eg, sequential or CA ones). I somewhat adapted
+%   this terminology from Henzinger et al, POPL'13.}
+%
+These criteria attempt to specify a concurrent program's behavior in
+the presence of interference, though some, such as QC devote special
+treatment to the sequential case, trying to qualify the behavior in
+the quiescent, that is, interference-free, moment.
+
+% However, this variety makes it difficult to establish that the
+% conditions are general enough to accommodate highly parallel
+% concurrent objects. 
+% %
+% \is{I don't understand the statement above: how the diversity makes it
+% difficult to accommodate algorithms---this is what it aims to help.
+% Perhaps, what you want to say here is that each new condition should
+% be characterized in some way?}
+%
+
+This variety makes it difficult to see when a specific consistency
+condition should be used, or how to combine several of them, as may be
+needed when different parts of the same program are specified using
+different conditions. In particular, in contrast to linearizability,
+which has been shown to imply observational refinement\footnote{That is,
+  a program can be replaced in any larger context by the set of the
+  sequential histories to which it linearizes; every property
+  derivable about the replacement applies to the original program as
+  well.}~\cite{Filipovic-al:TCS10}, no similar results have been
+proven for the aforementioned consistency conditions. While some of
+them, say QC and QQC, are known to be compositional in the sense that
+the combination of two QC (QQC) objects is QC
+(QQC)~\cite{Herlihy-Shavit:08,Jagadeesan-Riely:ICALP14}, such
+compositionality is much weaker than observational refinement, and does
+not allow transferring a general property (such as, one expressed as a Hoare
+triple~\cite{Turon-al:ICFP13,Liang-Feng:PLDI13}) to a program, from
+the set of histories with which it is QC (QQC) consistent.
+%
+While recently linearizability has been generalized to apply to modern
+%
+concurrent programs, which use higher-orderness, ownership transfer,
+and dynamic
+allocation~\cite{Gotsman-Yang:CONCUR12,Cerone-al:ICALP14}), the
+alternative consistency conditions almost invariably focus on 
+simple imperative programs. Finally, the considerations of the
+alternative conditions have focused only on their semantics: there
+is a lack of syntactic logical methods for checking that a program
+satisfies one of them (again, in contrast to the situation for
+establishing linearizability for a given
+program~\cite{OHearn-al:PODC10,Liang-Feng:PLDI13,Turon-al:ICFP13,Vafeiadis:PhD}). 
+%
+Such methods are desirable, as they allow one to verify clients and
+implementations in a single proof system.
+%
+
+% \is{Can we say, why such methods are desirable, and why they are
+%   better than reasoning directly in terms of program semantics?}
+% %
+% \is{Presumably, uniform reasoning about clients in the presence of
+%   HO, dynamic state, amenable to scalable computer-aided verification. }
+
+From these observations stems a fundamental question: Can the
+alternative correctness conditions be represented in one and the same
+logical system, with support for higher-order compositional reasoning
+about realistic libraries of modern, possibly non-linearizable,
+concurrent programs?
+%
+
+%In short, there is a lack of proof methods amenable to structured
+%formal verification with non-linearizable objects, and formal results
+%that enable these proof methods to apply be compositionally used on clients.
+
+%\ab{How to bring in client reasoning and associated problems?}
+%
+% \is{Here we should clarify what we mean by compositionality. QC and
+%   QQC are also proven to be compositional by their authors, so that
+%   statement above is misleading if not wrong.}
+
+%Despite this variety, it is not obvious how these criteria can facilitate the
+%verification of modern concurrent programs which use higher-orderness,
+%ownership transfer, dynamic allocation, etc. In contrast 
+%to linearizability which has been shown to imply observational refinement\footnote{That is, a program can be replaced in any larger context by the set of the sequential histories to which it linearizes.}~\cite{Filipovic-al:TCS10},
+%no similar results have been proven for the aforementioned consistency criteria. 
+%%
+%Neither are syntactic logical methods for establishing the consistency
+%criteria known (again, in contrast to the situation for establishing
+%linearizability for a given program~\cite{Gotsman-Yang:CONCUR12,Cerone-al:ICALP14,Turon-al:ICFP13}). 
+%%
+%While QC and QQC are known to be compositional~\cite{What?}, such a property 
+%only asserts that the composition of two QC (QQC) objects is QC (QQC). 
+%Such compositionality is too weak to be applicable in a situation
+%where, say, two procedures verified under different criteria need to be used in 
+%the same program, and the program's precondition, involving the different 
+%criteria, needs to be established. 
+%%
+%In other words, there is a lack of compositional proof methods amenable to 
+%structured formal verification with non-linearizable objects. 
+%\ab{How to bring in client reasoning and associated problems?}
+%%
+%% \is{Here we should clarify what we mean by compositionality. QC and
+%%   QQC are also proven to be compositional by their authors, so that
+%%   statement above is misleading if not wrong.}
+
+%
+%Moreover, client-side reasoning about programs that incorporate
+%several objects specified via \emph{different} criteria becomes
+%enormously complicated: clients of a concurrent object, when
+%committing to a correctness criterion, need to adopt specific
+%reasoning principles to characterize the object's behavior.  It can be
+%difficult to ensure compositionality of reasoning when dealing with
+%different communicating objects.
+%%
+%\is{The statement above is a bit vague (now I realize) is and isn't
+%  instantiated particularly well in our paper: we don't show examples
+%  with several objects (although we could). So how about we say here
+%  what the previous intro used to say, that for each new criterion one
+%  has to devise a method for exploiting the provided safety guarantees
+%  for the sake of reasoning about client code that uses the concurrent
+%  object.}
+%
+%\is{In my opinion, the paragraph above is crucial for the whole story,
+%  as it sets the motivation for the paper (like those questions we had
+%  previously), so it should be more punchy in describing what the
+%  problems are with the state of the art, and why one shoudl care
+%  about them.}  \an{How about: Moreover, while syntactic logical
+%  methods exist for establishing linearizability for a given program
+%  (CITE some stuff by Gotzman, and CaReSL), such methods do not exist
+%  for the other criteria. Even if such methods existed, one would have
+%  to engineer ways of combining them into a unified framework,
+%  whenever two procedures verified by different criteria are to be
+%  used in the same program. }
+
+% \is{While I totally agree with all of the things said above, in my
+%   opinion, at this very place we need to place a punch-phrase (a
+%   slogan), that summarizes the problem we attack. Something, in the
+%   style of herr Dreyer, \eg, \emph{These observations beg the
+%     question: ...?}}  \an{I suppose we can pull a Dreyer here. In
+%   principle, his overselling has been noted by many people, so I'm not
+%   too convinced that we should follow his approach. But, we could. We
+%   could say something like: These observation beg the question whether
+%   all these alternative conditions can be represented in a single
+%   unified logical system, with support for higher-order compositional
+%   reasoning about realistic libraries of modern concurrent programs.}
+
+\subsection{Our approach: logic-based concurrency specification}
+
+This paper demonstrates a uniform approach---based on a Hoare-style
+program logic---for verifying the correctness of highly scalable
+concurrent objects and their clients, without recourse to specialized
+correctness criteria and consistency conditions. Our approach uses
+Fine-grained Concurrent Separation Logic
+(FCSL)~\cite{Nanevski-al:ESOP14}. We show, via examples, that the
+basic ingredient of FCSL, \emph{subjectivity}, provides the uniformity
+we seek. Subjectivity permits that within a spec of a thread, one can
+refer to the private state of all other interfering threads \emph{in a
+  local manner}. Being able to refer to such state enables one to
+directly express the results of a program as a function of the
+interference of other threads. It ultimately yields uniform reasoning
+principles capable of expressing the essential properties captured by
+the various correctness criteria.
+
+%we seek. Subjectivity permits the use of two auxiliary variables
+%within the scope of each thread; one names the thread's own local
+%state, and the other names the private state of all other interfering
+%threads combined. This split view of auxiliary state allows directly
+%relating the result of a program to the interference of all other
+%concurrent threads over auxiliary state, ultimately yielding uniform
+%reasoning principles.
+
+
+Traditionally, correctness criteria for concurrent objects are
+formulated in terms of call/return histories of threads, and their
+rearrangements. In contrast, assertions in Hoare-style program logics
+constrain \emph{state}, auxiliary or real, in which the program runs.
+%
+In order to bridge this gap, Hoare-style reasoning has been recently
+extended to histories, which were formulated as a specific instance of
+auxiliary
+state~\cite{Fu-al:CONCUR10,Gotsman-al:ESOP13,Sergey-al:ESOP15,Bell-al:SAS10}.
+%
+%
+% our starting point is the representation of a program's
+% history directly as user-specified auxiliary state. Such a
+% representation facilitates reasoning about history via Hoare-style
+% specs. This is a simple and old idea~\cite{what}, that in FCSL comes
+% with a twist.
+%
+% \is{This statement seems like it's taken directly from the ESOP'15
+%   paper intro (including the twis bit). However, there it was
+%   referring to histories in concurrency in general (including
+%   semantics). However, I don't think that histories in Hoare-style
+%   logics are an \emph{old} idea. So, may be, we can just say that
+%   histories were used in previous logics to reason about FCD and cite
+%   HLRG and Gotsman-Yang?}
+%
+% \is{The paragraph before should be changed to introduce auxiliary
+%   state and related logics and then proceed to elaborate on FCSL.}
+%
+For instance, instead of call/return histories, FCSL allows one to
+employ \emph{time-stamped histories}~\cite{Sergey-al:ESOP15} to reason
+about linearizable objects. A time-stamped history consists of entries
+of the form $t \mapsto a$, to signify that the (typically atomic)
+operation $a$ occurred at time $t$. A Hoare-style spec which shows
+that a program's history changes by a singleton $t \mapsto a$ can be
+seen as exhibiting a behavior $a$ at a linearization point~$t$.
+%
+Such specification approach makes fine-grained (\ie, lock-free) object
+implementations look like atomic ones to the clients, whose proofs are
+carried out only out of the object specs.
+
+%\an{Some comment here on the similarity between histories and heaps.}
+
+In this work, we augment this history-based approach to Hoare-style
+specifications in a significant way to handle non-linearizable
+objects. In particular, we show that more \emph{general notions of
+  time-stamped histories lead to adequately capturing the essence of
+  alternative consistency criteria} such as CAL, QC, and QQC/QL.  To
+wit, an auxiliary history need not merely identify a point at which an
+atomic behavior logically occurred, but additionally can include
+information about the program's interference.
+
+For example, the main idea of CAL is that histories with which one
+linearizes cannot be sequential, but have to be concurrency-aware
+(CA), \ie, allow simultaneous events to be represented. In FCSL we can
+do so by picking time-stamped histories with additional imposed
+structure that naturally captures the simultaneity of events. In
+Section~\ref{sec:overview}, we show how this structure helps in
+specifying and verifying---in FCSL---an elimination-based concurrent
+exchanger~\cite{Scherer-al:SCOOL05}. In Section~\ref{sec:cal}, we show
+how to immediately employ the ascribed specification for the
+verification of a client program of the exchanger (adapted directly
+from the \code{java.util.concurrent} library
+documentation~\cite{ExchangerClass}) in the same logical framework.
+
+% \is{In the following paragraph I replaced stack by counter, which is
+%   what we have verified.}
+
+QC requires establishing that at moments of quiescence, \ie, no
+interference, programs exhibit some desirable behavior. For example,
+at quiescence, a concurrent counter implementation behaves as expected
+of a \emph{sequential} counter implementation. We capture this
+property by relying on subjectivity: we use time-stamped histories in
+which a time-stamp $t$ directly stores the kind of interference
+exhibited by the program's environment at time $t$.  One can then
+prove, that in the absence of interference, the object behaves
+sequentially as expected. In Section~\ref{sec:counting} and
+Section~\ref{sec:qclients} we show the specification and
+verification---in FCSL---of a simple counting
+network~\cite{Aspnes-al:JACM94} and its client, both of whose
+correctness relies on QC.
+
+One can also derive stronger, \emph{quantitative}, properties, and
+show that a bound on the number of interfering threads implies that
+the program exhibits a bounded deviation from the expected sequential
+behavior. In the past, this has been addressed using
+QL~\cite{Afek-al:OPODIS10} and QQC~\cite{Jagadeesan-Riely:ICALP14} as
+correctness criteria. In this paper, we derive it as a consequence of
+the choice of the auxiliary state of
+histories. Section~\ref{sec:qclients} also shows the verification of a
+client of the counting network, whose correctness relies on QQC.
+
+The unifying mechanism behind all these different kinds of histories
+(and indeed behind the subjective split of any auxiliary state) is
+that they all satisfy the algebraic properties of a \emph{partial
+  commutative monoid} (PCM)~\cite{LeyWild-Nanevski:POPL13}. 
+%
+Thus, FCSL can represent them, in addition to heaps (also a PCM, and
+often a shared resource) in a uniform reasoning framework, applying
+the same logical infrastructure (such as the rule of frame) to all
+kinds of state, auxiliary or real, in the process also incorporating
+higher-orderness, ownership transfer, and dynamic
+allocation~\cite{Nanevski-al:ESOP14,Sergey-al:ESOP15}.
+%
+The uniformity of the logical rules, treating all kinds of state
+similarly, makes it possible to conduct the verification in a general
+computer-assisted framework: all proofs of the examples from this
+paper are checked mechanically in Coq~\cite{Coq-manual} and are
+available as a supplementary material.
+
+\paragraph{Alternative logic-based approaches.}
+
+Recent concurrent program logics, such as
+HOCAP~\cite{Svendsen-al:ESOP13}, iCAP \cite{Svendsen-Birkedal:ESOP14},
+TaDA~\cite{ArrozPincho-al:ECOOP14}, and Iris~\cite{Jung-al:POPL15}
+have shown, using the technique of parametrizing programs with
+\emph{first-class auxiliary code}~\cite{Jacobs-Piessens:POPL11} or
+\emph{atomic tracking resources} (see Section~\ref{sec:related} for
+details), that Hoare-style program logics can adequately specify and
+verify tricky linearizable concurrent objects and their clients. In
+contrast, this work addresses non-linearizable objects and their
+clients---but without the use of such parameterization or atomic
+tracking resources, which both seem to require identifying
+\emph{synchronization points} within libraries, making it non-trivial
+to apply the listed above logics to the objects we consider. In the
+process we also derive properties which have hitherto been obtained
+only via dedicated alternative correctness criteria.
+
+\paragraph{Observational refinement and compositional reasoning.}
+The fact that linearizability implies observational
+refinement~\cite{Filipovic-al:TCS10, Cerone-al:ICALP14,
+  Bouajjani-al:POPL15, Emmi-al:PLDI15} justifies compositional
+reasoning, whereby a program can be substituted by its sequential spec
+\emph{no matter the property being verified}. Here, we consider
+objects whose correctness criteria do not necessarily imply such
+observational refinement. Hence, we fix our properties of interest to
+be partial correctness Hoare-style specs only. In that setting,
+compositionality of the reasoning is justified by the substitution
+principle of FCSL on both programs and
+proofs~\cite{Nanevski-al:ESOP14}.
+%
+% which says that a program $e$, and the proof that $e$ satisfies a
+% spec $s$, can always be substituted into a context with a hole of
+% spec $s$.
+
+
+
+% \subsection{Paper outline}
+
+% Sections~\ref{sec:overview} and~\ref{sec:cal}--\ref{sec:qclients} of
+% the paper present the case studies, substantiating our proposal to use
+% a Hoare-style logic for reasoning uniformly about non-linearizable
+% concurrent objects and their clients.
+% %
+% Section~\ref{sec:background} provides necessary minimal background on
+% program logics for concurrency and key concepts of
+% FCSL~\cite{Nanevski-al:ESOP14}. Section~\ref{sec:discussion} discusses
+% other possible applications of the proposed approach for reasoning
+% about concurrent objects. Relevant related work appears in
+% Section~\ref{sec:related}. Section~\ref{sec:conclusion} discusses
+% future work and concludes.
+
+
+
+%  in the
+%   process several of the aforementioned correctness criteria are
+%   subsumed.
+% %
+% \is{Isn't it a bit strong of a statement? We don't have the formal
+%   correspondence proved.}
+% \begin{comment}
+% \an{Hmm, the remainder of this section reads a bit unfocused. We need
+%   to say how we do the job, and what's essential. Thus, I would say,
+%   let's focus the remainder to explaining what is subjectivity (having
+%   two kinds of auxiliary state: self and other). Also, say something
+%   about histories. But I would first go with subjectivity; thus, move
+%   the section Why FCSL up, and then talk about histories.  But I would
+%   definitely drop the section on protocols. They are not original to
+%   us, and they don't particularly clarify the main message of the
+%   intro, which is that subjectivity suffices for all these
+%   criteria. In this particular paper, protocols are largely a
+%   technicality, so why not just leave them for the background
+%   section?}
+% %
+% \is{I disagree with the remark on unimportance of protocols. While,
+%   indeed, they appeared before FCSL (and subjectivity has appeared in
+%   SCSL, which we don't use in this paper), they are equally important
+%   for what's achieved in this work. We don't claim protocols as our
+%   contribution, but they are crucial for the essence of the
+%   verification patterns that we are describing in the rest of the
+%   paper (or at least for QC and QQC). I think, the paragraph ``why
+%   FCSL?'' gives the right amount of intuition on what subjectivity is,
+%   so let's move it up. The protocols can also appear in the same
+%   paragraph, later, and with more references to the work, prior of
+%   FCSL. Essentially we should plant a message that all these fellas
+%   before us knew about protocols, but we now teach how to use them
+%   right. :-)} 
+% %
+% \an{I didn't say protocols are unimportant in principle. They should
+%   be covered. Just not in the \emph{introduction}, as they just don't
+%   seem to be adding much to it. I was reading the paragraph on
+%   protocols, and it came of deadening. It talks about stability,
+%   locality, whatnot, but not about why the reader should care about
+%   protocols when thinking of \emph{alternative consistency
+%     criteria}. If you can rewrite the paragraph to liven it up and
+%   crisply define why protocols are important for these criteria
+%   specifically, then fine. But, notice, the paragraphs leading up to
+%   this one say that they key to this paper is subjectivity and PCMs,
+%   which is setting the tone quite a lot.}  
+% %
+% \is{Now I re-read it again, perhaps, we should say what exactly we mean
+%   by uniformity there and how does it relate to the problems with the
+%   existing approaches. As it's written now it is way too general and
+%   looks like a twin of the same part in the intro of the PLDI paper
+%   and I think, we should make it fresher by telling what
+%   subjectivity/PCMs helped us to discover this time, which is totally
+%   novel. And for this, check my comment below.}
+% \is{Let me add more to it. While subjectivity, histories and protocols
+%   are all important for what we're doing here, I would suggest us to
+%   emphasize in the intro the verification patterns we discovered by
+%   using the combination of these three, namely: histories with twin
+%   contributions (CAL) and interference-capturing histories (QC and
+%   QQC). I don't have a better name of these at this moment, but I
+%   believe, something along these lines without too much specifics,
+%   should go to the intro, as it summarizes the instances of the
+%   subjectivity/histories/protocol magic, that we came up with to
+%   specify our examples in this work. And the community would benefit
+%   from understanding these patterns as it earlier benefited from
+%   understanding Hindsight and (to some extent) fractional
+%   permissions.}  
+% %
+% \an{Sorry, the talk of ``all three'' reminds me of ``Ghost, Protocols,
+%   Shit'' paper, which I found very annoying. In general, I don't mind
+%   talking about the verification patterns that you mention; I think
+%   that would be preferable to the non-germane discussion on
+%   protocols. But, that aside, I want to emphasize one principle, which
+%   I think it important. When deciding what to say in the intro, we
+%   should focus on just the most important things. If you can't say why
+%   PCMs, or protocols, or natural numbers, or what have you, are
+%   important to the alternative consistency criteria, which are the
+%   topic from the title, then none of them should be mentioned in the
+%   intro!!! We don't mention nats in the intro, so why bother with
+%   protocols? Quite frankly, ditto for the PCMs!!! All these things
+%   just water-down the discussion, and de-focus from the main point! I
+%   think a short, but razor-focused, intro of 1-or-so page would be
+%   quite refreshing; it would give us a chance to immediately jump to
+%   describing the interesting stuff in the technical sections.
+% %
+%   Now, regarding this principle, why is subjectivity something
+%   \emph{to be mentioned}? Why is it the main point? Well, here's why:
+%   Subjectivity allows providing directly a concurrent specification of
+%   a program, as a function of its concurrent environment. This is in
+%   stark contrast to the consistency criteria approach which usually
+%   (actually, all but CAL) seek to specify the program in terms of some
+%   equivalent-looking sequential behavior, and then spend time
+%   justifying why the sequential behavior is really
+%   ``equivalent-looking''. That's why subjectivity is our secret
+%   weapon, and that's why it's the key to our approach, and that's why
+%   our approach works.
+% %
+%   I recalled this point when I saw Eraz Petrank's picture on FB
+%   15-mins ago :-) I recall he was intrigued by this point that we
+%   specify programs in a concurrent manner directly, when Ilya
+%   mentioned to him at SPAA.}  
+% %
+% \is{Okay, point taken, let's then be more specific about the secret
+%   weapons and the goals we're trying to achieve by this
+%   paper. Subjectivity, indeed, shines here, so let's give it the usual
+%   praise in the introduction.  Is the use of subjectivity the ultimate
+%   essence of what we're going to demonstrate by this paper? I mean, is
+%   that the case that one, given subjectivity, will come up with
+%   everything else that we describe here? Sorry, but I don't think
+%   so. So how about right after subjectivity we say \emph{how} exactly
+%   we use it, which is (I hope you agree) is quite far from the
+%   previous appearances in the four papers Aleks and company published
+%   on subjectivity. So, this is why, agreeing to drop PCMs and
+%   protocols from the intro (as the points made about them are fair), I
+%   suggest us to focus the rest of this part of the intro on the
+%   \emph{how} part, outlining our findings wrt histories and using
+%   them. This ideas \emph{on top of subjectivity} are our tools and
+%   \emph{primary} contributions for this paper (not the examples we
+%   verified, as those are just means of demonstration!), and I didn't
+%   realize this point until we had this discussion. So, just like
+%   O'Hearn and company celebrate \emph{the idea of hindsight} (instead
+%   of CSL or whatever logic they use there) in their PODC'10 paper, we
+%   should celebrate the formalization principles enabled by
+%   subjectivity that allow us to subsume CAL and (Q)QC. In contrast, if
+%   we just say ``subjectivity is all you need'', we risk to end up like
+%   Dodds et al with their POPL'11 paper (not to mention that it was
+%   buggy), who said: ``here are the barriers and CAP is all you need to
+%   verify them''. Even after reading their recent TOPLAS submission, I
+%   still have no clue about what should I take out of their approach
+%   except for the fact that they are very clever and know how to use
+%   (i)CAP. So, let's not make this mistake and, I repeat it again,
+%   emphasize \emph{how} to use subjectivity for the win. }
+% %
+% \an{Ok, let me try some synthesis of this discussion. We start the
+%   ``our approach'' part of the intro as follows. We say that we have a
+%   Hoare logic FCSL, which is subjective. Subjectivity means that we
+%   have two auxiliary variables in the scope of assertions, giving us a
+%   way of specifying the behavior of the program as a function of its
+%   concurrent environment. This is in stark contrast to consistency
+%   criteria approach that ... cut+paste+from+above. Then go on to
+%   introduce the patterns you wanted, and say something like: For
+%   example, in the case of CAL, we specify the behavior by combining
+%   the subjective view with the auxiliary state of a special kind of
+%   ``twin-symmetric'' histories that capture the inherent symmetry of
+%   an exchanging program. In the case of QC and QC we use histories
+%   that directly store the relevant aspects of the interfering
+%   threads, and allow us to derive, as a consequence out of the spec,
+%   the expected QC and QQC properties. Expand here as much as you
+%   want. Then say something brief like: all these patterns can be
+%   uniformly expressed as special cases of the algebraic structure of
+%   PCMs, further supported by concurrent protocols that specify
+%   application-specific interference. But don't dwell too much on that
+%   part?}
+% %
+% \is{Okay, good, this seems like more or less what I'd write for
+%   now. What about histories? When should we state precisely what are
+%   they for us (currently, this comes in the second paragraph below)?
+%   How about we start this subsection by saying right away that
+%   \emph{subjectivity} and \emph{histories-as-state} are the enabling
+%   tools we take from previous works? } 
+% %
+% \an{Let me not refer to the paragraphs below, as things look quite out
+%   of place now. So its bound to be confusing. In general, histories
+%   should come right after subjectivity, but before we start describing
+%   the flavors of ``twin-symmetric'', or ``interference-dependent''
+%   histories, etc. One can introduce them briefly: time-stamped
+%   histories describe what happened at a time-stamp $t$. The
+%   ``contents'' of $t$ can be diverse: atomic operation, twin-symmetric
+%   exchange, some information about the behavior of threads at that
+%   moment. In the previous work, we only explored the atomic-operation
+%   aspect, but in this paper, we see that different definitions of
+%   histories can encode different consistency criteria. The common
+%   thread to all, however, is the PCM algebraic structure, etc, etc.}
+
+% \an{I'm vacillating a bit about saying that subjectivity is ``in stark
+%   contrast'' to the correctness-condition approach, because
+%   correctness-conditions approach approximates by sequential
+%   behavior. It is in stark contrast to linearizability (and we should
+%   say that), but certainly not to CAL. Have to think more about what
+%   the real contrast is with all these conditions? Maybe its auxiliary
+%   state of histories giving us a way to capture temporal reasoning
+%   that's the foundation of all these criteria?}
+
+% In the FCSL program logic, specifications (specs) contain
+% preconditions and postconditions, as well as a ``concurrent protocol''
+% or ``concurrent resource''. This last component defines the invariants
+% of the shared state that are respected by all concurrent threads,
+% and/or the allowed state changes that the threads can make, as
+% directed by the
+% protocol~\cite{Jones:TOPLAS83,OHearn:TCS07,Turon-al:ICFP13}. To ensure
+% thread-locality of the specs, the preconditions and postconditions
+% must be stable with respect to the concurrent protocol, \ie, they
+% should be invariant under possible changes that interfering
+% environment threads can make to the shared state according to the
+% protocol.
+
+% As observed in recent works on program
+% logics~\cite{Sergey-al:ESOP15,Gotsman-al:ESOP13,Fu-al:CONCUR10,Bell-al:SAS10},
+% histories can be represented as instances of auxiliary state. Instead
+% of call/return histories, FCSL specs use time-stamped histories. Such
+% histories are indexed by discrete time-stamps that ``point to'' atomic
+% operations: the histories describe relevant atomic changes in the
+% logical state of a concurrent object. Moreover, as recently
+% established~\cite{Sergey-al:ESOP15}, reasoning about time-stamped
+% histories follows exactly the same patterns that reasoning about heaps
+% follows in separation logic~\cite{Reynolds:LICS02}. Histories and
+% heaps thus share the same assertion logic, the same rules of
+% inference, and thus the same style of local reasoning.
+% %
+% In contrast to previous work, this paper considers histories that need not be
+% linearizable. Indeed since they are instances of auxiliary state, histories can
+% store additional logical information, such as \emph{quantitative aspects} of
+% the expected interference. We demonstrate how to define
+% invariants of concurrent objects in a manner that constrains the real
+% and auxiliary state, and to thereby capture a suitable specification
+% set of histories, such as, \eg, a \emph{concurrency-aware}
+% one~\cite{Hemed-Rinetzky:PODC14}. In combination with the possibility
+% to describe the allowed changes in the real and auxiliary state of an
+% object, this yields a technique to express and verify the diverse
+% consistency conditions on histories such as CAL, QC and QQC.
+% % \ab{Not sure about this last
+% %   sentence. Need more
+% %   ammo here. Do the examples only show extension with additional
+% %   logical information? What are the novel reasoning patterns
+% %   uncovered?}
+% %
+% % \is{By the way, should we emphasize somewhere around here that our
+% %   histories are not of calls/returns. Even though it's somewhat said
+% %   above, someone can get confused, as the word ``history'' is highly
+% %   overloaded in the literature.}
+
+% \paragraph{Why FCSL?} 
+
+% The key ingredient of FCSL that captures the essence of most of these
+% consistency conditions is
+% \emph{subjectivity}~\cite{LeyWild-Nanevski:POPL13}. The notion
+% facilitates local reasoning by differentiating between thread-local
+% contributions and the contributions of the thread's concurrent
+% environment. This split leads to a direct way of relating the
+% functional behavior of a program to the interference of its
+% environment. Subjectivity allows, in \emph{thread-local} assertions,
+% quantification over the arbitrary effects produced by \emph{other}
+% interfering threads, as well as the ``shape'' of the environment (\eg,
+% the number of threads running concurrently with the one being
+% specified). In addition to its native support of subjectivity, FCSL
+% also possesses a uniform model of thread-local resources, based on
+% PCMs. The PCMs can be instantiated to reason about arbitrary state,
+% auxiliary or real, such as heaps, thread capabilities, and histories.
+% Finally, FCSL has been implemented as a mechanized tool for concurrency
+% verification~\cite{Sergey-al:PLDI15}, enabling provably sound
+% computer-aided reasoning about concurrent objects, whose state
+% invariants can be complex.
+% \end{comment}
+
+
+% \an{It sounds like we also need to work in the word
+%   \emph{subjectivity}, in order to express what's new in our approach,
+%   and why the previous work didn't quite succeed in capturing what we
+%   propose. The point should be that quiescent consistency, and others,
+%   just naturally want to have access to the contributions of others.}
+%
+% \is{okay, check the paragraphs above and below.}
+%
+%
+
+%
+% \an{Throw in the word "separation logic" somewhere here, to make the
+%   point of our observation more precise. Strictly speaking, that you
+%   can have histories as ghosts was an old observation (they even call
+%   them "history variables" in the model checking works). Our
+%   observation was that \emph{separation logic} can natually and
+%   compositionally handle history variables, using the algebraic
+%   structure of PCMs.}
+%
+
+% \an{This section reads meekly, but it's the
+%   most important one.  It should be strenghtened by bringing up the
+%   points about subjectivity further above, as I said.  Subjectivity as
+%   a crucial and most important idea, which makes all the
+%   difference. If we don't mention it, peple like Noam Rinetzky or
+%   Cesar Sanches will not get the feel of what's different.
+%   Subjectivity is the delta that makes us succeed where everyone else
+%   went into wrong directions.  Also, we should be more proud of our
+%   work. It doesn't matter if "other logics" could have been
+%   used. Subjectivity has been invented by SCSL and in the fine-grained
+%   setting by FCSL. Just because some copy-cats later decided to
+%   implement it in their logics doesn't mean we should bow to them. So
+%   I think we don't need to mention "other logics can do it" part. Just
+%   say that we use FCSL to explain the ideas of this paper, because
+%   FCSL is based on, and introduced the idea of subjectivity.  Of
+%   course, this should be done after subjectivity has been promoted
+%   further above as the main idea that makes everything fly.}
+
+% \paragraph{Outline.}
+% %\label{sec:contr-paper-outl}
+% \an{The examples that we cover could be folded into the above
+%   description of the different kind of histories we use. That would
+%   probably make a separate outline section unnecessary.}
+% Recent concurrent program logics such as
+% HOCAP~\cite{Svendsen-al:ESOP13}, iCAP~\cite{Svendsen-Birkedal:ESOP14}
+% have shown, using the parametrization technique (see
+% Section~\ref{sec:related}), that when reasoning about concurrent
+% objects, linearizability can be replaced by Hoare-style program
+% specifications. It is an open question whether parametrization can
+% scale to the alternative consistency criteria such as CAL, QC and QQC.
+% The main contribution of this paper is to show that FCSL can be used
+% to reason about highly parallel, non-linearizable concurrent objects
+% as well, while incorporating CAL, QC and QQC.
+
+% In the remainder of the paper, % we demonstrate the viability of the
+% % logic-based approach for defining correctness conditions for highly
+% % parallel concurrent objects by
+% we formally specify and verify two
+% concurrent data structures: an \emph{elimination-based exchange
+%   channel}~\cite{Scherer-al:SCOOL05} and a simple \emph{counting
+%   network}~\cite{Aspnes-al:JACM94}, whose behavior was previously
+% described only in terms of dedicated
+% criteria~\cite{Hemed-Rinetzky:PODC14,Derrick-al:FM14,Jagadeesan-Riely:ICALP14}.
+% We then argue for the adequacy of the provided specs by modularly
+% verifying a series of concurrent client programs, which employ these
+% data structures. Specifically in this work we
+
+% \vspace{2pt}
+
+% \begin{itemize}
+
+% % \item describe a series of novel reasoning patterns that unify
+% %   state-based and history-based approaches for specification and
+% %   verification of concurrent objects. \is{With that part of the intro removed,
+% %     it's not clear how these two approaches are different.}
+
+% \item provide the first formal logic-based spec of an
+%   \emph{elimination-based concurrent
+%     exchanger}~\cite{Scherer-al:SCOOL05} in the spirit of
+%   CAL~\cite{Hemed-Rinetzky:PODC14} (Section~\ref{sec:overview});
+
+% \item specify and formally verify a realistic client of the
+%   exchanger adapted directly from the \code{java.util.concurrent}
+%   library documentation~\cite{ExchangerClass} (Section~\ref{sec:cal}).
+
+% \item give the first logical spec to a simple \emph{counting
+%     network}~\cite{Aspnes-al:JACM94} (Section~\ref{sec:counting}) and
+%   verify two its clients, making use of the proved specification in
+%   the spirit of QC~\cite{Derrick-al:FM14} and
+%   QL/QQC~\cite{Afek-al:OPODIS10,Jagadeesan-Riely:ICALP14}
+%   (Section~\ref{sec:qclients}).
+
+% \item supply all examples from the paper with proof scripts that
+%   were mechanically checked in the Coq proof
+%   assistant~\cite{Coq-manual,Bertot-Casteran:BOOK,Sergey-al:PLDI15}.
+
+% \end{itemize}
+
+% \vspace{2pt}
+
+
+% \an{We should have in the intro with a paragraph like follows: That
+%   linearizability can adequatly be replaced by Hoare-style reasoning
+%   has been already argued by the previous work on HOCAP and ICAP,
+%   which employ the method of parametrization (to be skethed in the
+%   related work section). In this paper, we argue that similar
+%   replacement can be carried out for three other alternative
+%   consistency criteria such as Concurrency-aware linearizability
+%   (CAL), quiescent consistency, and quantitative quiescent
+%   consistency. Moreover, the last two consistency criteria seem
+%   impossible to address by a method of parametrization, at least
+%   without some significant and complicated meta-theoretic additions
+%   (e.g., prophecy variables), whereas here we show how they can be
+%   easily supplanted using reasoning based on subjectivity combined
+%   with histories.}
+
+% \is{I disagree with the remark by Aleks almost entirely. First, I'm
+%   sick and tired of giving credit to CAP-like approaches for something
+%   they don't have enev a slight idea how to do. While I'll most
+%   certainly put something on them into the related work, I don't want
+%   to have enything on them in the intro, otherwise there will be
+%   another round of what we've seen already a year ago.
+% %  
+%   Second, I don't think that remark on prophecies is sound: the
+%   counting network example doesn't have anything reminiscent to
+%   prophecy-requiring linearization points. That is, any comparison to
+%   LP-based methods, as they're done in CAP, is dangerous and
+%   misleading, as (a) they might be able to do it via some other
+%   callback-related mumbo-jumbo (or they might not, but we'll get a
+%   strong reject on that grounds anyway, just like the last tim), or
+%   (b) they indeed cannot do it, but this fact has nothing to with with
+%   their prophecies-related troubles. 
+% %
+%   Finally, the only people who will be able to understand this
+%   comments are those who will give us strong reject because of it
+%   (just like the last time). That is why I suggest us to focus bringin
+%   Henzinger and Rinetzky-like crown on our side by speaking the
+%   language they understand.
+% %
+%   So, the bottom line: I'm strongly against any specific on
+%   CAP-related logics or any of this stuff in the intro.
+% }
+
+% \an{Gee, that's a strong sentiment. I will just reiterate that HOCAP
+%   and ICAP have suggested that Hoare logic should replace
+%   linearizability. It seems prudent to be generous and give them
+%   credit for that, especially as it doesn't cost us anything
+%   (basically, just one line of space), and doesn't diminish from our
+%   contribution at all. A year ago, we got rejected form POPL precise
+%   because we didn't have a forward-pointer in the intro to the related
+%   work section, where the comparison was done. They accused us in the
+%   after-rebutal comment of setting '`wrong expectations'' in our
+%   intro. After that, in the ESOP version, we did put the forward
+%   pointer. So, I really don't think a forward pointer would hurt us
+%   here, and can only help. As for prophecies, I just put them as a
+%   side comment. I don't think we really have to mention them. We could
+%   simply say that its unclear that parametrization can be used to
+%   handle quiescense and quantitativeness, wihtout speculiating what's
+%   needed to fix that. I do personally think that prophecies will
+%   probably be OK for that, if they can get them. But then, I think
+%   they'll never get them, precisely because subjectivity and histories
+%   is what you need here :-). As for Henzinger and Rinetzky crowd:
+%   well, Philippa will be reviewing this, so expect to get someone from
+%   the CAP crowd too.}
+% \an{I removed the discussion on the forward pointer. The new intro
+%   quite directly side-steps linearizability in the third paragraph, so
+%   discussing other Hoare logics for linearizability seems
+%   unnecessary.}
+
+
+
+%\lipsum[1-4]

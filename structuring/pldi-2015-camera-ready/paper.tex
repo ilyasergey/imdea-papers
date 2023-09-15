@@ -1,0 +1,225 @@
+\ifdefined\crflag
+  \documentclass{sigplanconf1}
+\else
+  \ifdefined\psflag
+    \documentclass{sigplanconf}
+  \else 
+    \documentclass[reprint]{sigplanconf}
+  \fi
+\fi
+
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage{latexsym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{listings}
+\usepackage{float}
+\usepackage[scaled]{helvet}
+\usepackage[noend]{algorithmic}
+\usepackage{mathrsfs}
+\usepackage{mathpartir}
+\usepackage{dsfont}
+\usepackage{stmaryrd}
+\usepackage{textcomp} 
+\usepackage{url} 
+\usepackage{hyperref} 
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{alltt}
+\usepackage{bbm}
+\usepackage{alltt}
+\usepackage{verbdef}
+\usepackage{xspace}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage{lipsum}
+\usepackage{epstopdf}
+\usepackage[strut=on,labelfont=bf]{caption}
+\usepackage{balance}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage[absolute,overlay]{textpos}
+\usepackage{breakurl}
+
+% \floatstyle{plaintop}
+% \restylefloat{table}
+
+
+% This is how you balance columns at the end:
+%\usepackage{flushend}
+
+% \bibpunct();A{},
+% \let\cite=\citep
+
+% For turned column headers 
+\usepackage{adjustbox} 
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{pifont}
+%\usepackage[firstpage]{draftwatermark}
+ 
+
+\input{defs}
+
+% Keep footnotes on one page
+\interfootnotelinepenalty=10000 
+
+\setlength{\parindent}{0.15in}
+\setlength{\topsep}{0cm}
+\setlength{\parskip}{0pt}
+
+% \titlespacing*{\section}{0pt}{*0.8}{*0.8} 
+% \titlespacing*{\subsection}{0pt}{*0.8}{*0.5}
+% \titlespacing*{\subsubsection}{0pt}{*0.8}{*0.5}
+% \titlespacing*{\paragraph}{0pt}{*0.3}{*0.3}
+
+% SSReflect listings 
+\input{lstcoq}
+\lstset{style=Coq}
+
+% Hyphenation
+\hyphenation{Veri-Fast}
+
+% Bibtgex tweaks
+%\setcitestyle{square}
+\defcitealias{Coq-manual}{Coq proof assistant}
+
+\begin{document}
+
+\conferenceinfo{PLDI'15}{June 13--17, 2015, Portland, OR, USA}
+\CopyrightYear{2015}
+\crdata{978-1-4503-3468-6/15/06}
+\doi{2737924.2737964}
+
+\special{papersize=23.5cm,18cm}
+\setlength{\pdfpageheight}{\paperheight}
+\setlength{\pdfpagewidth}{\paperwidth}
+
+
+% \authorinfo{~~~~~~Ilya Sergey~~~~~~~~~~~~Aleksandar Nanevski~~~~~~~~~~~~Anindya Banerjee}
+%            {IMDEA Software Institute~~~~~~~} 
+%            {\{ilya.sergey, aleks.nanevski, anindya.banerjee\}@imdea.org} 
+
+\ifdefined\crflag
+\authorinfo{Ilya Sergey}
+           {IMDEA Software Institute, Spain}
+           {ilya.sergey@imdea.org}
+
+\authorinfo{Aleksandar Nanevski}
+           {IMDEA Software Institute, Spain}
+           {aleks.nanevski@imdea.org}
+
+\authorinfo{Anindya Banerjee}
+           {IMDEA Software Institute, Spain}
+           {anindya.banerjee@imdea.org}
+
+
+\else
+\authorinfo{Ilya Sergey}
+           {IMDEA Software Institute}
+           {ilya.sergey@imdea.org}
+
+\authorinfo{Aleksandar Nanevski}
+           {IMDEA Software Institute}
+           {aleks.nanevski@imdea.org}
+
+\authorinfo{Anindya Banerjee~~~~~~~~~~~~~~}
+          {IMDEA Software Institute~~~~~~~~~~~~~~~~~~}
+          {anindya.banerjee@imdea.org~~~~~~~~~~~~~~~~~~~~}
+\fi
+
+\ifdefined\psflag
+   \title{
+    \!Mechanized Verification of Fine-Grained Concurrent Programs 
+   }
+\else
+  \ifdefined\crflag
+   \title{
+    \!Mechanized Verification\\ of Fine-Grained Concurrent Programs 
+   }
+  \else 
+   \title{Mechanized Verification of Fine-grained Concurrent Programs}
+  \fi
+\fi
+
+\ifdefined\psflag
+\else
+  \ifdefined\crflag
+  \else 
+    \begin{textblock}{2.5}(15.1,3.3)
+    \includegraphics[scale=0.1]{aec-badge-pldi.pdf}
+    \end{textblock}
+  \fi
+\fi 
+
+\maketitle
+
+\begin{abstract}
+ 
+  Efficient concurrent programs and data structures rarely employ
+  coarse-grained synchronization mechanisms (\ie,~locks); instead,
+  they implement custom synchronization patterns via fine-grained
+  primitives, such as \emph{compare-and-swap}.
+  % 
+  Due to sophisticated interference scenarios between threads,
+  reasoning about such programs is challenging and error-prone, and
+  can benefit from mechanization.
+  
+  In this paper, we present the first completely formalized framework for
+  mechanized verification of \emph{full functional correctness} of
+  fine-grained concurrent programs. Our tool is based on the recently
+  proposed program logic FCSL.
+  %
+  It is implemented as an embedded domain-specific language in the
+  dependently-typed language of the Coq proof assistant, and is
+  powerful enough to reason about programming features such as
+  higher-order functions and local thread spawning. By incorporating a
+  uniform concurrency model, based on \emph{state-transition systems}
+  and \emph{partial commutative monoids}, FCSL makes it possible to
+  build proofs about concurrent libraries in a thread-local,
+  compositional way, thus facilitating scalability and reuse:
+  libraries are verified \emph{just once}, and their specifications
+  are used ubiquitously in client-side reasoning.
+  %
+  We illustrate the proof layout in FCSL by example, and report on our
+  experience of using FCSL to verify a number of concurrent programs.
+
+\end{abstract}
+
+\vspace{-2pt}
+%
+\category{D.3.1}{Programming Languages}{Formal Definitions and Theory}
+%
+\category{F.3.1}{Logics and Meanings of Programs}{Specifying and
+  Verifying and Reasoning about Programs}
+
+\vspace{-2pt}
+%
+\terms Algorithms, Theory, Verification
+
+\vspace{-2pt}
+%
+\keywords Compositional program verification, concurrency, separation
+logic, mechanized proofs, dependent types.
+
+\vspace{-2pt}
+
+\input{intro}
+\input{overview}
+\input{development}
+\input{more}
+\input{underhood}
+\input{evaluation}
+\input{related}
+\input{conclusion}
+
+%\newpage
+
+\setlength{\bibsep}{2pt}
+\bibliographystyle{abbrv}
+\softraggedright
+\bibliography{bibmacros,references,proceedings}
+
+\end{document}
+
+

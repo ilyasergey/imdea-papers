@@ -1,0 +1,739 @@
+
+\section{Outline of the mechanized development}
+\label{sec:devel}
+
+We next discuss how the above informal overview is mechanized in
+Coq. We start with the definition of \code{span_tp} and proceed to
+explain all of its components.
+%
+%At the level of using the tool, we illustrate how the power to
+%combine proofs and programs enables building formal infrastructure for
+%concurrent reasoning, such as concurroids and atomic actions. At the
+%level of concurrency reasoning, we illustrate that our way of
+%splitting the state into \emph{self}, \emph{joint} and \emph{other},
+%leads to very simple and natural way to specify the various
+%subcomponents that go into the implementation and proof of
+%\code{span}. These two points together substantiate that FCSL
+%abstractions are practically \emph{expressive} and can support
+%straightforward specification and \emph{compositional} (\ie, divisible
+%into libraries) and \emph{foundational} (\ie, from first principles)
+%mechanized verification, of intricate programs that utilize
+%\emph{realistic} fine-grained concurrent features.
+%
+The specifications and code shown will be very similar to what's in
+our Coq files, though, to improve presentation, we occasionally take
+liberties with the order of definitions and notational
+abbreviations. We do not assume any familiarity with Coq, and explain
+the code displays as they appear. We also omit the proofs and
+occasional auxiliary definitions, which can be found in the FCSL code,
+accompanying the paper.
+
+\paragraph{The definition of the type}~\code{span_tp} is given in
+Figure~\ref{fig:span_tp}.
+%
+It is an example of a \emph{dependent type}, as it takes formal
+arguments in the form of variables \code{x}, \code{i} and \code{g1},
+that the body of the type can use, \ie, \emph{depend on}.  The roles of
+the variables differ depending on the keyword that binds them.
+%
+For example, the Coq keyword \code{forall} binds the variable \code{x}
+of type \code{ptr}, and indicates that \code{span_tp} is a
+specification for a procedure that has \code{x} as input. Indeed,
+\code{span} is exactly such a procedure, as apparent from
+Section~\ref{sec:overview}. Using \code{forall} to bind \code{x}
+allows \code{x} to be used in the body of \code{span_tp}, \emph{but
+  also in the body} of \code{span} (Figure~\ref{fig:coq-span}).
+%
+On the other hand, \code{i} and \code{g1} are bound by FCSL binder
+\code{\{...\}}. This binding is different; it allows \code{i} and
+\code{g1} to be used in the body of \code{span_tp}, \emph{but not in
+  the procedure} \code{span}. In terminology of Hoare-style logic,
+\code{i} and \code{g1} are \emph{logical variables}
+(aka.~\emph{ghosts}), which are used in specs, but not in the code.
+%
+\code{STsep} is a Coq macro, defined by FCSL announcing that what
+follows is a Hoare-style partial correctness specification for a
+concurrent program. The component \code{SpanTree sp} in the brackets
+is the concurroid whose protocol \code{span_tp} respects. We will
+define \code{SpanTree} shortly. Finally, the parentheses
+include the precondition and the postcondition (defined as Coq's
+\code{fun}ctions) that we want to ascribe to \code{span}. The
+precondition is a predicate over the pre-state \code{s1}. The
+postcondition is a predicate over the boolean result \code{r} and
+post-state \code{s2}. As customary in many programming languages, Coq
+included, we omit the types of various variables when the system can
+infer them (\eg, the variables \code{i}, \code{s1} and \code{s2} are
+all of type \code{state}).
+
+The precondition says that the input \code{x} is either \code{null}
+(since \code{span} can be called on a leaf node), or belongs to the
+domain of the input heap, and hence is a valid node in the
+heap-represented graph. The heap is computed as the projection
+\code{joint} out of the input state \code{s1}, which \code{i}
+snapshots.  The projections \code{self} and \code{other} are sets of
+marked nodes, belonging to the caller of \code{span} and to its
+environment, respectively.
+
+{\setlength{\belowcaptionskip}{-10pt} 
+\begin{figure}[t!]
+{\centering 
+%[basicstyle=\footnotesize\ttfamily]
+\begin{lstlisting}
+Definition span_tp := forall (x : ptr),
+  {i (g1 : graph (joint i))}, STsep [SpanTree sp] 
+    (*  precondition predicate   *)
+    (fun s1 => i = s1 /\ (x == null \/ x \in dom (joint s1)), 
+    (*  postcondition predicate *)
+     fun (r : bool) s2 => exists g2 : graph (joint s2), 
+       subgraph g1 g2 /\ 
+       if r then x != null /\ exists t,
+         self s2 = self i \+ t /\ tree g2 x t /\ 
+         maximal g2 t /\ front g1 t (self s2 \+ other s2)
+       else (x == null \/ mark g2 x) /\ self s2 = self i). 
+\end{lstlisting}
+\vspace{-7pt}   
+}
+\caption{Specification \code{span_tp} of the \code{span} procedure.}
+\label{fig:span_tp}
+\end{figure}
+}
+%
+The postcondition says that in the case the return result is \code{r =
+  false}, the pointer \code{x} was either \code{null} or already
+marked. Otherwise, there is a set of nodes \code{t} which is freshly
+marked by the call to \code{span}; that is, \code{self s2} is a
+\emph{disjoint union} (\code{\\+}) of \code{t} with the set of nodes
+marked in the pre-state \code{self i}. The set \code{t} satisfies
+several important properties.
+%
+First, \code{t} is a subtree in the graph, \Code{g2}, of the
+post-state \code{s2}, with root \code{x}. Second, the tree \code{t} is
+\emph{maximal}, \ie, it cannot be extended into a larger tree by
+adding more nodes from \code{g2}, as all the edges between \code{t}
+and the rest of the graph have been severed by \code{span}. Third, all
+the nodes immediately reachable from \code{t} in the \emph{initial}
+state \code{i} (\ie, \code{t}'s front) are marked in \code{g2} either
+by this or some other thread (\code{self s2 \\+ other s2}). That is,
+\code{span} did not leave any reachable nodes unmarked; if such nodes
+existed, \code{span} would not have terminated.
+%
+Finally, in both cases, \code{subgraph g1 g2} states that the final
+graph \code{g2} is obtained by marking nodes and removing edges from
+the initial graph \code{g1}; no new edges are added, or nodes
+unmarked.
+
+We close the description of \code{span_tp} by noting its interesting
+\emph{bi-directional} nature. It contains properties such as
+\code{tree} and \code{maximal}, stated over the post-state graph
+\code{g2} (forward direction), but also the property \code{front}
+which is stated of the pre-state graph \code{g1}, and can be stated
+only in relation to \code{s2} (backward
+direction). The backward direction is a crucial component in the proof
+that the top-most call to \code{span}, shielded from interference by
+\textsf{hide}, indeed marked all the nodes and, hence, constructed a
+spanning tree.
+
+%The proof of this spec of the \code{span} program is about 200 LOC of
+%Coq proof script, which is mostly dedicated to splitting
+%\emph{self}-contributions between parallel threads and combining them
+%upon their termination. Importantly, the specifications for recursive
+%calls relate the initial/final graph \wrt the recursive calls
+%themselves, but \emph{not} the initial/final graph of the enclosing
+%call. This is why we need to reason in terms of forwards/backwards
+%stability, described previously, to derive, in particular, the
+%assertion about \code{front} at the \emph{end} \code{span}'s body from
+%the postcondition of a recursive call to \code{loop}.
+
+\paragraph{Representing graphs in a heap.~~}
+Next we define the predicate \code{graph h}, which appears in
+\code{span_tp} (Figure~\ref{fig:span_tp}), and says when a heap
+\code{h} represents a graph. It does so if every pointer \code{x} in
+\code{h} stores some triple \code{(b, xl, xr)}, where \code{b} is the
+``marked'' bit, and \code{xl}, \code{xr} are pointers in the domain of
+\code{h} (and, hence, are \code{x} itself or other nodes), or
+\code{null} if \code{x} has no successors. 
+%
+\begin{lstlisting}
+Definition graph (h : heap) := valid h /\ 
+  forall x, x \in dom h -> exists (b : bool) (xl xr : ptr),
+      h = x :-> (b, xl, xr) \+ free x h /\
+      {subset [:: xl; xr] <= [:: null] ++ dom h}.   
+\end{lstlisting}
+%
+The conjunct \code{valid h} says that the heap \code{h} doesn't contain duplicate
+pointers. The notation \code{\\+} is overloaded and used for disjoint
+union of sets of nodes in \code{span_tp}, and for disjoint union of
+heaps in \code{graph}. In general, we use \code{\\+} for any PCM
+$\pcmF$ operation.  \code{free x h} is the heap obtained by
+deallocating \code{x} from \code{h}.  Finally, the last line is
+concrete syntax for $\small{\{\mathtt{xl, xv}\} \subseteq \{\mathtt{null}\}
+\cup \mathtt{dom\ h}}$.
+%
+%\an{Maybe remove \code{free x h} in favor of an extra heap variable.}
+
+The \code{graph} predicate illustrates \emph{certified programming} in
+Coq~\cite{Chlipala:BOOK}, \ie, the ability to use propositions as
+types, and pass variables such as \code{g1} and \code{g2} that stand
+for \emph{proofs} of the \code{graph} property, as inputs to other
+types (\eg, \code{span_tp}) or functions. This ability enables
+formally defining \emph{partial} functions over heaps that are
+undefined when the heap doesn't encode a valid graph. An alternative
+to this somewhat unique capability of dependent types, is to encode
+partial functions as relations, but that usually results in increase
+in proof tedium and size.
+
+Here are a few examples of such partial functions. Given a node (\ie,
+a pointer) \code{x} and a proof that the heap \code{h} represents a
+graph (written (\code{g : graph h})), we name \code{mark g x},
+\code{edgl g x} and \code{edgr g x} the three components stored in the
+pointer \code{x} in the heap (\ie, the ``marked'' bit, left, right
+successor), and write \code{contents g x} for the whole triple.  By
+default, these values are \code{false}, \code{null}, \code{null} if
+\code{x} is not in the heap.
+%
+Each of these functions takes \code{h} as an argument; \ie, one could
+also write \code{mark h g x} \etc., but we omit \code{h} as it can be
+inferred from \code{g}'s type, following Coq's standard notational
+abbreviation.
+
+We can now define the remaining predicates used in \code{span_tp} in
+Figure~\ref{fig:span_tp}. For all of the definitions, we assume that variables
+\code{h} and (\code{g : graph h}) are in scope, and omit them. We also use
+\code{ptr_set} as an alias for finite maps from pointers to the unit
+type.\footnote{This is a bit expedient way of implementing finite
+  sets, but it saves work by reusing an extensive library of finite
+  maps, also used for formalizing heaps.}
+
+First, we define the function \code{edge}, which represents the
+incidence relation for the graph \code{g}.
+%
+\begin{lstlisting}
+Definition edge (x y : ptr) := 
+  (x \in dom h) && (y != null) && (y \in [:: edgl g x; edgr g x]).
+\end{lstlisting}
+% (The last conjunct is Coq syntax for \code{y} is an element of the
+%union of the two sets \code{edgl g x} and \code{edgr g x}.)
+%\ab{Check.} \an{Erased the comment to save space. Up above we now
+%discuss this notation a bit, so hopefully doing it once will suffice
+%for the reader to orient herself here.}
+Second, \code{tree x t} requires that \code{t} contains \code{x}, and
+for any node \code{y}~$\in$~\code{t}, there exists a unique path (\ie,
+a list of nodes) \code{p} from \code{x} to \code{y} via \code{edge}'s
+links, which lies within the tree (\ie, the nodes \code{p} are a subset
+of~\code{t}). Note how \code{edge} is \emph{curried}, \ie, passed to
+\code{path} as a function, abstracted over arguments. This illustrates
+that even simple mathematical mechanizations require higher-order
+functions in order to~work.
+%
+\begin{lstlisting}
+Definition tree (x : ptr) (t : ptr_set) := x \in dom t /\
+  forall y, y \in dom t -> exists !p, 
+    path edge x p /\ y = last x p /\ {subset p <= dom t}.   
+\end{lstlisting} 
+%
+%
+Third, \code{front\ t t'}, determines if the nodes reachable from
+\code{t} in \emph{zero or one step} are included in \code{t'}.
+%
+\begin{lstlisting}
+Definition front (t t' : ptr_set) :=
+  {subset dom t <= dom t'} /\
+  forall x y, x \in dom t -> edge x y -> y \in dom t'. 
+\end{lstlisting}
+%
+Fourth, a tree \code{t} is maximal if it includes its front. A graph
+is connected if there's a path from \code{x} to every other node in it.
+\begin{lstlisting}
+Definition maximal (t : ptr_set) := front t t.
+Definition connected (x : ptr) (t : ptr_set) := forall y : ptr, 
+  y \in dom t -> exists p, path edge x p /\ last x p = y.
+\end{lstlisting}
+%
+Finally, \code{subgraph} codifies a number of properties between
+pre-state \code{s1} and post-state \code{s2}, and their graphs
+\code{g1}, \code{g2}. In particular: \code{g1}, \code{g2} contain the
+same nodes (\code{=i} is equality on lists modulo permutation), the
+set of self-marked and other-marked nodes only increase, edges out of
+a node \code{y} can be changed only if the node is marked, and the
+only change to the edges is nullification (that is, removal).
+\begin{lstlisting}
+Definition subgraph s1 s2 
+  (g1 : graph (joint s1)) (g2 : graph (joint s2)) :=
+  dom (joint s1) =i dom (joint s2) /\
+  {subset dom (self s1) <= dom (self s2)} /\
+  {subset dom (other s1) <= dom (other s2)} /\
+  (forall y, ~~(mark g2 y) -> contents g1 y = contents g2 y) /\
+  (forall x, (edgl g2 x \in [:: null; edgl g1 x]) /\
+              (edgr g2 x \in [:: null; edgr g1 x])).
+\end{lstlisting}
+
+We close the description of the predicates used in \code{span_tp}, by
+listing two important lemmas that relate them. The first lemma,
+%
+%\code{front_leq} lemma says that \code{front} is monotone \wrt its
+%second argument. 
+\code{max_tree2}, says that if \code{y1} and \code{y2} are
+successors of \code{x} (\ie, \code{edge x} equals the set \code{[::
+  y1; y2]} %\ab{Avoid the Coq syntax?} \an{Hmm. If I did it may be
+% unclear what the syntax is refering to in the listing}
+modulo permutation), and \code{ty1} and \code{ty2} are maximal trees
+rooted in \code{y1} and \code{y2}, and moreover, \code{ty1} and
+\code{ty2} are disjoint, then the set of nodes built from \code{x},
+\code{ty1} and \code{ty2} by disjoint union (\code{\\+}) is a tree
+itself, \ie, no edges connect \code{ty1} and \code{ty2} (the notation
+\code{#x} is concrete syntax for the singleton finite map containing
+node \code{x}).  This lemma is essential in proving that \code{span}
+produces a tree, as mentioned in Section~\ref{sec:overview} for the
+case $r_l\,{=}\,r_r\,{=}\,\mathtt{\small{true}}$.
+%
+%Lemma front_leq t t1 t2 : 
+%  {subset dom t1 <= dom t2} -> front t t1 -> front t t2.
+%
+\begin{lstlisting}
+Lemma max_tree2 x y1 y2 ty1 ty2 : 
+  edge x =i [:: y1; y2] ->  tree y1 ty1 -> maximal ty1 ->
+  tree y2 ty2 -> maximal ty2 -> valid (ty1 \+ ty2) -> 
+  tree x (#x \+ ty1 \+ ty2).
+\end{lstlisting}
+The second lemma shows that \code{subgraph} is monotone \wrt~the
+stepping of environment threads in the \code{SpanTree} concurroid.
+%
+\begin{lstlisting}
+Lemma subgraph_steps s1 s2
+  (g1 : graph (joint s1)) (g2 : graph (joint s2)) :
+  env_steps (SpanTree sp) s1 s2 -> subgraph g1 g2.
+\end{lstlisting}
+We used this lemma as the main tool in establishing a number of
+stability properties in Coq, related to the conjuncts from the
+definition of \code{subgraph g1 g2}. For example, the lemma implies
+that if \code{x} is a node of \code{joint s1}, then it is so in a
+stable manner; that is, \code{x} is a node in \code{joint s2} for any
+\code{s2} obtained from \code{s1}, by environment interference.
+
+%property; that is, it holds of states \code{s1}, \code{s2}
+%(and their graphs), if the concurroid can be moved from \code{s1} to
+%\code{s2} by the environment threads (\ie, changing \emph{other}) in
+%arbitrarily many steps.
+%\ab{Unclear, rewrite this. \code{env\_steps} not defined. Perhaps want
+%  to say that each of the conjuncts in \code{subgraph} implies a
+%  stability property? The first one says \code{i} $\in$ \code{dom s1}
+%  implies \code{i} $\in$ \code{dom s2}.}
+
+
+\paragraph{\emph{\texttt{SpanTree}} concurroid.~~}
+\label{sec:graph-conc-coher}
+
+% \todo{Rework this section in the same style as the actions one. That is: 
+% (1) Say that the coherence predicate is essentially the state space. 
+% (2) Go through some selected predicates in it, \eg, validH, validSO. 
+% (3) Show how the transitions are formally implemented. No need to
+% explain the intuition for them again, as that has already been given
+% in the Overview section.
+% (4) Say that our signatures require that a bunch of properties of
+% transitions be proved, before an ordinary relation can be promoted
+% to a transition. If some are chosen to be expanded on, make sure
+% that they can be stated only in terms of concepts that have been
+% introduced. In particular, it's not OK to use \code{\\<} and
+% \code{\\>} without saying in more detail what they are, and perhaps
+% even giving their formal definitions in terms of the PCM operations.
+% (5) If no properties are chosen to be expanded on, just list some
+% names for them informally, as was done for actions. Eg., just say
+% that we have locality, frameability, invariance of other, etc. These
+% names can be found in the appendix to the ESOP'14 paper. As in
+% actions, these names will have some meaning to separation logic
+% people. Decide to expand or not expand on some of the properties,
+% depending on how much space we have. 
+% (6) All of that said, we probably should not expand here, but use
+% the space to expand on other sections, chiefly the description of
+% getters.}
+
+Next we define the \code{SpanTree} concurroid. Being an STS, the
+definition includes the specification of the state space, and
+transitions between states. In the case of concurroids, we have an
+additional component: \emph{labels} (semantically, natural numbers)
+that differentiate instances of the concurroid. Thus the
+definition of \code{SpanTree} is parametrized by the variable
+\code{sp}, which makes it possible to use several instances of
+\code{SpanTree} with different labels in a specification of a single
+program. For example, say we want to run two \code{span} procedures
+in parallel on disjoint heaps. Such a program could be specified by a
+Cartesian product of \code{SpanTree sp1} and \code{SpanTree sp2},
+where the different labels \code{sp1} and \code{sp2} instantiate the
+variable \code{sp}.
+
+The state space of \code{SpanTree} is defined by the following state
+predicate \code{coh}, which we call \emph{coherence predicate}.
+
+%
+%spanning tree concurroid \code{SpanTree} has already appeared in the
+%specifications of the \code{trymark} action and the \code{span_tp}
+%spec (Figure~\ref{fig:span_tp}) of \code{span}.
+%%
+%Its presence in the above types constrains the state space of
+%the programs being specified by defining which states are
+%considered to be \emph{coherent}, and what changes (\ie,
+%\emph{transitions}) can be made in the resource by the interfering
+%threads.
+%
+%A concurroid definition is parametrized by a \emph{label} (a natural
+%number) \code{sp}, making it possible to use several of its instances
+%with different labels in a single program (\eg, running two
+%\code{span} procedures in parallel on disjoint heaps).
+%%
+%The state space is defined via the \emph{coherence} predicate
+%\code{coh}:
+%
+\begin{lstlisting}
+Variable sp : nat.
+Definition coh s := exists g : graph (joint s), 
+  s = sp ->> [self s, joint s, other s] /\ 
+  valid (self s \+ other s) /\ 
+  forall x, x \in dom (self s \+ other s) = mark g x.  
+\end{lstlisting}
+%
+The coherence predicate codifies that the state \code{s} is a triple,
+\code{[self s,} \code{joint s,} \code{other s]}, and that it is
+labelled by \code{sp}. The proof \code{g} is a witness that the
+\code{joint} component is a graph-shaped heap.
+%
+The conjunct \code{valid (self s \\+ other s)} says that the
+\emph{self} and \emph{other} components of the auxiliary state are
+disjoint; their union is a finite map which is \code{valid}, \ie,
+doesn't contain duplicate keys.
+%
+Finally, the most important invariant is that a node \code{x} is
+contained in either \emph{self} or \emph{other} subjective view \Iff
+it's marked in the joint graph.
+%
+%In all of the previously shown specifications and action definitions,
+%we implicitly assumed the subject state to be coherent in the sence of
+%\code{coh}.
+
+The metatheory of FCSL~\cite[\S4]{Nanevski-al:ESOP14} requires the
+coherence predicates to satisfy several properties that we omit
+here, but prove in our implementation. The most important property is
+the \emph{fork-join closure}, stating that the state space is closed
+under realignment of \emph{self} and \emph{other} components. In other
+words, one may subtract a value from \emph{self} and add it to
+\emph{other} (and vice versa), without changing the coherence of the
+underlying state.
+
+%As a requirement imposed by FCSL's metatheory
+%soundness~\cite[\S4]{Nanevski-al:ESOP14}, a concurroid's coherence
+%predicate should satisfy a number of properties: the validity of
+%\emph{self} $\pcmF$ \emph{other} and of the captured heap, as well as
+%\emph{fork-join closure}, stating that the state-space is closed under
+%realignment of \emph{self} and \emph{other} (\ie, subtracting a part
+%of a state from one and adding is to another, and vice versa).
+
+%
+\code{SpanTree sp} contains two non-idle transitions. Transition
+\code{marknode_trans}, parametrized by the node \code{x}, 
+describes how an unmarked \code{x} is physically marked in the joint
+graph, and simultaneously added to the \emph{self} component.  The
+transition \code{nullify_trans} is parametrized by node \code{x} and
+the direction \code{c}, indicating the successor of \code{x} (left or
+right) that must be cut off from the graph. We omit the definitions of the
+functions \code{mark_node} and \code{null_edge} that describe the
+physical changes performed by the two transitions to the underlying
+shared graph. These can be found in the Coq code.
+%
+%
+\begin{lstlisting}
+Definition marknode_trans x s s' := exists g : graph (joint s),
+ ~~(mark g x) /\ joint s' = mark_node g x /\
+ self s' = #x \+ self s /\ other s' = other s /\ coh s /\ coh s'.  
+
+Definition nullify_trans x (c : side) s s' := 
+  exists g : graph (joint s), 
+    x \in dom (self s) /\ joint s' = null_edge g c x /\
+    self s' = self s /\ other s' = other s, coh s /\ coh s'.  
+\end{lstlisting} 
+%
+% Marking a graph node \code{x}, described by the \code{marknode_trans}
+% predicate, requires \code{x} to be not marked in the initial
+% state~\code{s}; it also states that upon marking the node, a singleton
+% set \code{#x} is joined to the self-component of the thread that
+% initiated the transition, and that the node's marked bit is changed in
+% the final joint heap~(\code{mark_node g x}).
+%   
+%  
+% The \code{nullify} transition ensures that the node \code{x} is marked
+% by the acting thread (\code{x \\in dom (self s)}) and removes a link
+% to \code{x}'s successor (indicated by the direction~\code{c}, which is
+% either \code{Left} or \code{Right}) in the final state \code{s'} via
+% the function \code{null_edge}, which we omit.
+
+The FCSL metatheory requires that transitions too satisfy several
+properties. For example, \code{marknode_trans} and
+\code{nullify_trans} preserve the \emph{other}-component and the
+coherence predicate, as immediately apparent from their
+definitions. They also preserve the footprint of the underlying state,
+\ie, they don't add or remove any pointers. Adding and removing heap
+parts can be accomplished by \emph{communication} between concurroids,
+as we briefly discuss in Section~\ref{sec:more-examples}.
+
+%The other properties to be proved for each of these transitions are:
+%\emph{footprint preservation} (\ie, they don't alter the domain of the
+%concurroid's heap) and \emph{locality}, which ensures that the
+%transition can be ``framed''.\footnote{In FCSL, terminology both
+%  \ccode{marknode_trans} nad \ccode{nullify-trans} are \emph{internal}
+%  transitions, as they don't change the ownership over the heap. A
+%  different class of \emph{external} transitions (with different
+%  properties) serves for composing concurroids and is featured in
+%  other exmaples.}
+
+The coherence predicate, the transitions, and the proofs of their
+properties, are packaged into a \emph{dependent record}\footnote{A
+  type-theoretic variant of a C \ccode{struct}, where fields can
+  contain proofs.} \code{SpanTree sp}, which encapsulates all that's
+important about a concurroid. Thus, we use the power of dependent
+types in an essential way to build mathematical abstractions, such as
+concurroids, that are critical for reusing proofs.
+%
+
+% The coherence predicate and the transitions, together with the proofs
+% of their properties, are used to instantiate the concurroid
+% ``interface''.
+% %
+% % \footnote{Proofs are first-class values in Coq, so one can pass them
+% %   as arguments.}
+% %
+% Such interface (omitted here for brevity) is implemented as Coq's
+% \emph{dependent record}, so it ``packages'' the STS definition
+% together with the proofs of its
+% properties. Since the provided proofs
+% become the values of the record's fields, they can be later extracted
+% and employed in the reasoning about specific concurrent programs,
+% operating with the defined concurroid.\footnote{\ccode{[Pred...]}-like
+%   combinators construct predicates for generally undecidable
+%   properties, \ie, those whose proofs should be explicitly
+%   constructed.}
+% %
+% \begin{lstlisting}
+% Canonical SpanCore : mod_core := 
+%   Mod.Core [PredU [Pred r | exists x, r = marknode_trans x] & 
+%                     [Pred r | exists x c, r = nullify_trans x c]].  
+% Canonical SpanTree : mod := Mod.Make SpanCore Pred0.   
+% \end{lstlisting}
+
+
+\paragraph{Atomic actions.~~}
+%
+% \ab{This paragraph starts out well but becomes handwavy, due to lack
+% of space.  Perhaps we should first write the paragraph on
+% \Code{SpanTree} concurroid and then put Atomic action.}
+%
+We next illustrate the mechanism for defining atomic actions in FCSL.
+The role of atomic actions is to perform a single physical memory
+operation on the real heap, simultaneously with an arbitrary
+modification of the auxiliary part of the state.
+%Many related logics
+%\ab{Citations} \an{Heh, gotta save space; PLDI format wastes a lot of space on citations.}
+%
+%specify these two different aspects of the atomic
+%action as two separate operations. 
+In FCSL, we treat the real and auxiliary state uniformly as they both
+satisfy the same PCM laws. We specify their effects in one common
+step, but afterwards prove a number of properties that separate
+them. For instance, for each atomic action we always prove the
+\emph{erasure property} that says that the effect of the action on the
+auxiliary state doesn't affect the real state.
+
+Specifically, the effect of the \code{trymark} action is defined by
+the following relation between the input pointer \code{x}, the
+pre-state \code{s1}, post-state \code{s2} and the return result
+\code{r} of type \code{bool}.
+%
+\begin{lstlisting}
+Definition trymark_step (x : ptr) s1 s2 (r : bool) := 
+ exists g : graph (joint s1), 
+   x \in dom (joint s1) /\ other s2 = other s1 /\ 
+   if mark g x 
+   then r = false /\ joint s2 = joint s1 /\ self s2 = self s1
+   else r = true /\ joint s2 = mark_node g x /\ 
+         self s2 = #x \+ self s1.
+\end{lstlisting}
+The relation requires that \code{x} is a node in the pre-state graph
+(\code{x \\in dom (joint s1)}). If \code{x} is unmarked in this graph,
+then the action returns \code{true}, together with marking the node
+physically in the real state (employing the function \code{mark_node}
+already used in \code{marknode_trans}). Otherwise, the state remains
+unchanged, and the action's result is \code{false}.
+%
+Notice that when restricted to the real heap, \ie, if we ignore the
+auxiliary state in \code{self s1} and \code{other s1}, the relation
+essentially describes the effect of the \code{CAS} command on the mark
+bit of \code{x}. Thus, \code{trymark} {\em erases} to \code{CAS}.
+
+There are several other components that go into the definition of an
+atomic action. In particular, one has to prove that transitions are
+\emph{total}, \emph{local}, and \emph{frameable} in the sense of
+Separation Logic, and then ascribe to each action a stable
+specification. However, the most important aspect of action
+definitions is to identify their behavior with some transition in the
+underlying concurroid. For example, \code{trymark} behaves like
+\code{marknode_trans} transition of \code{SpanTree} if it succeeds,
+and like \code{idle} if it fails.  Actions may also change state of a
+number of concurroids simultaneously, as we will discuss in
+Section~\ref{sec:more-examples}.  In the interest of brevity, we omit
+the formal definition of all these properties here, but they can be
+found in the accompanying Coq files.
+
+%\ab{The rest becomes handwavy.}  To fully define the
+%action we also require a \emph{safety} predicate, which says when the
+%action is safe to execute. For \code{trymark} we require that \code{x}
+%be a node in the graph, so that \code{x} does in fact point to a
+%``marked'' bit to perform a \code{CAS} on.
+%%
+%\begin{lstlisting}
+%Definition trymark_safe (x : ptr) s := 
+%  x \in dom (joint s) /\ graph (joint s).
+%\end{lstlisting}
+%%
+%In addition to erasure property, our Coq signatures require a number
+%of other properties to be proved for actions, such as \emph{totality},
+%\emph{locality}, \emph{frameability},\footnote{In a sense similar to
+%  that from separation logic~\cite{Reynolds:LICS02}.} adherence to the
+%concurroid transitions, \etc. However, for brevity we omit these from
+%the presentation.
+%%
+%Once all the properties are proved, the stepping relation, the safety
+%relation, and the proofs of all the properties are packaged together
+%into a \emph{dependent record},\footnote{A type-theoretic variant of a
+%  C \ccode{struct}, where fields can contain proofs.} containing all
+%that's important about the action~\cite{Garillot-al:TPHOL09}. In this
+%case, the structure is called \code{trymark_act}.
+%
+%The final step in an action definition is to provide a \emph{Hoare
+%  type} for it, in the style of \code{span_tp}, with a precondition
+%and postcondition, which must be proven to be stable \wrt~the
+%interference of the concurroid \code{SpanTree}. We list such a spec
+%below, and note that the proof of the spec is conducted by weakening
+%the action's safety and stepping relations in the spirit of explicit
+%stabilization by~\citet{Wickerson-al:ESOP10}.
+%%
+%\begin{lstlisting}
+%Program Definition trymark x :
+%  {i (g1 : graph (joint i))}, STsep [SpanTree sp] 
+%    (fun s1 => s1 = i /\ x \in dom (joint s1),
+%     fun b s2 => exists (g2 : graph (joint s2)),
+%       subgraph g1 g2 /\ mark g2 x = true /\
+%       self s2 = (if b then #x \+ self i else self i) /\
+%       b -> contents g1 x = (false, edgl g2 x, edgr g2 x))
+%  := Do (act (trymark_act x)).  
+%\end{lstlisting}
+%%
+%The precondition is stable because the set of nodes in the shared
+%graph never changes (\eg, lemma \code{subgraph_steps}). Thus, if
+%\code{x} is a node in the pre-state, it will be a node in any state
+%that may be obtained by intereference from other threads.
+%%
+%The stability of the postcondition is more subtle. We only discuss the
+%conjunct
+%\begin{lstlisting}
+%b -> contents g1 x = (false, edgl g2 x, edgr g2 x)
+%\end{lstlisting}
+%as it is the most interesting. This implication says that if the
+%action succeeded (\ie, returned \code{b = true}), then the node
+%\code{x} must have been unmarked in the initial graph \code{g1}, and
+%had the same outgoing edges that \code{x} has in the ending graph
+%\code{g2}. This property is stable for the following reasons.  Before
+%\code{x} got marked, nobody could modify its edges, because the
+%transitions of the concurroid \code{SpanTree} allow only edges from
+%marked nodes to be removed, as we will later see in this section. Once
+%\code{x} got marked, it became private to the calling thread, and thus
+%no other threads could modify its edges.
+
+
+\paragraph{Scoped concurroid allocation and hiding.~~}
+
+The \code{span_tp} type from Figure~\ref{fig:span_tp} operates under
+\emph{open-world assumption} that \code{span} runs in an environment
+of interfering threads, which, however, respect the transitions of the
+\code{SpanTree} concurroid. If one wants to protect \code{span} from
+interference, and move to \emph{closed-world assumption}, the top-most
+call must be enclosed within $\mathsf{hide}$. We next show how to
+formally do so.
+
+The $\mathsf{hide}$ construct allocates a new lexically-scoped
+concurroid from a local state of a particular thread.\footnote{The
+  thread-local state is modelled in FCSL by a basic concurroid
+  \ccode{Priv pv} with a label
+  \ccode{pv}~\cite[\S4]{Nanevski-al:ESOP14}. \ccode{Priv}'s self/other
+  components are retrieved via \ccode{pv_self} and \ccode{pv_other} projections. }
+%
+% Therefore, all locally-spawned threads can interfere on the state,
+% described by this concurroid, while it's ``hidden'' from any external
+% thread.
+%
+The description of how much local heap should be ``donated'' to the
+concurroid creation is provided by the user-supplied predicate $\Phi$,
+called \emph{decoration} predicate. In addition to the heap, the
+predicate scopes over the auxiliary \emph{self} value, while the
+auxiliary \emph{other} is fixed to the PCM unit, to signal that
+there's no interference from outside threads. In the case of
+\code{span}, the decoration predicate is as follows.
+%
+\begin{lstlisting}
+Definition graph_dec sp (g : heap * ptr_set) s := 
+  exists (pf : graph g.1), s = sp ->> [g.2, g.1, Unit] /\ coh s. 
+\end{lstlisting}
+%Canonical SpanDecorate sp := Decorate (graph_dec sp) SpanTree.
+%
+%Coq's \code{Canonical} keyword~\cite{Mahboubi-Tassi:ITP13} registers
+%the instance \code{SpanDecorate} of the interface \code{Decorate} with
+%the specific predicate \code{graph_dec} to be the ``default one" for
+%the role of annotation~$\Phi$ (Section~\ref{sec:overview}), used by
+%Coq whenever it requires to allocate a concurroid of the kind
+%\code{SpanTree}. A decoration predicate has to satisfy a number of
+%properties such as \emph{precision} in the sense of Separation logic,
+%but we omit these here.
+%
+%Together with the proofs of its properties (such
+%as \emph{precision}, \emph{injectivity}, and \emph{surjectivity}), a
+%decorator is used to instantiate the \code{Decorate} interface.
+
+We can now write out a new type \code{span_root_tp}, to specify the
+top-most call to \code{span}, under the closed-world assumption that
+there's no interference. Parametrizing \wrt~the locally-scoped
+variable \code{h1 : heap} that snapshots the initial heap, the type is
+the following one.
+%
+\begin{lstlisting}
+Definition span_root_tp (x : ptr) :=
+  {g1 : graph h1}, STsep [Priv pv] 
+    (* precondition predicate *)
+    (fun s1 => (forall y, ~~ (mark g1 y)) /\
+       pv_self s1 = h1 /\ x \in dom h1 /\ connected g1 x, 
+    (* postcondition predicate *)
+     fun (_ : bool) s2 => exists (g2 : graph (pv_self s2)) t, 
+       (forall x, (edgl g2 x \in [:: null; edgl g1 x]) /\
+                   (edgr g2 x \in [:: null; edgr g1 x])) /\
+       tree g2 x t /\ dom t =i dom h1).
+\end{lstlisting}
+The precondition says that the argument \code{x} is the root of the
+graph \code{g1} stored in \code{h1}, and all the nodes of \code{g1}
+are reachable from \code{x}. 
+%
+The postcondition says that the final heap's topology is a tree
+\code{t}, whose edges are a subset of the edges of \code{g1}, but
+whose nodes include \emph{all} the nodes of \code{g1}. Thus, the tree
+is a spanning one.
+%
+The program satisfying this spec is a call to \code{span}, wrapped
+into $\mathsf{hide}$, annotated with the decorating functions. We also
+supply \code{h1} as the initial heap, and \code{Unit} of the PCM of
+finite sets (hence, the empty set), as the initial value for
+\emph{self}, which indicates that \code{span} is invoked with the
+empty set of marked nodes.
+% 
+\begin{lstlisting}
+Program Definition span_root x : span_root_tp x := 
+  Do (priv_hide pv (graph_dec sp) (h1, Unit) [span sp x]).  
+\end{lstlisting}
+%
+Coq will emit a proof obligation that the pre and post of
+\code{span_tp} can be weakened into those of \code{span_root_tp} under
+the closed-world assumption that \code{other s2 = Unit}. This proof is
+in the development, accompanying this paper.

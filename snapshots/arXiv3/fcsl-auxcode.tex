@@ -1,0 +1,115 @@
+
+{
+%\setlength{\belowcaptionskip}{-5pt}
+\begin{figure}[t]
+%
+\centering
+%\begin{subfigure}[t]{1\textwidth}
+\small
+\[
+\begin{array}{l@{\, :\ } l}
+%% register
+ \aux{register}(p,v) & 
+  \begin{array}[t]{l}
+   \langle \wpp = \wInit\rangle\\ 
+   \langle\ordlistP = \mathsf{snoc}\ {\ordlist}\ t,\
+     \histJP = \histJ \hunion t \hpts (p,v),\ \wppP = \wWrite\ t\, v,\\
+   \phantom{\langle} \C' = \textrm{if}\ (\sss = \sOn) \& \spp\
+                    \textrm{then}\ \C[t \mapsto \mathsf{yellow}]\
+                    \textrm{else}\ \C[t \mapsto \mathsf{red}]\rangle \\
+   \ \mbox{\small{where $t = \mathsf{fresh}\ \hist = \mathsf{last}\ {\hist}+1$}}
+%c \hunion
+%(t \mapsto \textrm{if}\ \s \& \spp\ \textrm{then}\ \mathsf{green}\
+%\textrm{else}\ \mathsf{yellow})\}\quad\mbox{where $t = \mathsf{fresh}\ \hist$}
+  \end{array} \\[2.5pt]
+%% checkS
+% Im placing it within an  array env so it aligns nicely with the rest
+  \aux{check}\,(p,b) & [t, v]\ldot
+  \!\begin{array}[t]{l}
+  \langle\wpp = \wWrite\ t\, v\rangle\ 
+  \langle\wppP = \textrm{if}\ b\
+  \textrm{then}\ \wDirty\ t\, \,v\ \textrm{else}\ \wClean\ t\, v\rangle
+ \end{array}\\[2.5pt]
+%% transfer   
+  \aux{forward}\,(p) & [t, v]\ldot
+  \!\begin{array}[t]{l}
+   \langle\wpp = \wDirty\ t\,v \rangle\\ 
+   \langle\wppP = \wClean\ t\,v,\, %
+   \C' = \textrm{if}\ (\sss=\sOn) \& \spp\ \textrm{then}\ \C[t \mapsto \mathsf{green}]\ \textrm{else}\ \C\rangle
+  \end{array}\\[2.5 pt]
+%% exit  
+  \aux{finalize}(p) & [t, v]\ldot
+  \!\begin{array}[t]{l}
+  \langle\wpp = \wClean\ t\, v, %
+  t \hpts (p, v) \in \histJ \rangle\\
+  \langle\wppP = \wInit,\, \histSP = \histS \hunion t \hpts (p,v),\, %
+  \histJP\! = \histJ\setminus\{t\},\,
+  \E'\! = \E \hunion\! t \hpts \mathsf{last}\, \hist \rangle
+ \end{array}
+\end{array}
+\]
+%\caption{\label{fig:writeauxcode}}
+\hrulefill
+%\end{subfigure}
+%
+%\begin{subfigure}[b]{1\textwidth}
+\small
+\[
+\begin{array}{l@{\, :\ }l}
+%% setbit
+  \aux{setS}(b) &
+  \begin{array}[t]{l}
+        \langle \sss = \textrm{if}\ b\ \textrm{then}\ \sOff\,(\_) \ 
+        \textrm{else}\ \sOn,\ \sx = \neg\, b, \sy = \neg\, b \rangle\\
+        \langle \sss' = \textrm{if}\ b\ \textrm{then}\ \sOn\ %
+        \textrm{else}\ \sOff\,(\mathsf{last}\ \hist),\
+         \sx' = \neg\, b, \sy' = \neg\, b \rangle
+\end{array}\\[2.5pt] 
+%% clear
+   \aux{clear}(p) &
+  \begin{array}[t]{l}
+   \langle\sss = \sOn,\ \spp = \FF \rangle\\
+   \langle\sss' = \sOn,\ \spp' = \TT,\
+     \CP = \C[\histp \hpts \mathsf{green}] \rangle
+  \end{array}\\[2.5pt]
+%% re-link
+   \aux{relink}(r_x, r_y) & [t_x, t_y]\ldot
+    \begin{array}[t]{l}
+    \langle\sss = \sOff(\_), %
+      t_x \hpts (x, r_x), t_y \hpts (y, r_y) \in \hist, \sx = \sy = \TT, \\
+%      \ p \in \{x,y\}:\ \spp =\TT, (t_p = \aux{last\_green}\ \histp \vee
+%                \C(t_p) = \mathsf{yellow})\}\\
+     \hphantom{\langle} \forall p \in \{x,y\}\ldot \lgVy\ p\, t_p \rangle\\
+        \langle\sss' = \sss, \sx'= \sy'=\FF,%
+        \CP = \C[t_x, t_y \hpts \mathsf{green}],\\
+      \ \ordlist' = \textrm{if}\ (d = \mathsf{Yes}\ x\ s)\
+                \textrm{then}\ \aux{push}\ s\ t_y\ \ordlist\\
+                 \phantom{\ \ordlist =\ } \textrm{else\ if}\
+                 (d = \mathsf{Yes}\ y\ s)\ \textrm{then}\
+                 \aux{push}\ s\ t_x\ \ordlist\ \textrm{else}\ \ordlist\rangle\\
+  \quad \mbox{where $d = \aux{inspect}\ t_x\, t_y\, \ordlist\, \C$}
+  \end{array}
+\end{array}
+\]
+%\caption{\label{fig:scanauxcode}}
+%\end{subfigure}
+\caption{\label{fig:auxcode} Auxiliary procedures for
+%  (\subref{fig:writeauxcode}) 
+\jywrite~and 
+%(\subref{fig:scanauxcode})
+  \jyscan. Bracketed variables (\eg, $[t, v]$) are logical variables
+  that scope over precondition and postcondition.}
+\end{figure}
+}
+
+%\gad{I'm not sure we want to keep the $(t_p =
+%  \aux{last\_green}\ \histp \vee \C(t_p) = \mathsf{yellow})$ part, as
+%  it is not the pre-variable relating to some auxiliary state
+%  projection. This will appear later in the pre and post condition of
+%  the atomic commands so it seems repetitive here. Note that the
+%  ACTUAL implementation does take a proof that the values are pointed
+%  by the last green or yellow timestamp, but there is no need to show
+%  that here.}
+%
+%\gad{In the next section , I'm introducing this as an assertion. So I
+%  guess that settles it.}

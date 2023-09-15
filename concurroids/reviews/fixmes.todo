@@ -1,0 +1,145 @@
+> ----------------------- REVIEW 2 ---------------------
+
+> This is a frustrating paper.  It concerns an area -- verification of
+> fine-grained concurrent algorithms -- where there has already been a
+> lot of work, as the authors are clearly well aware based on the
+> introduction and related work sections.  And it seems to me there are
+> some interesting ideas in here, like the idea of entanglement.
+
+> But the paper does not clearly carve out a goal for itself that has
+> not already been achieved by other systems.  After reading it
+> carefully (and re-reading several parts), I still could not figure out
+> what is supposed to be the concrete benefit of the authors' system
+> over the many that have come before.  The examples given (concurrent
+> incrementation and ticketed locks) are too simple to be convincing --
+> other systems can handle these examples easily (indeed, a variant of
+> the ticketed locks example is proven in the paper on Concurrent
+> Abstract Predicates), and in fact other systems can handle much more
+> interesting and tricky examples.  So the technical complexity of the
+> authors' system, while interesting in detail, is not well motivated,
+> and it is unclear to me what has been gained.
+
+> The problems start in the introduction.  The authors set up the paper
+> with a motivation that is largely similar to that of the Local
+> Rely-Guarantee (LRG) paper by Feng that they rightly cite up front.
+> But then the motivation given for the authors' approach over LRG (and
+> the other recent approaches like CAP and CaReSL) is something vague
+> about subjectivity and communication.
+
+> - Subjectivity is motivated by enabling one to support rely-guarantee
+> reasoning via separation and a rule similar to the parallel
+> composition rule of CSL instead of a "monolithic" RG rule.  Fine, but
+> other recent systems (e.g. CAP, CaReSL) also support rely-guarantee
+> reasoning via "fictional" separation and a parallel composition rule
+> (using fractional permissions, tokens, etc.) instead of a monolithic
+> RG rule as well -- subjectivity is not the only way to do this, so
+> supporting subjectivity does not seem to me to be an end in itself.
+
+> It's worth noting that, in the original SCSL paper (POPL'13),
+> subjectivity was motivated as a way of supporting *coarse*-grained
+> concurrent reasoning in a supposedly simpler way than CAP and its
+> descendants.  That paper argued that the more subtle, explicit forms
+> of RG reasoning used by CAP should not be necessary for coarse-grained
+> reasoning, and it argued that subjectivity simplified such reasoning.
+> I'm not sure I ever bought that argument, but in any case the present
+> paper is concerned primarily with reasoning about fine-grained
+> concurrent code.  So the argument for subjectivity given in the SCSL
+> paper is not clearly relevant.
+
+> What do other approaches that mix RG and separation lose by not being
+> able to make assertions about both a thread's local auxiliary state
+> and its environment's?  What programs can they not verify, or not verify
+> cleanly?  The present paper never comes out clearly and explains this
+> point, and it seems really central!  Otherwise, the work is simply not
+> well motivated.
+
+> - As for communication via entanglement, it seems to be needed
+> specifically in order to compose larger STS out of smaller ones.  I
+> could believe that this part is interesting, since previous systems
+> have not focused much on composability of resource invariants.  But at
+> least based on the examples in this paper it's simply not well
+> motivated or explained.  What does the ability to compose STS out of
+> smaller ones buy you?  The examples in the paper are so simple that,
+> to handle them in other recent systems, one can directly formulate
+> invariants/STSs for them without difficulty, and in fact doing so seems
+> simpler to me than constructing the invariants as entanglements of a
+> bunch of smaller STSs.
+
+> In summary: to make a case for the approach proposed in this paper,
+> the authors would really need to present some compelling examples that
+> highlight limitations of previous systems, not just assume that the
+> various elements of their proposed logic are self-evidently necessary.
+> This is especially the case given that the proposed logic is far from
+> simple, e.g. like SCSL, it requires two distinct forms of separating
+> conjunction, whereas other recent logics do not.
+
+
+> My remaining comments have to do with the characterization of related
+> work, which I find confusing and troublesome:
+
+> - The authors make a big deal about hiding/scoping of resource
+> invariants being important, and they claim that CAP and other systems
+> do not support them.  I don't understand this.  As far as I can tell,
+> the functionality of the authors' hiding mechanism can be coded up in
+> existing systems.  In, say, CAP or CaReSL, if a thread wants to hide
+> the existence of an STS invariant it has created once its computation
+> is finished, it can just employ an STS invariant with a "final"
+> transition at the end: the final transition would take the STS to a
+> state where the STS owns nothing and the resource has been transferred
+> back to the thread's local state.  To make this work, you would need a
+> permission/token of some kind that the thread holds in its local
+> state, ensuring that only the thread itself is permitted to make this
+> final transition (i.e. that no environment thread can).  After this
+> final transition is taken, the STS invariant would still *exist*, but
+> it would be essentially as if it had been removed, since no further
+> transitions would be possible and the invariant would not own any
+> shared state.  Why isn't this sufficient?  Am I missing something?
+
+> - In comparing to CAP and CaReSL, the authors write that: "Thus there
+> is a subtle mutual recursion in a protocol definition between an
+> action and the capability to perform the action. A recurring pattern
+> for this approach is quantification over all possible capabilities and
+> placing them in a shared region, to be used up if needed in the
+> execution of the protocol."
+
+> Can the authors elaborate further with a concrete example, and explain
+> why this approach is supposedly so complicated in comparison to
+> subjective auxiliary state?  I don't understand what this
+> "quantification over all possible capabilities" is referring to, or
+> why it is supposedly difficult to work with.
+
+> - Further on in related work, the authors write: "In contrast with CAP
+> and their successors, FCSL does not require capabilities to perform
+> actions, as these are naturally represented in the self and other
+> views associated with a resource (and can also be seen as auxiliary
+> state). Such auxiliary state is simpler than capabilities; it is not
+> subject to ownership transfer, and there is no need to quantify over
+> all capabilities. In our experience, this simplicity extends to the
+> specification of invariants and transitions, and to the proofs of
+> stability."
+
+> The ability to transfer ownership of capabilities in CAP and
+> successors is generally useful for verifying algorithms where
+> different threads dynamically take on different roles in the course of
+> execution.  I'm still rather confused about what is supposedly so
+> complicated about it, in particular this business about quantifying
+> over all capabilities.
+
+> - Further on, the authors write: "The burden of stability proofs is
+> further reduced in FCSL by formulating private heaps as a separate
+> concurroid that one may, but need not, entangle with."
+
+> It's worth noting that CaReSL avoids the need for stability proofs
+> altogether, by limiting assertions to lower bounds on STS states.
+> The authors should mention this and compare.
+
+> - In the comparison with CaReSL, the authors claim that CaReSL's
+> "token" mechanism introduces a "modicum of subjectivity", except that
+> it only allows assertions on self-owned tokens, not other-owned
+> tokens.  This is true, but (a) CaReSL's tokens are essentially similar
+> to CAP's permissions, so doesn't CAP also introduce a modicum of
+> subjectivity?  and (b) again, what is subjectivity buying you in
+> reasoning about fine-grained concurrency?  The latter is really the
+> central question not answered by the paper.
+
+

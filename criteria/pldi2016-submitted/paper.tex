@@ -1,0 +1,151 @@
+\documentclass[pldi,nocopyrightspace]{sigplanconf-pldi16}
+
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage{latexsym}
+\usepackage{graphicx}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage[scaled]{helvet}
+\usepackage[noend]{algorithmic}
+\usepackage{mathrsfs}
+\usepackage{mathpartir}
+\usepackage{dsfont}
+\usepackage{stmaryrd}
+\usepackage{url}
+\usepackage{textcomp} 
+\usepackage[colorlinks=true,allcolors=blue,breaklinks,draft=false]{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{alltt}
+\usepackage{bbm}
+\usepackage{alltt}
+\usepackage{verbdef}
+\usepackage{xspace}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage{lipsum}
+\usepackage{wrapfig}
+\usepackage[usenames,dvipsnames]{xcolor}
+\hypersetup{linkcolor=black,citecolor=black,urlcolor=RubineRed}
+\newcounter{tags}
+\usepackage{flushend}
+
+% \usepackage{natbib}
+% \bibpunct();A{},
+% \let\cite=\citep
+
+% For turned column headers 
+\usepackage{adjustbox} 
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{pifont}
+ 
+\input{defs}
+
+% Keep footnotes on one page
+\interfootnotelinepenalty=10000 
+
+\setlist[itemize]{leftmargin=*}
+\setlength{\parindent}{0.15in}
+\setlength{\topsep}{0cm}
+\setlength{\parskip}{0pt}
+
+\titlespacing*{\section}{0pt}{*1.5}{*1.5} 
+\titlespacing*{\subsection}{0pt}{*0.8}{*0.5}
+\titlespacing*{\subsubsection}{0pt}{*0.8}{*0.5}
+\titlespacing*{\paragraph}{0pt}{*0.5}{*1.2}
+
+% SSReflect listings 
+\input{lstcoq}
+\lstset{style=Coq}
+
+% Hyphenation
+\hyphenation{Veri-Fast}
+
+% Bibtgex tweaks
+\setcitestyle{square}
+\defcitealias{Coq-manual}{Coq proof assistant}
+
+\begin{document}
+
+%\special{papersize=8.5in,11in}
+
+\authorinfo{}
+
+% \authorinfo{Ilya Sergey \and
+%   Aleksandar Nanevski \and 
+%   Anindya Banerjee \and 
+%   Germ\'{a}n Andr\'{e}s Delbianco}
+% {IMDEA Software Institute, Madrid, Spain}
+% {
+% \{ilya.sergey, aleks.nanevski, anindya.banerjee,
+%   german.delbianco\}@imdea.org 
+% }
+
+% \vspace{-20pt}}
+
+
+
+% \authorinfo{}{}{}
+
+% \conferenceinfo{PLDI~'15} {June 13--17, 2015, Portland, OR, USA}
+% \CopyrightYear{2015}
+% \copyrightdata{TODO}
+% \doi{TODO}
+
+
+%\title{The Power of Subjectivity}
+
+
+\ifext { 
+\title{
+    Subjective Hoare-style Specifications as Correctness Conditions \\
+    for Non-linearizable Concurrent Objects\\
+    \emph{Extended Version} \vspace{-74pt}}
+} {
+\title{
+  Subjective Hoare-style Specifications as Correctness Conditions \\
+  for Non-linearizable Concurrent Objects
+\vspace{-58pt}
+}}
+
+
+ 
+
+\maketitle
+
+\input{abstract}
+%\input{intro}
+\input{intro1}
+%\input{overview}
+\input{overview1}
+\input{background1}
+%\input{cal}
+\input{cal1}
+\input{counting}
+\input{qclients}
+%\input{discussion}
+\input{evaluation}
+\input{related}
+\input{conclusion}
+
+
+% \acks
+% \todo{Acknowledgments, if needed.}
+
+\setlength{\bibsep}{2.1pt} 
+\bibliographystyle{abbrv}
+\softraggedright 
+\bibliography{bibmacros,references,proceedings}
+
+%\clearpage
+\ifext{
+\appendix
+\input{exchanger_outline}
+}{}
+\end{document}
+
+

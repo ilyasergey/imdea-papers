@@ -1,0 +1,120 @@
+
+\section{Mechanization and Evaluation}
+\label{sec:evaluation}
+
+% \ab{This is an important section. It needs to convey what was
+%   difficult, what was easy in the implementation. How were the
+%   difficulties mitigated via the techniques developed in the previous
+%   sections? What interesting proof engineering that needed to be done?
+%   Ideally, these discussions should provide context/understanding of
+%   the numbers in the Table. What are the current limitations of the
+%   implementation? Make a separate paragraph for limitations perhaps
+%   starting ``At the moment'' below.}
+%
+% \is{Mostly addressed in revised writing.}
+
+In order to assess feasibility of the presented above ideas, we have
+mechanized the specs and the proofs of all the examples from this
+paper, taking advantage of the fact that FCSL has been recently
+implemented as a tool for concurrency
+verification~\cite{Sergey-al:PLDI15} on top of the Coq proof
+assistant~\cite{Coq-manual}.
+
+Table~\ref{tab:locs} summarizes the statistics with respect to our
+mechanization in terms of lines of code and compilation times. 
+%
+The examples were proof-checked on a 3.1~GHz Intel Core~i7 OS~X
+machine with 16 Gb RAM, using Coq~8.5pl2 and Ssreflect
+1.6~\cite{Gonthier-al:TR}.
+%
+As the table indicates, a large fraction of the implementation is
+dedicated to proofs of preservation of resource
+invariants~(\textsf{Inv}), \ie, checking that the actual
+implementations do not ``go wrong''.
+%
+In our experience, these parts of the development are the most tricky,
+as they require library-specific insights to define and reason about
+auxiliary histories.
+%
+Since FCSL is a general-purpose verification framework, which does not
+target any specific class of programs or properties, we had to prove
+problem-specific facts, \eg, lemmas about histories of a particular
+kind (\textsf{Facts}), and to establish the specs of interest stable
+(\textsf{Stab}). Once this infrastructure has been developed, the
+proofs of main procedures turned out to be relatively small
+(\textsf{Main}).
+%
+% \gad{I don't see the point of having the {\bf Build} column in
+%   Table~\ref{tab:locs}: First of all, I don't think that time to
+%   compile a proof in Coq is relevant at all. From an engineering
+%   perspective, it might perhaps make more sense to estimate the amount
+%   of man-hours that took to discharge them. Second, because we then
+%   would have to explain why the exchanger takes half the time than the
+%   counter, given that they are similar in size. And I don't think we
+%   want to get into describing the design, the differences in ``style''
+%   between the two, and discussing why that might be affecting the
+%   buildtime in detail here.}
+%
+% \is{Sorry, but since it's PLDI, we have to give build times, even
+%   though we're out of space to explain some specific performance
+%   phenomena}
+
+{
+%\setlength{\belowcaptionskip}{-1pt} 
+\begin{table}
+{%\footnotesize
+\sffamily\small % tabular data either 10pt times, or 9pt helvetica
+\centering
+\begin{tabular}{|@{\ }l@{\ }||@{\ }c@{\ }|@{\ }c@{\ }|@{\ }c@{\ }|@{\ }c@{\ }|@{\ }c@{\ }||@{\ }r@{\ }|}
+  \hline
+  \textbf{Program} &  
+                     {Facts} & {Inv} &
+                                       {Stab} & {Main} & \textbf{Total}
+  & \textbf{Build~~~}    
+  \\ \hline \hline 
+  Exchanger \hfill (\S \ref{sec:exchanger}) & 365 & 1085 & 446 & 162 & 2058 & 4m~~46s
+  \\
+  Exch. Client \hfill (\S \ref{sec:cal}) & 258 & -- &--& 182 & 440 & 57s
+  \\
+  Count. Netw. \hfill (\S \ref{sec:counting}) & 379 & 785 & 688 & 27 & 1879 & 12m~23s
+  \\
+  CN Client 1 \hfill (\S \ref{sec:qc-client}) & 141 &--&--& 180  & 321 & 3m~11s
+  \\
+  CN Client 2 \hfill (\S \ref{sec:qqc-client})& 115 &--&--& 259 & 374 & 3m~~~9s 
+  \\[2pt] \hline
+\end{tabular}
+}
+\caption{
+  Mechanization of the examples: lines of code for program-specific facts \intab{Facts},
+  resource invariants and transitions \intab{Inv}, 
+  stability proofs for desired specs \intab{Stab}, spec and proof sizes for main
+  functions \intab{Main}, total LOC count \intab{\textbf{Total}}, and build
+  times \intab{\textbf{Build}}. The ``--'' entries indicate the
+  components that were not needed for the example.
+} 
+\label{tab:locs}
+%\vspace{-15pt}
+\end{table}}
+
+Fortunately, trickiness in libraries is invisible to clients, as FCSL
+proofs are compositional. Indeed, because specs are encoded as Coq
+types~\cite{Sergey-al:PLDI15}, the substitution principle
+automatically applies to programs \emph{and proofs}.
+%
+%Thus, the trickiness of library proofs is not visible to the clients.
+%
+At the moment, our goal was not to optimize the proof sizes, but to
+demonstrate that FCSL as a tool is suitable \emph{off-the-shelf} for
+machine-checked verification of properties in the spirit of novel
+correctness
+conditions~\cite{Hemed-al:DISC15,Aspnes-al:JACM94,Jagadeesan-Riely:ICALP14}.
+Therefore, we didn't invest into building advanced
+tactics~\cite{McCreight:TPHOL09} for specific classes of
+programs~\cite{Zee-al:PLDI08} or
+properties~\cite{Dragoi-al:CAV13,Vafeiadis:CAV10,Bouajjani-al:POPL15,Burckhardt-al:PLDI10},
+and we leave developing such automation for future work.
+
+% Our verification is compositional, because the proofs of the clients'
+% specs are derived only from the specifications of concurrent objects,
+% without relying on their implementation.
+

@@ -1,0 +1,207 @@
+\theoremstyle{plain} 
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newenvironment{proofsketch}{\trivlist\item[]\emph{Proof sketch}:}%
+{\unskip\nobreak\hskip 1em plus 1fil\nobreak$\square$
+\parfillskip=0pt%
+\endtrivlist}
+
+
+\newcommand{\mute}[1]{#1}
+
+% remarks
+\newcommand{\todo}[1]{\mute{\textcolor{red}{({#1})}}}
+\newcommand{\is}[1]{\mute{\textcolor{blue}{(Ilya: {#1})}}}
+\newcommand{\an}[1]{\mute{\textcolor{red}{(Aleks: {#1})}}}
+\newcommand{\ab}[1]{\mute{\textcolor{red}{(AB: {#1})}}}
+
+% useful macros
+\newcommand{\asgn}{\leftarrow}
+%\newcommand{\max}[2]{\mathsf{max}({#1},{#2})}
+\newcommand{\code}[1]{\lstinline[basicstyle=\small\ttfamily]{#1}}
+\newcommand{\ccode}[1]{\lstinline[basicstyle=\footnotesize\ttfamily]{#1}}
+\newcommand{\cccode}[1]{\lstinline[basicstyle=\scriptsize\ttfamily]{#1}} 
+\newcommand{\Code}[1]{\code{#1}}
+\newcommand{\var}[1]{\({#1}\)} 
+\newcommand{\num}[1]{\({\text{{\scriptsize{#1}}}}\)}
+\newcommand{\etc}{\emph{etc}}
+\newcommand{\ie}{\emph{i.e.}\xspace}
+\newcommand{\Ie}{\emph{I.e.}\xspace}
+\newcommand{\eg}{\emph{e.g.}\xspace}
+\newcommand{\Eg}{\emph{E.g.}\xspace}
+\newcommand{\vs}{\emph{vs.}\xspace}
+\newcommand{\etal}{\emph{et~al.}\xspace}
+\newcommand{\adhoc}{\emph{ad hoc}\xspace}
+\newcommand{\viz}{\emph{viz.}\xspace}
+\newcommand{\dom}[1]{\mathsf{dom}(#1)}
+\newcommand{\aka}{\textit{a.k.a.}\xspace}
+\newcommand{\cf}{\textit{cf.}\xspace}
+\newcommand{\wrt}{{wrt.}\xspace}
+\newcommand{\Iff}{{iff}\xspace}
+\newcommand{\loef}{L\"{o}f}
+\newcommand{\sep}{\textasteriskcentered}
+\newcommand{\res}{\mathsf{res}}
+\newcommand{\bal}{\mathit{bal}} 
+\newcommand{\ret}{\mathsf{ret}} 
+\newcommand{\fix}{\mathsf{fix}} 
+\newcommand{\Unit}{\mathsf{Unit}}  
+\newcommand{\ic}{\mathsf{I}}
+\newcommand{\Ic}[2]{\ic~{#1}~{#2}}
+\newcommand{\hide}{\mathsf{hide}}  
+\newcommand{\last}{\mathsf{last}}  
+
+%specs
+\newcommand{\specK}[1]{\ensuremath{\textcolor{blue}{#1}}}
+\newcommand{\comm}[1]{\ensuremath{\textcolor{gray}{\esc{/\!/}~{#1}}}}
+\newcommand{\spec}[1]{\specK{\left\{{#1}\right\}}}
+\newcommand{\specQ}[4]{[#1 , #2 , #3] \, #4}%\specQ{mL}{gL}{gE}{p}
+\newcommand{\drspec}[1]{\specK{\langle{#1}\rangle}}
+\newcommand{\sspec}[1]{\specK{\{{#1}\}}}
+\newcommand*{\backin}{\rotatebox[origin=c]{-180}{$\in$}}%
+
+%actions
+\newcommand{\act}[1]{\textsf{\small{#1}}}
+\newcommand{\Num}[1]{{\text{{\scriptsize{#1}}}}}
+\newcommand{\esc}[1]{\text{\texttt{\small{#1}}}}
+\newcommand{\kw}[1]{\text{\textbf{#1}}}
+\newcommand{\tp}[1]{\text{\textsf{#1}}}
+\newcommand{\Asgn}{\leftarrow} 
+
+%PCMs
+\newcommand{\dotcup}{\ensuremath{\mathaccent\cdot\cup}}
+\newcommand{\pcmS}{\mathbb{U}}
+\newcommand{\pcmF}{\bullet}
+\newcommand{\join}{\pcmF}
+%\newcommand{\jjoin}[1]{\ensuremath{\pcmF}_{#1}} 
+\newcommand{\jjoin}[1]{\ensuremath{\bigodot}_{#1=1}^n} 
+\newcommand{\pcmU}{\mathbbm{1}}
+
+% Pretty table
+\newcommand{\cmark}{\ding{52}}%
+\newcommand{\xmark}{\ding{55}}%
+\newcommand*\rot{\rotatebox{32}} 
+\newcommand{\yep}{\ding{51}}
+\newcommand{\yepl}{$\text{\ding{51}}_{\!\!L}$}  
+\newcommand{\yepa}{$\text{\ding{51}}_{\!\!L}$}  
+\newcommand{\intab}[1]{({\sffamily{\small{#1}}})}
+
+% Concurroids
+\newcommand{\acon}{\mathcal{A}}
+\newcommand{\econ}{\mathcal{E}}
+\newcommand{\ucon}{\mathcal{U}}
+\newcommand{\rcon}{\mathcal{R}}
+\newcommand{\ccon}{\mathcal{C}}
+\newcommand{\vcon}{\mathcal{V}}
+\newcommand{\wcon}{\mathcal{W}}
+\newcommand{\privcon}{\mathcal{P}}
+\newcommand{\pscon}{\mathcal{S}}
+\newcommand{\tbcon}{\mathcal{T}}
+\newcommand{\fccon}{\mathcal{F}}
+\newcommand{\lcon}{\mathcal{L}}
+\newcommand{\alloccon}{\mathcal{A}}
+
+% Thm environments
+\theoremstyle{remark}
+\newtheorem{example}{Example}[section]
+
+% Histories and tokens
+\newcommand{\lcl}{{\mathsf{S}}}%L
+\newcommand{\env}{{\mathsf{O}}}%E
+\newcommand{\joint}{{\mathsf{J}}}%E
+\newcommand{\hist}{\chi} 
+\newcommand{\heap}{h} 
+\newcommand{\perm}{\pi}
+\newcommand{\gist}{\eta} 
+\newcommand{\tkn}{\tau}
+\newcommand{\ikn}{\iota}
+\newcommand{\ikno}{\ikn_o}
+\newcommand{\iknh}{\hat{\iota}}
+\newcommand{\tknh}{\hat{\tau}}
+\newcommand{\unt}{\text{\texttt{()}}}
+\newcommand{\CI}{\mathsf{Complete}}
+\newcommand{\AI}{\mathsf{Approx}}
+\newcommand{\Tomb}{\mathsf{spent}}
+\newcommand{\TI}{\mathsf{Tkns}}
+\newcommand{\SI}{\mathsf{Step}}
+%\newcommand{\eqdef}{\mathrel{\:\widehat{=}\:}}
+\newcommand{\histL}{\hist_\lcl}
+\newcommand{\histE}{\hist_\env}
+\newcommand{\hists}{\histL}
+\newcommand{\gists}{\gist_s}
+\newcommand{\gisto}{\gist_o}
+\newcommand{\histo}{\histE}
+\newcommand{\tkns}{\tkn_\lcl}
+\newcommand{\tkno}{\tkn_\env}
+\newcommand{\perms}{\perm_\lcl}
+\newcommand{\permo}{\perm_\env}
+\newcommand{\heaps}{\heap_\lcl}
+\newcommand{\heapo}{\heap_\env}
+\newcommand{\heapj}{\heap_\joint}
+
+ 
+%mapsto stuff
+\makeatletter
+\newcommand{\oset}[3][0ex]{%
+  \mathrel{\mathop{#3}\limits^{
+    \vbox to#1{\kern-3\ex@
+    \hbox{$\scriptstyle#2$}\vss}}}}
+\makeatother
+
+\makeatletter
+\newcommand{\ojset}[3][0ex]{%
+  \mathrel{\mathop{#3}\limits^{
+    \vbox to#1{\kern-5\ex@
+    \hbox{$\scriptstyle#2$}\vss}}}}
+\makeatother
+
+\newcommand{\jpts}{\mathrel{\ojset{j}{\mapsto}}}
+\newcommand{\spts}{\mathrel{\oset{s}{\mapsto}}}
+\newcommand{\opts}{\mathrel{\oset{o}{\mapsto}}}
+\newcommand{\qcl}{\mathsf{cn}}
+
+\newcommand{\hunion}{\mathbin{\dotcup}} 
+\newcommand{\Hunion}[1]{\mathbin{\Dotcup{#1}}}
+
+%% judgments
+\newcommand{\oftp}{\mathord{:}}
+\newcommand{\hastp}{\mathrel{:}}
+\newcommand{\ldot}{\mathord{.}\,}
+%% operators
+\newcommand{\aand}{,}
+\newcommand{\oor}{\vee}
+\newcommand{\nnot}{\neg}
+\newcommand{\eqq}{\mathrel{\mbox{\tt==}}}
+\newcommand{\neqq}{\mathrel{\mbox{\tt!=}}}
+\newcommand{\andb}{\mathrel{\small\mbox{\&\&}}}
+\newcommand{\orb}{\mathrel{\mbox{\tt{|\!|}}}}
+\newcommand{\eqdef}{\mathrel{\:\widehat{=}\:}}
+\newcommand{\evar}[1]{?#1}
+\newcommand{\zig}{\triangleleft}
+\newcommand{\zag}{\triangleright}
+\newcommand{\hpts}{\mapsto}
+\newcommand{\set}[1]{\left\{#1\right\}}
+\newcommand{\tauflip}{\mathsf{flip\_trans}}
+\newcommand{\tauadd}{\mathsf{add2\_trans}}
+\newcommand{\tfr}[2]{{\text{fresh}^{#2}_{#1}}}
+
+% more invariants
+\newcommand{\tapprox}{\mathsf{ResInterf}}
+\newcommand{\happrox}{\mathsf{ResHist}}
+\newcommand{\sapprox}{\mathsf{ResState}}
+\newcommand{\bapprox}{\mathsf{ValuesMono}}
+\newcommand{\strapprox}{\mathsf{IncResult}}
+\newcommand{\Thisz}{\mathsf{this}}
+\newcommand{\This}[1]{\Thisz~{#1}}
+
+\newcommand{\hvalid}{\mathsf{Valid}}
+\newcommand{\eqqc}{e_{\mathit{qqc}}}
+\newcommand{\eqc}{e_{\mathit{qc}}}
+
+\newcommand{\pending}{{m_\joint}} 
+\newcommand{\offers}{h}
+\newcommand{\twin}[1]{\bar{#1}}
+\newcommand{\mygather}[1]{|\!|{#1}|\!|}
+
+

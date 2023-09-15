@@ -1,0 +1,57 @@
+------------------------------------------------
+IMPORTANT DATES
+------------------------------------------------
+    Submission of Abstracts: April 11th, 2016 AoE!
+    Submission of Papers: April 18th, 2016 AoE!
+    Notification: June 8th, 2016
+    Final version: June 22, 2016
+
+Submission of Abstracts: April 11th, 2016 AoE!
+ Monday,  11 April 2016, 23:59 AoE  UTC-12 hours 
+ Tuesday, 12 April 2016, 13:59 CEST UTC+2 hours  
+ Tuesday, 12 April 2016, 12:59 BST  UTC+1 hour   
+ Tuesday, 12 April 2016, 07:59 EDT  UTC-4 hours  
+ Tuesday, 12 April 2016, 11:59 UTC (GMT)
+
+Submission of Papers: April 18th, 2016 AoE!
+ Monday,  18 April 2016, 23:59 AoE  UTC-12 hours 
+ Tuesday, 19 April 2016, 13:59 CEST UTC+2 hours  
+ Tuesday, 19 April 2016, 12:59 BST  UTC+1 hour   
+ Tuesday, 19 April 2016, 07:59 EDT  UTC-4 hours  
+ Tuesday, 19 April 2016, 11:59 UTC (GMT)
+
+Lipics, 13 pages including references
+Easychair: https://easychair.org/conferences/?conf=concur2016.
+
+------------------------------------------------
+Instructions to Authors from Concur'16 website
+------------------------------------------------
+Submissions and Publications
+
+CONCUR solicits high quality papers reporting research results and/or
+experience reports. All papers must be original, unpublished and not
+submitted for publication elsewhere. Each paper will undergo a
+thorough review process.
+
+The CONCUR proceedings will be published in LIPIcs (Leibniz
+International Proceedings in Informatics), published under an open
+access license by Dagstuhl Publishing.  As usual, the Proceedings will
+be available before the conference.
+
+Submissions will be in electronic form via EasyChair. The usage of
+pdflatex and the LIPIcs style file (see here for some formatting
+tricks) are mandatory: no changes to font size, page geometry,
+etc. are permitted. Authors are invited to submit a draft of at most
+13 pages including references. Submissions not in the correct format
+or submitted after the deadline will be rejected without further
+consideration.
+
+If necessary, the paper may be supplemented with a clearly marked
+appendix, which will be reviewed at the discretion of the program
+committee and the reviewers.
+
+As usual, for an accepted paper to be included in the proceedings, one
+of the authors must commit to presenting the paper at the
+conference. All papers must be original and unpublished. Simultaneous
+submission to other conferences or workshops with published
+proceedings or to journals is not allowed.

@@ -1,0 +1,102 @@
+Dear Yannis.
+
+This mail is with respect to the suggested requirements for the
+revision of our OOPSLA'16 submission #49 entitled "Hoare-style
+Specifications as Correctness Conditions for Non-linearizable
+Concurrent Objects".
+
+Could you please pass our comments to the shepherd, assigned to the
+paper, and inform us of his/her feedback.
+
+We agree with suggestions 1-2 and 4-5, and we will implement them in
+the revision. However, we are not sure if the third suggestion can be
+addressed in full, and we wanted to discuss this point with you
+and/or our shepherd.
+
+The suggestion #3 is stated as follows:
+
+"Compare with TaDa and CSL in terms of at least one example. Write out
+the major steps needed in these, and argue the advantages (and
+disadvantages) of the use of FCSL. If you argue that things cannot be
+done in TaDa or FCSL, then point to the part that cannot be done, and
+ideally also obtain confirmation from their authors that indeed it
+cannot be done."
+
+Our problem is that we don't know how to reformulate our proofs in
+TaDA. We did get in touch with Thomas Dinsdale-Young and Philippa
+Gardner, two of the creators of TaDA, regarding this issue.
+
+In personal communication, they confirmed that TaDA, as a logical
+framework, does not provide a straightforward way to encode the
+history-based reasoning that was essential for us. Such an encoding,
+even if possible, will be a significant effort, deserving a separate
+publication. They did not see a straightforward way to verify our
+examples in TaDA.
+
+Thus, the best possible way that we see for fulfilling the requirement
+from the OOPSLA reviewers, is as follows, and we would like to obtain
+your agreement for it. 
+
+Instead of providing an example, we suggest to add to the manuscript
+the following points of comparisons with respect to the related work
+to TaDA. 
+
+- In the FCSL's approach, histories are a form of state, and thereby
+all the standard separation logic mechanisms---such as the frame rule
+and ownership transfer---apply uniformly to histories in addition to
+heaps. TaDA has an abstraction of "atomic tracking resources", which
+is, on the surface, similar to what we would call an item in the
+history, but formally, they are very different. In particular, TaDA
+lacks support for ownership transfer for these atomic tracking
+resources, which prevents TaDA from being able to specify, for
+instance, the Exchanger data structure from Section 2 of our
+paper. This was confirmed to us by Thomas and Philippa.
+
+- TaDA does not have our hide construction, which we use to encode
+quiescence. TaDA may be able to express quiescence by other means
+(e.g., specifically defined guards), but that is much more
+complicated, as one would have to encode a protocol for tying the
+fractional permissions to the example-specific auxiliary state. One
+would then have then to prove that such protocol is respected by the
+example program. This protocol is likely to be different for different
+examples. For us, this whole process is handled by *one* inference
+rule---that for hide---which we proved sound once, and then can (and
+have) used in many examples for free.
+
+- TaDA is not implemented as a verification tool, whereas our proofs
+are fully mechanized.
+
+These comparisons were made to some extent in previous papers [34,39],
+but we will be happy to reiterate them in the revision for the current
+one.
+
+In addition to the comparison with TaDA, we were asked to compare with
+CSL.
+
+- CSL is a logic for reasoning about coarse-grained (i.e., lock-based)
+concurrent programs. FCSL generalizes it to support reasoning about
+fine-grained programs as well, where synchronization is not done by
+wholesale locking and unlocking of the concurrent data
+structures. Thus, CSL is not applicable to the examples that we have
+attempted.
+
+That said, we want to reiterate the following point, which, we are
+concerned, may not have been appreciated fully.
+
+We do not see the contribution of our submission to be the design of
+FCSL; hence a design of a logic that generalizes CSL to enable
+reasoning about fine-grained programs in the style of separation
+logic. Indeed, FCSL can support such reasoning, but so can several
+other related logics, such as TaDA. 
+
+Rather, our point is that the very general and uniform abstractions we
+provided in FCSL (e.g., PCMs) can be used to reason about
+_non-linearizable_ concurrent objects and their clients. We find this
+to be a very interesting and novel observation, since neither TaDA,
+nor any other formal logic that we are aware of, has ever been
+proposed for uniform reasoning about various classes of
+non-linearizable structures. If TaDA (or some other related logic) is,
+after-the-fact, discovered capable of encoding the same style of
+reasoning that we proposed, that should not negate the interest and
+novelty of our observations and our proofs.
+

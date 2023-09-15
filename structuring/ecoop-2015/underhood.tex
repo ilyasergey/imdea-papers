@@ -1,0 +1,102 @@
+
+\section{Elements of FCSL infrastructure}
+\label{sec:underhood}
+
+In this section we sketch two important parts of FCSL machinery, used
+to simplify construction of proofs.
+
+\subsection{Extracting concurroid structure via getters}
+\label{sec:getters}
+
+When working with compositions of multiple concurroids, as in examples
+listed in Section~\ref{sec:more-examples}, one frequently has to
+select the \emph{self}, \emph{joint} or \emph{other} components that
+belong to one of the composed concurroids. A na\"{i}ve way of doing this
+is to describe the state space of the composition concurroid using 
+existentials that abstract over the concurroid-specific
+fields. \emph{E.g.}, in the case of flat combiner, which composes
+three concurroids \code{Priv}, \code{Alloc} and \code{FlatCombine}, we
+could use three existentials to abstract over
+\emph{self}/\emph{joint}/\emph{other} fields for \code{Priv}, another
+three for \code{Alloc}, and three more for \code{FlatCombine}. To access
+any of the fields, we have to destruct all
+nine of the existentials. This quickly becomes tedious and results in
+proofs that are obscured by such existential destruction.
+
+Our alternative approach develops a systematic way of projecting the
+fields associated with each concurroid, based on the concurroid's
+label. Thus, for example, we can write \code{self\ pv\ s} to obtain
+the \emph{self} component of \code{s}, associated with a concurroid
+whose label is \code{pv}. The identifier \code{pv_self} we used in the
+spec for \code{span_root} and for \code{flat_combine} is a notational
+abbreviation for exactly this projection. While this is a simple and
+obvious idea, its execution required a somewhat involved use of
+dependently-typed programming, and an intricate automation by
+canonical structures and lemma
+overloading~\cite{Gonthier-al:ICFP11,Mahboubi-Tassi:ITP13}.
+
+%As it was shown in Section~\ref{sec:more-examples}, most of the
+%programs ``span'' a set of resources, described by a composite
+%concurroid. To make proofs in such cases as simple as proofs about
+%primitive (one-label) concurroids, we used the power of
+%dependently-typed programming and implemented a library of \emph{state
+%  getters}.
+%
+%Given the label of an arbitrary primitive concurroid, the type of its
+%self/other and the joint component (which is typically \code{heap}),
+%and the default value for the joint component, the function
+%\code{Getter} will provide a dependent record with the three getters
+%for this concurroid's state components.
+%
+%The following code shows an instantiation of the \code{Getter}
+%interface for the graph concurroid, with a label \code{sp}, auxiliary
+%state's type \code{ptr_set} and joint component to be a heap.
+%
+%\begin{lstlisting}
+%Notation ptr_set := (ptrmap_pcm_Encoded [encoded_set of unit]).  
+%Definition spg := Getter sp ptr_set heap_tp_Encoded Unit.
+%
+%Notation self s := (self spg s).
+%Notation other s := (other spg s). 
+%Notation joint s := (joint spg s).
+%\end{lstlisting}
+
+\subsection{Structural lemmas}
+\label{sec:lemmas}
+
+The proofs in FCSL are structured to facilitate systematic application
+of Floyd-style structural rules, one for each program command. All the
+rules are proved sound from first principles, and are applied as
+lemmas to advance the verification.
+%
+As the first step of every proof, the system implicitly applies the
+weakening rule to the automatically synthesized weakest pre- and
+strongest postconditions~\cite{Dijkstra:CACM75}, essentially
+converting the program into the continuation-passing style (CPS)
+representation and sequentializing its structure.
+%
+Every statement-specific structural rule ``symbolically evaluates''
+the program by one step, and replaces the goal with a new one to be
+verified.
+
+For example, the following lemma \code{step}, corresponding to the
+rule of sequential composition, reduces the verification of a program
+$(y \asgn e_1; (e_2~y))$ with continuation~$k$, to the verification
+of the program $e_1$ and the program $e_2~y~k$, where $y$ corresponds
+to a symbolic result of evaluating $e_1$, constrained according to
+$e_1$'s postcondition. One can apply it several times until $e_1$ is
+reduced to some primitive action, at which point one can apply the
+structural rule for that action.
+%
+\begin{lstlisting}
+Lemma step W A B (e1 : ST W A) (e2 : A -> ST W B) i (k : cont B): 
+     verify i e1 (fun y m => verify m (e2 y) k) -> 
+     verify i (y <-- e1; e2 y) k.  
+\end{lstlisting}
+%
+\code{ST} is a type synonym for \code{STsep}, hiding its pre- and
+postconditions.
+
+
+
+

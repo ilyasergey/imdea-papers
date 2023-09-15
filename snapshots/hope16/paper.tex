@@ -1,0 +1,111 @@
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[margin=1in]{geometry}
+
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage{latexsym}
+\usepackage{mathabx}
+\usepackage{graphicx}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage[scaled]{helvet}
+\usepackage[noend]{algorithmic}
+\usepackage{mathrsfs}
+\usepackage{mathpartir}
+\usepackage{dsfont}
+\usepackage{stmaryrd}
+\usepackage{url}
+\usepackage{textcomp} 
+\usepackage[colorlinks=true,allcolors=blue,breaklinks,draft=false]{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{alltt}
+\usepackage{bbm}
+\usepackage{alltt}
+\usepackage{verbdef}
+\usepackage{xspace}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage{lipsum}
+\usepackage{caption,subcaption}
+\usepackage{wrapfig}
+\usepackage{authblk}
+\usepackage[usenames,dvipsnames]{xcolor}
+\hypersetup{linkcolor=black,citecolor=black,urlcolor=RubineRed}
+
+\newcounter{tags}
+\usepackage{flushend}
+\usepackage{pgf,tikz}  
+\usepackage{cite}
+% For turned column headers 
+\usepackage{adjustbox} 
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{pifont}
+
+\input{flags}
+\input{defs}
+
+\bibliographystyle{plainurl}% the recommended bibstyle
+
+% Keep footnotes on one page
+%\interfootnotelinepenalty=10000 
+
+%% \setlist[itemize]{leftmargin=*}
+
+%% \setlength{\parindent}{0.15in}
+%% \setlength{\topsep}{0cm}
+%% \setlength{\parskip}{0pt}
+
+%% \titlespacing*{\section}{0pt}{*1.5}{*1.5} 
+%% \titlespacing*{\subsection}{0pt}{*0.8}{*0.5}
+%% \titlespacing*{\subsubsection}{0pt}{*0.8}{*0.5}
+%% \titlespacing*{\paragraph}{0pt}{*0.5}{*1.2}
+
+% SSReflect listings 
+%\input{lstcoq}
+%\lstset{style=Coq}
+
+\begin{document}
+
+\title{Concurrent Data Structures Linked in Time}
+
+\author[1]{Germ\'{a}n Andr\'{e}s Delbianco\thanks{The authors wish to
+    give a 30 minutes long talk.}}
+\author[2]{Ilya Sergey}
+\author[1]{Aleksandar Nanevski} \author[1]{Anindya Banerjee}
+\affil[1]{IMDEA Software Institute, Madrid, Spain \\
+         {\texttt{\{german.delbianco,aleks.nanevski,anindya.banerjee\}@imdea.org}}}
+\affil[2]{University College London, UK\\ {\texttt{i.sergey@ucl.ac.uk}}}
+
+\date{}
+
+%% \institute{
+%%   IMDEA Software Institute, Spain\\ 
+%%   \email{\{german.delbianco,aleks.nanevski,anindya.banerjee\}@imdea.org}\and
+%%   Universidad Polit\'{e}cnica de Madrid, Spain \and
+%%   University College London, United Kingdom\\
+%%   \email{i.sergey@ucl.ac.uk}}
+
+
+\maketitle
+
+\begin{abstract}
+\input{abstract}
+\end{abstract}
+
+\input{intro2}
+%\input{overview}
+%\input{formal3}
+%\input{auxiliary}
+%\input{proof}
+%\input{clients}
+%\input{related}
+%\input{conclusions}
+
+\bibliography{references,procs}
+
+\end{document}

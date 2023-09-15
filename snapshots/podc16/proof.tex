@@ -1,0 +1,59 @@
+%%%
+%%% G: Don't go down here for the time being
+%%%
+
+We finish this section with a proof of correctness for the
+specification of {\tt write} and {\tt scan} presented
+in~\eqref{eq:specs}. Even if the formal mechanisation of these proof
+in Coq is a work in progress, we can still provide a proof sketch
+describing the standard approach to prove the correctness of a
+specification in FCSL.
+
+\paragraph{Correctness of write and scan}%
+Before the main results we need an intermediate step towards that,
+which is that the order $\jleq$, defined in~\eqref{def-jleq} above, is
+{\it stable} under environment interference. In FCSL, this entails
+considering all possible steps the methods can do, both ``real'' and
+auxiliary.
+
+\begin{lemma}[$\jleq{\_}$ is stable]\label{lem:jleq-stable}
+If $\ordlist$ evolves to $\ordlist'$ by environment interference then
+$ (\jleq{\ordlist}) \subseteq\ (\jleq{\ordlist'})$.
+\end{lemma}
+\proofsketch{
+Since $\jleq$ is defined only by auxiliary state, only auxiliary code
+can challenge its stability. Among the operations presented above,
+only the relink transition poses a serious threat its stability. The
+proof that $\act{relink}$ doesn't affect the chains in $\jleq$ relies,
+ultimately on two observations: (i) that relink doesn't affect the
+order of green entries in the history, which we mentioned above and
+(ii), that the elements in the ``window'' determined by the elements
+being pushed correspond to overlapping events. We reason with this
+case as follow: Consider a $\act{relink}$ environment call that pushes
+$t_y$ past $t_x$, with $t_y \in \histy$ and $t_x \in \histx$, then all
+elements $t$ in the chain $t_y \tle t \tleq t_x$ belong to $\histx$,
+by virtue of $t_y$ being the yellow timestamp of $t_y$ (and
+Invariant~\ref{inv:redzone}). Then, we observe that en entry that is
+yellow when relink occurs, commited to memory before {\tt scan} set
+the bit to false and either is still active or finished after {\tt
+scan} set the $S$ bit to false. If any $t$ in that chain began after
+$t_y$ finished it cannot not possibly be green, as the spec for
+register would have marked it red. \qed }
+
+\begin{theorem}[Correctness of {\tt write} and {\tt scan}]
+The implementations for {\it scan} and {\tt write} in
+Figure~\ref{fig:fcsl-snapshot} can be ascribed the spec given
+in~\eqref{eq:specs}.
+\end{theorem}
+
+\proofsketch{
+
+
+}
+%% \begin{itemize}
+%% %% \item Maybe move the invariants here if they are not needed above
+%% %% in Section~\ref{sc:formal}.
+%%  \item Sketch an explanation of the proof.  \item{Maybe fork this part
+%%  as a separate section?}
+%% \end{itemize}
+

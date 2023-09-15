@@ -1,0 +1,154 @@
+\section{Related work}
+\label{sc:related}
+
+% Early times
+
+The proof method for establishing linearizability of concurrent
+objects based on the notion of \emph{linearization points} has been
+presented in the original paper by Herlihy and
+Wing~\cite{Herlihy-Wing:TOPLAS90}. The first Hoare-style logic,
+employing this method for compositional proofs of linearizability was
+introduced in Vafeiadis' PhD thesis~\cite{Vafeiadis:PhD}. However,
+that logic, while being inspired by the
+combination~\cite{Vafeiadis-Parkinson:CONCUR07} of Rely-Guarantee
+reasoning~\cite{Jones:TOPLAS83} and Concurrent Separation
+logic~\cite{OHearn:TCS07} with syntactic treatment of linearization
+points~\cite{Vafeiadis-al:PPoPP06}, did not have a soundness proof
+with respect to any program semantics. Furthermore, the
+work~\cite{Vafeiadis:PhD} did not connect reasoning about
+linearizability to the verification of client programs, which make use
+of linearizable objects in a concurrent environment (\cf
+Section~\ref{sec:clients}).
+
+% Modern logics for linearizability
+
+Both these shortcomings were addressed in more recent works on program
+logics for establishing linearizability~\cite{Liang-Feng:PLDI13}, or,
+equivalently~\cite{Filipovic-al:TCS10}, \emph{observational
+  refinement}~\cite{Turon-al:ICFP13}, which provided semantically
+sound methodologies for (a) verifying linearizability/refinement of
+concurrent objects \emph{as well as} for (b) giving the objects
+Hoare-style specifications, useful for the clients.
+%
+However, in the both
+approaches~\cite{Liang-Feng:PLDI13,Turon-al:ICFP13} establishing (a)
+and (b) essentially requires one to prove \emph{two different} facts
+about a program, and, if one is interested only in the Hoare-style
+reasoning by means of composing program specifications, verifying
+linearizability (a) is a detour, which might be avoided.
+
+% No-linearizability
+
+This observation has been recognized in a series of more recent works
+on program logics for concurrency that all focused on establishing
+Hoare-style specifications for concurrent objects (b) without
+resorting to
+linearizability~\cite{Sergey-al:ESOP15,Svendsen-Birkedal:ESOP14,ArrozPincho-al:ECOOP14,Jung-al:POPL15}.
+%
+In this paper, we are following the same way of thinking, building on
+the ideas from the prior work~\cite{Sergey-al:ESOP15}, which explored
+some patterns of assigning \emph{subjective} Hoare-style concurrent
+specifications with auxiliary histories to concurrent objects
+(including \emph{higher-order} ones, such as {flat
+  combiner}~\cite{Hendler-al:SPAA10}) in
+FCSL~\cite{Nanevski-al:ESOP14}. The work~\cite{Sergey-al:ESOP15} has
+generalized earlier results on history-based Hoare-style
+logics~\cite{Fu-al:CONCUR10, Gotsman-al:ESOP13,Bell-al:SAS10}, yet it
+has not provided a way to reason about concurrent objects, featuring
+future-dependent linearization points.
+%
+
+The key novelty of this work with respect to previous results
+involving Hoare-style reasoning about histories~\cite{Fu-al:CONCUR10,
+  Gotsman-al:ESOP13,Bell-al:SAS10,Sergey-al:ESOP15,Hemed-al:DISC15} is
+the idea of dynamically \emph{re-linking} the auxiliary histories,
+enabling efficient constructive reasoning about non-local and
+future-dependent linearization points.
+%
+Since re-linking as we presented it is just manipulation with
+otherwise standard auxiliary state, we did not have to extend the
+metatheory of FCSL, and were able to use it
+\emph{off-the-shelf}. Furthermore, relying on the auxiliary state
+makes it possible to extend our verification method for reasoning
+about higher-order (\ie, parametrized by another data structure)
+snapshot-based concurrent constructions~\cite{Petrank-Timnat:DISC13},
+which is our immediate future work.
+%
+In contrast, alternative modern programming
+logics~\cite{ArrozPincho-al:ECOOP14,Jung-al:POPL15,Svendsen-Birkedal:ESOP14}
+would require introduction of prophecy variables in order to verify
+Jayanti's snapshot construction, and, to the best of our knowledge,
+none of these extensions has been implemented yet.
+
+Related to our result, O'Hearn \etal have demonstrated how to employ
+history-based reasoning and Hoare-style logic for proving
+\emph{non-constructively} existence of linearization points for
+concurrent objects out of the data structure
+invariants~\cite{OHearn-al:PODC10}---the result is known as \emph{the
+  Hindsight Lemma}. The reasoning principle presented in this paper
+generalizes that idea, since the Hindsight Lemma is only applicable to
+``pure'' concurrent methods (\eg, concurrent set's
+\texttt{contains}~\cite{Heller-al:OPODIS05}), which do not determine
+position of other threads' linearization points. In contrast, our idea
+of re-linking histories also handles the structures, where a
+linearization point of a method call (e.g., \texttt{write}) might
+depend on the (future) outcome of another operation (e.g.,
+\texttt{scan}), as was showcased by Jayanti's construction.
+
+
+
+% Most recent related work relies on parametrization to avoid reasoning
+% about linearizability. But, that has its drawbacks. In particular,
+% while it can handle situations in which linearization points are
+% placed in different places, depending on the run-time infomration
+% (speculiation), it is not currently strong enough to formalize
+% examples where linearizatin points appear in different
+% proceedures.\an{Hmm, are we super sure of this?} Thus, we don't
+% believe they can handle Jayanti's algorithm.  \is{How about this time
+%   we just mention these people briefly and instead do a comparison to
+%   the PODC crowd and their reasoning methods, which are all about
+%   harnessing the vanialla definition of liearizability. This way, the
+%   whole discussion will be more relevant to the audience, as nobody
+%   knows the concurrency logics anyway, so we'll just waste valuable
+%   space, talking about them in detail.}  \an{I agree that we should
+%   just mention them briefly.}
+
+% Independently of us, Kyzha et al. have developed an a method whereby
+% linearizability is proved by reordering time-stamped histories,
+% similar to the basis of our approach. However, there are many
+% differences. 
+
+% \begin{enumerate}
+% \item While linearizability does not say anything about clioent side
+%   proofs, beyond the ability to replace the two programs in it, our
+%   method also gives a way to reason about clients, as we illustrated
+%   in Section 4.
+
+% \item While they present a new logic, for us, it is all a mode of use
+%   of auxiliary state.
+
+% \item Our PCM of histories let us reuse separation logic in
+%   infrastructure (e.g., frame rule) to reason about histories locally,
+%   whereas Kyzha et al. use global histories only. Our setting also
+%   immediatley lends itself to higher-order programming. This is
+%   particularly important for snaphsots, as one of their major
+%   application is in iterators -- a prototypical higher-order
+%   program~\cite{PetrankT+disc13}. However, we don't explore iterators
+%   in this particular paper.
+
+% \item Kyzha et al. track the ordering of timestamps quite differnetly
+%   from us. Where we keep an ``existential'' witness for the total
+%   ordering of timestamps, at all stages of evaluation, they do so
+%   ``universially''. Thus, they require proving that all possible
+%   completions of a partial order into a total order are valid for
+%   establishing the relation with the linearization program. We believe
+%   this leads to larger proofs and more complicated proofs than
+%   necessary.
+% \end{enumerate}
+
+% Liang et al~\cite{LiangF+pldi13} present a dedicated meta-theory to
+% reason with future-dependent linearization points based on
+% speculations. \gad{Are we sure they can't do Jayanti here? Need to
+%   think what to say about their works as they do have a program logic
+%   as we do}
+  

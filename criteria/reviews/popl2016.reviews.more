@@ -1,0 +1,131 @@
+===========================================================================
+                          POPL 2016 Review #214C
+                     Updated 3 Oct 2015 3:29:07am EDT
+---------------------------------------------------------------------------
+Paper #214: Hoare-style Specifications as Correctness Conditions for
+            Non-linearizable Concurrent Objects
+---------------------------------------------------------------------------
+
+                      Overall merit: 2. Weak reject
+Reviewer expertise (shown to authors): 4. 
+                                        Expert (I have published papers in
+                                        related topics)
+
+                         ===== Paper summary =====
+
+This paper presents several case studies of how to apply Hoare-style reasoning to specify and verify a set of examples which are non-linearisable. The paper provides specifications for 2 examples, they prove that the implementations satisfy the specifications and show simple clients using the specification.
+The logic used a special form of auxiliary state that captures the histories that consist of the contribution of the thread, the environment and the combination of both.
+The key idea is to use the histories to specify different data structures that specify different correctness conditions.The paper illustrates the idea showing how to reason about an Exchanger and a Counting Network which are not linearisable and how to use the specifications to reason about clients.The examples in the paper are interesting and the proofs are formalised in coq.
+
+===== Comments for authors and suggestions to make this a strong paper =====
+
+PC comment: This was a borderline paper, discussed at great length. Some of the discussion is summarised below.
+
+Points in favor:
+
+* The examples shown are illustrative of two different classes of problems. In particular, the new concurrency-aware linearisability illustrated with the Exchanger and quiescent consistency that the counter network satisfies.
+
+* The examples shown are verified in coq.
+
+* The specification of the Exchanger, has been done previously in a Hoare-style logic (see "Logical Relations for Fine-Grained Concurrency" and Turon's thesis). However, the new concurrency-aware linearisability has not been specified in Hoare-style triples.
+
+* Concurrent Abstract Predicates based logics can do wait-free counters. This paper seems to make a connection with quiescent consistency.
+
+Points against:
+
+* Only two examples discussed in the paper illustrating two correctness conditions, not a span of examples. Why do these specifications capture these notions? Is there a formal proof to relate the techniques shown with the correctness conditions (including linearisability).
+
+* It is not clear how how difficult the examples were to prove, what general approaches are buried inside the coq proofs. How much effort was done to prove the two examples shown compared with the work done in [40]. FCSL previous applications were not proving that an object is linearisable. Instead the specification was capturing the sequence of actions on the shared object. Here we observe the same thing, with a slightly different invariant depending on the correctness condition.
+
+* The verification of non-linearisable has been explored previously, by Hoare-style logics such as concurrent abstract predicates and verifast (Expressive modular fine-grained concurrency specification). It is not clear if you have a theorem relating the correctness criteria to the specifications you have shown. How does that differ from previous work that does not use specifications that assume linearisability?
+
+Other comments:
+
+* In section 1.1 you say that a time-stamped history consists of entries of the form t |-> a to signify that the (typically atomic) operation a occurred at time t.
+Later you show how the exchanger uses time-stamped histories made of pairs to describe the whole atomic operation. Is it the case that each entry must be added by an atomic operation?
+
+* In alternative logic-based approaches, you say that logics parametrize programs with first-class auxiliary code [31]. The approach described in [31] allows for an operation to be considered as a sequence of multiple atomic actions and as such non-linearizable in the traditional sense. What is the fundamental difference that does not allow the examples shown to be verified in such approach that requires FCSL?
+
+* In linearisability, the notion of appropriate specification seems to be well understood. Considering the different correctness of properties that you have specified, is there a common pattern that can be applied irrespective of the data structure used?
+
+* I understand that you have not made modifications to the core logic FCSL to specify and verify the examples in the paper. This looks like a great sign to the expressivity of the logic. However, it is not clear what were the major challenges when verifying the examples. Were they related to the complexity of the specific protocols of each example or the correctness conditions considered?
+
+* In section 7, you mention that the approach used in section 5 can be applied for queues [13] and stacks [32]. You then proceed to show how one can view the specification for the queue [13]. Is it the case that one can see the specification as linearisable if one considers a different notion of abstract state, in particular, instead of thinking it as a queue which enforces a FIFO order, we think of it the same way you show in the figure?
+
+Another review:
+
+
+Overall, I like the paper: It advocates using Hoare-style specs and
+proofs for specifying the behavior of non-linearizable concurrent data
+structures. This is in contrast to the previous work, which typically
+expresses the desired specification as properties of the trace of calls
+and returns.
+
+The first example is an exchange. They give a specification by
+internalizing a notion of history, but rather than calls and returns,
+the history covers "exchange events". Every such event is recorded from
+the view of both participants, with an invariant ensuring consistency.
+Crucially, the authors also show client-side reasoning, which often
+reveals whether the chosen specification is useful at all.
+Unfortunately, the example does not involve ownership transfer or using
+the exchange as a synchronization point in some outer protocol. This
+would have really demonstrated the benefits of Hoare-style reasoning.
+
+The second example is a counting network: Two counters that are used
+alternately. This is *not* a linearizable counter, since in the presence
+of interference, a thread can see non-monotonic values. However, the
+amount the counter is "off" can be bounded if the number of interfering
+threads is known. The specification of this counter is very intricate,
+delicately combines internalized histories of "increment" events and
+ownership-based reasoning, and leaks almost all implementation details.
+The authors argue (convincingly) that the spec implies the properties
+one would typically express on the call-and-return-trace, but the
+example clients have to use the complicated spec directly. Again, the
+example clients only need functional correctness, there is no ownership
+transfer going on (which is less surprising here than in the case of the
+exchange).
+
+My main criticism of the paper of the aforementioned spec of the
+counter: Another implementation of a counter with similar, quiescent
+properties will (it seems to me) likely need a very different spec. The
+reasoning about tokens (representing outstanding increments) seems very
+tedious and specific to the implementation, and it leaks all the way
+through to the clients. I suppose it is currently unclear whether a more
+general, more intuitive spec can be given at all - I'd appreciate a
+short discussion of this issue in the paper.
+
+It may be worth pointing out that while the logically atomic
+specifications of Iris and TaDA can't scale to non-linearizable specs at
+the moment, certainly Iris can do the kind of reasoning that the authors
+perform in FCSL.
+
+Comment associated with this review:
+
+Personally, I think this is very interesting work, and I'm surprised at the low scores.   IMO, this paper is interesting for several reasons:
+
+1. It studies non-linearizable data structures.  Linearizability is overrated, and after having spent a while trying to prove it for a range of data structures, I've come to the conclusion that it's too strong a spec in many cases.  The question is what can one replace it with.  (Nir Shavit came to much the same conclusion in his CACM article from a few years back.)
+
+2. Rather than just study different possible linearizability replacements in isolation, the authors are exploring how separation logic with a suitably rich form of ghost state can naturally express different kinds of specs AND can support client reasoning against such specs.  I don't find this at all surprising, since I have also been pushing for rich Hoare-style specifications of concurrent data structures in my own work as an alternative to linearizability.  But probably many people would.
+
+3. The work appears novel.  I am not aware of any prior work that achieves similar kinds of verification of modules and their clients within a single framework.  
+
+That said, the paper only goes so far: they only have two examples.  Their spec for the counting network is very intensional.  For the exchanger example, Hemed, Rinetzky, and Vafeiadis [DISC'15] have already verified a more interesting client of an exchanger (namely, an elimination stack) using their concurrency-aware linearizability technique, but arguably their proof is considerably less detailed and is not machine-checked.  It would have been nice to see what the authors' proof of that example looked like.  However, the Hemed et al. paper has not even been formally published yet, so it's arguably concurrent work.
+
+All in all, I think this paper should be published, but it seems like an uphill battle at this point. 
+
+More discussion:
+
+
+Aaron does red/blue flags and the elimination stack. Red/blue flags are a simplified form of exchange. Aaron could have done exchange. More significantly,  Aaron does refinement-based reasoning, not Hoare-style reasoning.
+
+The  exchange example in this paper is a good representative of the concurrent-aware linearisability. The client example is  poor. I do not understand why they did not do the elimination stack, which has ownership. There is no comment.
+
+The specification of the counting network  in this paper  is  implementation dependent. The clients are very (even too) simple. The clients provide  poor evaluation of the generality of the specification. 
+
+It is good that these two different kinds of examples can be done in a unified logic. 
+
+This paper is about saying how good (and surprising) FCSL is for capturing correctness conditions. From the two not-great examples, I am left with no idea how good they are at establishing correctness conditions. 
+
+They give a list of correctness conditions in the introduction, but then there's no argument about how their logic will relate or not to any of these conditions. I don't want them to assume that the conditions are great. I want them to argue the
+case of what they can and can't capture in their general logic, and they have not begun to do this. The paper needs to justify  what it can and can't do with correctness conditions. Something that would be very nice would be, given correctness condition X, we can do example Y but not Z. Or we can do a span of the examples from correctness condition X. Or correctness condition X seems a bit adhoc, since we 
+can do this example too.

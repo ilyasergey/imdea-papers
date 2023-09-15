@@ -1,0 +1,143 @@
+We thank the reviewers for the detailed feedback and respond to their
+main concerns.
+
+[Reviewer 1]
+
+1. Linearizability vs Hoare specs.
+
+(1) Why do we say that linearizability does not *directly* help with
+client-side reasoning.
+
+Consider a simple stack example. We could prove that push and pop
+are linearizable, but then, how does one prove that
+
+(push (3); t1 <- pop)
+||
+(push (4); t2 <- pop) 
+
+started in an empty stack, returns back an empty stack and (t1, t2) is
+either (3, 4) or (4, 3)?
+
+The mere property that push and pop are atomic does not suffice. We
+can see how to do this proof using what amounts to auxiliary state of
+histories, e.g., to track that a pop in each thread happens after a
+push in that thread. The reviewer seems to agree with us that such a
+proof needs such extra auxiliary state, which is what we meant by the
+phrase "re-introducing histories". But, if we are to use such
+auxiliary state anyway, why not use it from the beginning---as we
+propose---instead of going via the intermediate step of proving
+linearizability?
+
+The two-level design of CaReSL confirms our point that refinement
+requires orthogonal consideration for client-side reasoning. Even if
+these considerations are somewhat integrated in CaReSL, they are still
+addressed by separate levels of the system. Furthermore, more recent
+logics [8,36,21], some of which are successors of CaReSL, avoid
+reasoning about linearizability altogether, focusing immediately on
+client-tailored Hoare specs.
+
+(2) Why do we say that linearizability has not been *fully* reconciled
+  with ownership transfer?
+
+Our point was merely that ownership transfer of history events is
+natural for us to do, because histories satisfy the same PCM-laws as
+heaps. Thus, our reasoning about histories inherits the infrastructure
+of the ordinary heap-based separation logic, such as framing and, in
+this case, ownership transfer. No special considerations are needed.
+In contrast, the relationship between linearizability and ownership
+transfer is more sophisticated (as witnessed by [4]).
+
+We agree that perhaps this point is not too
+surprising, as there are a few other methods [22,36,37], that
+also avoid linearizability, and rely on similar notion of ownership
+transfer as shown here (though, we differ from them in other aspects,
+as discussed in related work section). We will clarify, or even remove
+this observation, in future versions.
+
+2. What happens if we weaken scan's spec to not observe \chi_j?
+
+We will be able to ascribe such a spec to scan implementations that
+may return a snapshot that wasn't current. Thus, in clients, we will
+not be able to prove anything that relies on the current value of the
+returned snapshot.
+
+> The specs are subtle, and it might be easy to make them too weak or
+  too strong.
+
+Indeed, ultimately, what the right spec is for any structure is in the
+eye of the asserter, and can only be confirmed in practical
+verification of clients. We have done a few of those, to increase our
+confidence in the specs. But, this is a standard story in
+programming. Linearizability too, may not always be an appropriate notion of 
+specification [AB: Should we cite [35]?]  We did argue, however, that our specs
+essentially say that same thing as linearizability.
+
+3. Is the method applicable beyond Jayanti and what is the main
+verification challenges?
+
+The general principle is that algorithms whose linearization points
+have this dynamic nature (future dependent, changed after
+termination), should be verified by encoding the linearization order
+as auxiliary state and have auxiliary code dynamically change it.
+
+Specifically, the crux of our proof method is the relink procedure,
+which resolves and fixes the ordering between several events (LPs)
+under some structure-specific restrictions, such as Red Zone
+invariant. Figuring out those restrictions is the main verification
+challenge. We envision that the same machinery (with different
+restrictions) should be applicable to structures [9,18,26], as we
+point out in the conclusion.
+
+Related work:
+
+We agree with the comments wrt. Vafeiadis' work and TaDA, and will
+adopt them in the revision.
+
+As for [25,37], we refer to a stable Hoare spec, employed for
+client-side reasoning (not the atomic spec, provided by
+linearizability). Giving stable specs to atomic operations might be
+easier (although we have no evidence of this, as none of other works
+consider snapshot clients), but it still requires engineering
+auxiliary state, as we discussed above.
+
+[Reviewer 2]
+
+1. Why is there at most one candidate for reordering?
+
+Because this is a single-(per location) writer version of the
+algorithm, there can only be one yellow event per pointer. This
+invariant may differ for other algorithms. [AB: Isn't the first version of Jayanti's algorithm single-scanner, single-writer? Say that (remind?) directly?]
+
+2. What does eval do when Omega is partial?
+
+Eval t Chi Omega only considers the subset {t' | t' Omega
+t}. Regardless of Omega being partial or total, when t \in scanned
+Omega, as in the spec, the aforementioned subset is a chain,
+i.e. totally ordered.
+
+[Reviewer 3]
+
+1. What is the generalized principle?
+
+Please, see our response to R1.3.
+
+2. What happens with Omega if a reader method also affects the history?
+
+Omega keeps an order of events, which, upon evaluating up to a certain
+point, gives the actual shape of the structure. In the case of a
+queue, the dequeue method would relink the committed events and insert
+its own entry (deq) in a way that would be consistent with a queue
+evolution. [AB: What is deq?]
+
+3. Can you generalize your auxiliary functions for other examples?
+
+We expect yes, but that is future work. At the moment, the method is
+structured around the relink machinery and supporting auxiliary flag
+manipulation, whose specifics we expect to be quite different for
+other examples.
+
+4. How should one understand "t is colored red, indicating that
+  the order of t will be determined by a FUTURE scan"?
+
+We meant that this write will be taken care of by some scan,
+in the future. But that scan could be an ongoing one.

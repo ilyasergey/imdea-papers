@@ -1,0 +1,235 @@
+===========================================================================
+                          ECOOP 2017 Review #37A
+---------------------------------------------------------------------------
+           Paper #37: Concurrent Data Structures Linked in Time
+---------------------------------------------------------------------------
+
+                      Overall merit: B. Weak accept
+                 Reviewer expertise: Y. I am knowledgeable in this area,
+                                        but not an expert
+
+                         ===== Paper summary =====
+
+This paper gives a new technique for verifying concurrent objects
+whose linearization points (LPs) are dynamic (depend on runtime),
+non-local (are present in other method), and possibly future
+dependent. The key idea is to encode the history in auxiliary state,
+and use auxiliary code to modify the history. The authors give an
+example of a complicated snapshot algorithm by Jayanti, and have
+verified the proof in Coq.
+
+                    ===== Points For and Against =====
+
+Strengths:
+
++ The snapshot algorithm verified in this paper is complicated and
+subtle, and so a challenging case study.
+
++ Proving programs with dynamic LPs by encoding history as auxiliary
+state and using auxiliary code to dynamically modify history
+intuitively feels like a right approach.
+
++ This encoding and the verification of Jayanti's algorithm can be
+done in existing logics (the authors use FCSL).
+
++ The paper is mostly well written and the technical sections have
+detailed explanations.
+
+Potential weaknesses:
+
+- This paper gives a specification of Jayanti's algorithm that is more
+  subtle and complicated than linearizability.  However, they argue
+  that if one needs to verify client properties that involve timing or
+  ordering properties, you anyway need similar history encodings, and
+  here you can do it directly using the given spec. Also, they say you
+  can combine these methods with other objects that are not
+  linearizable but have weaker guarantees (in the literature people
+  have used Hoare style spec to reason about non-linearizable
+  objects). Note that the spec they prove about Jayanti's algorithm
+  implies that it is linearizable.
+
+- How general is this proof method, what kinds of other algorithms can
+  it prove.  The authors claim it can be used for structures like the
+  time-stamped stack [9], the baskets queue [20], and the fast
+  concurrent queues in [29].
+
+- Concurrently, Khyzha et al. [25] have done something very similar:
+  proved linearizability for objects whose linearizability depends on
+  the future, by using auxiliary state to encode a partial order of
+  events.  There are some differences in the encoding of the history,
+  and of linearizability. These authors believe that the techniques in
+  this paper can handle some objects (such as the time-stamped stack
+  in [9]) that Khyzha et al. cannot (according to a personal
+  communication). However note that in [25] the authors conjecture
+  that their method can indeed prove the time-stamped stack correct as
+  well.  Another key difference is that Khyzha et al. encode histories
+  as part of the program language and logic, have a meta theorem that
+  gives conditions for linearizability, whereas in this work the
+  property (linearizability) and histories are encoded as
+  user-concepts in the program logic used, and there is no need for a
+  meta theorem.
+
+- The encoding of history and linearizability in this paper is
+  specific to snapshot algorithms.  I wonder if one can distill out of
+  this a simpler and general specification, that only asserts
+  linearizability, which can be used for other data structures as
+  well. Even the encoding of the history and the property of
+  linearizability seem to be specific to snapshot algorithms.  For
+  instance, Khyzha et al. give an encoding which is not specific to a
+  data structure, and their program logic and main theorem give
+  general conditions that imply linearizability, which I think is a
+  weakness of this paper. The authors suggest that there is a
+  trade-off here: specific encodings as user-level concepts and more
+  complex specifications allow them to potentially verify properties
+  beyond linearizability and re-use the encoding for client reasoning.
+
+In conclusion, I think this paper presents a convincing method to
+verify linearizability of previously unverified algorithms, and shows
+its technique on a challenging example. What I am curious to know is
+how much of this work can be reused in proving another algorithm with
+dynamic LPs.
+
+===========================================================================
+                          ECOOP 2017 Review #37B
+---------------------------------------------------------------------------
+           Paper #37: Concurrent Data Structures Linked in Time
+---------------------------------------------------------------------------
+
+                      Overall merit: A. Accept
+                 Reviewer expertise: X. I am an expert in this area
+
+                         ===== Paper summary =====
+
+This paper describes an approach to verifying specifications for
+fine-grained concurrent data-structures. The specifications that are
+proved represent rich behavioural properties: e.g. that an atomic
+snapshot algorithm returns the most recent snapshot of memory. (The
+same approach could be applied to specify e.g.  that a concurrent
+queue enforced FIFO behaviour).
+
+Linearizability is the correctness property typically proved for
+fine-grained algorithms. The main novelty in this paper is that it
+does not verify linearizability; instead correctness is expressed
+through thread-local pre/post specifications for the methods. These
+specifications expose the order of events in which the local thread
+has participated. When thread post-conditions are joined, then these
+orders can be recombined to reason about the order between different
+thread events, e.g. showing that a snapshot couldn't observe writes
+out of order.
+
+The approach is realised in the (pre-existing) FCSL logic, entirely
+through clever manipulation of ghost state. Internally, the
+data-structure maintains a linear order on operations somewhat
+analogous to an object linearization order, except that the order can
+be rearranged in a controlled way to reflect later method
+behaviour. This avoids one of the key problems with proofs of
+linearizability, that the linearization order may depend on behaviour
+in other threads, or even in future methods. In this paper's approach,
+the temporal order can be tweaked as necessary in order to accommodate
+shifting linearisation orders.
+
+There are some very nice features of this approach. The specifications
+in this paper are in a sense more powerful than linearizability
+because they support thread-local reasoning directly. The
+specifications also do not linearizability, potentially allowing them
+to verify non-linearizable data-structures. The fact that the proofs
+are embedded into FCSL means that they can be mechanically checked in
+Coq, and reused in other FCSL projects.  The reasoning is very
+complex, with lots of auxiliary logical notions, but this probably
+can't be avoided for this kind of v complex algorithm.
+
+My main concern with this approach is that the method specifications
+are difficult to understand. This seems like more of a problem than
+the complexity of the reasoning because specifications should be
+reusable. E.g. in Figure 4, it's hard to work which behaviours are and
+aren't permitted without understanding the precise composition rules
+for the auxiliary state constructs.  In linearizability the sequential
+specification makes it very easy to determine this. It's a shame there
+aren't examples of other data-structure specifications in this paper,
+which would make it clearer whether this holds generally for this
+approach.
+
+The specification made me think about the following examples (inspired
+by relaxed memory).  Explaining these or similar might help
+understanding the specs:
+
+* 'Write coherence': 
+     ```
+     write(x,1); write(x,2);   ||   v1 := scan(); v2 := scan(); 
+     ```
+I think I see how you can prove that v1=2 /\ v2=1 is an impossible result. This
+is similar to your example client, but it'd be nice to see the reasoning
+explained. 
+
+* An IRIW-like example: 
+     ```
+     write(x,1)   ||   write(y,1)   ||  v1 := scan()  ||  v2 := scan() 
+     ```
+Does your specification forbid v1=(0,1) /\ v2=(1,0) as a post-state? I guess
+there's a case-split on the order of the writes of x / y? 
+
+I also wondered how specifications compose between objects
+(compositionality is one of the main points of linearizability). If
+you have two instances of the snapshot algorithm, how do you get a
+shared order over all the combined operations?  I'd guess you'd need
+to yoke them together with another piece of custom ghost state.
+
+Overall though, this is a strong paper.  The proof idiom it introduces
+is novel and tackles a hard problem in verification.  The method is
+complex, but explained clearly, and the chosen example is convincingly
+difficult.  Coq mechanisation increases my confidence in the soundness
+of the approach.
+
+                    ===== Points For and Against =====
+
+Strengths: 
+
+* Novel approach to fine-grained data-structure verification. 
+
+* Tackles a hard example. 
+
+* Convincing formalisation, everything mechanised in Coq. 
+
+Weaknesses: 
+
+* Specifications are difficult to parse compared to linearizability. Hard to
+  see what is and isn't allowed according to the spec. 
+
+* Complex reasoning, lots of auxiliary notions.
+
+===========================================================================
+                          ECOOP 2017 Review #37C
+---------------------------------------------------------------------------
+           Paper #37: Concurrent Data Structures Linked in Time
+---------------------------------------------------------------------------
+
+                      Overall merit: A. Accept
+                 Reviewer expertise: X. I am an expert in this area
+
+                         ===== Paper summary =====
+
+The authors propose an approach for modularly specifying and verifying
+concurrent data structures whose linearization points are dynamic and
+future-dependent, in an existing Hoare logic for fine-grained
+concurrency without support for speculation. The idea is to
+essentially encode the linearizability property into the Hoare-style
+specifications, in a thread-modular way, by means of an abstract
+notion of actions and a partial order on them that is constructed
+dynamically. The authors validate the approach by showing a
+specification and a machine-checked proof for Jayanti's snapshot
+algorithm, an intricate fine-grained concurrent data structure for
+which no formal proof has previously been given.
+
+                    ===== Points For and Against =====
+
+Points in favor:
+
+- The problem addressed, of specifying and verifying concurrent data
+structures for which determining the linearization points requires
+looking into the future, is an open research problem of great current
+interest in the community.
+
+- The approach appears to
+be effective, is presented well, and has been validated extensively.
+
+Points against: I did not detect significant points against.

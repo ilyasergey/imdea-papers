@@ -1,0 +1,362 @@
+
+\section*{Optional Appendices}
+
+In the optional appendices we describe in detail some technical
+insights behind \SCST and the model of concurroids. We also provide an
+extended overview of another case study, which was omitted in the
+paper body due to space constraints. The remainder of the paper is
+structured as follows. \textbf{Appendix~\ref{sec:actions}} describes a
+number of properties and requirements of the actions, presented in
+Section~\ref{sec:logic} of the main paper
+body. \textbf{Appendix~\ref{sec:stability}} formalizes the familiar
+notions of \emph{Rely} and \emph{Guarantee} relations, as well as a
+notion of \emph{stability}, in terms of concurroids and their
+transitions. \textbf{Appendix~\ref{sec:phi-properties}} lists the
+necessary properties of the abstraction functions $\Phi$, used in the
+$\textsc{Hide}$ rule of \SCST. \textbf{Appendix~\ref{sec:ordering}}
+defines Hoare ordering $(p_1, q_1) \sqsubseteq (p_2, q_2)$, used in
+the rule $\textsc{Conseq}$ of the
+logic. \textbf{Appendix~\ref{sec:ticketed}} presents development of a
+large example: a concurroid for the ticketed lock algorithm. Finally,
+in \textbf{Appendix~\ref{sec:semantics}} we present the denotational
+model of \SCST, based on \emph{action trees} and \emph{schedules}, and
+prove the main technical result: soundness of \SCST as a shallow
+embedding into the Calculus of Inductive Constructions. 
+
+
+\section{Abstract Properties of Actions}
+\label{sec:actions}
+
+An action is a 4-tuple $a = (U, A, \sigma, \mu)$. $U$ is a concurroid
+whose internal transition $a$ is supposed to respect. $A$ is the type
+of the return value of $a$. $\sigma$ is the \emph{safety predicate} (over
+states of $U$) describing under which conditions $a$ may be
+executed. $\mu$ is the \emph{stepping relation}; it relates the input
+state, output state, and the result of $a$.
+
+\begin{definition}[Action erasures] Given an action $a$, the erasures $\flatten \sigma$ and 
+$\flatten \mu$ of $a$'s safety predicate and stepping relation are relations on heaps defined as follows.  
+%
+{\small
+\[
+\begin{array}{lcl}
+\flatten {w} \in \flatten{\sigma} & \iff & w \in \sigma\\
+(\flatten{w}, \flatten{w'}, r) \in \flatten{\mu} & \iff & (w, w', r) \in \mu
+\end{array}
+\]}
+\end{definition}
+
+An \emph{atomic} is a triple $\alpha = (A, \sigma, \mu)$. It's a
+special kind of actions, but over concrete heaps, rather than over
+states. States differ from heaps in that they are decorated with
+additional information such as auxiliary state and partitioning
+between \self, \joint and \other.  As with actions, $A$ is the return
+type, $\sigma$ is the safety predicate and $\mu$ is the stepping
+relation, but they all range over heaps.
+
+We consider four different (parametrized classes of) atomics,
+corresponding to the four (parametrized) primitive memory operations
+that we consider.
+
+\begin{definition}[Primitive atomic actions]
+\label{def:actions}
+{\small
+\[
+\begin{array}{lcl}
+  \mathsf{Read}^A_x & = & (A, (x \hpts_A -) \hunion h, (x \hpts v) \hunion h \rightsquigarrow (x \hpts v) \hunion h \aand \result = v)\\
+  \mathsf{Write}\ x\ v & = & (\mathsf{unit}, (x \hpts -) \hunion h, (x
+  \hpts -) \hunion h \rightsquigarrow (x \hpts v) \hunion h)\\
+  \mathsf{Skip} & = & (\mathsf{unit}, h, h \rightsquigarrow h) 
+  \\
+  \mathsf{RMW}^{A~B}_{x~f~g} & = & (B, (x \hpts_A -) \hunion h, (x
+  \hpts v) \hunion h \rightsquigarrow (x \hpts f(v)) \hunion h \aand \result = g(v))
+\end{array}
+\label{eq:actions}
+\]}
+  
+\end{definition}
+
+The last class $\mathsf{RMW}^{A~B}_{x~f~g}$ corresponds to the family of
+\emph{Read-Modify-Write} operations: they all atomically replace the
+current register value $v$ with $f(v)$ for some pure function $f$, and
+return the result according to the function $g$~\cite[\S
+5.6]{Herlihy-Shavit:08}. One particular representative of this family
+is the CAS operation, which instantiates the parameters of $\mathsf{RMW}$ as
+follows:
+%
+{\small
+\[
+\begin{array}{rcl}
+\text{CAS}_{A~x~v_1~v_2} & \eqdef &
+\mathsf{RMW}^{A~\mathsf{bool}}_{x~f({v_1},{v_2})~g({v_1},{v_2})}, \text{where}   
+\\ \\
+f({v_1},{v_2})(v) & = & \mathsf{if}~ (v = v_1) ~\mathsf{then}~ v_2
+~\mathsf{else}~ v_1 \\
+g({v_1},{v_2})(v) & = & (v = v_1)
+\end{array}
+\]}
+%
+% \[
+% \begin{array}{lcl}
+% CAS_A\ x\ v_1\ v_2 & = & (\mathsf{bool}, x \hpts_A -, x \hpts v \rightsquigarrow \begin{array}[t]{l}
+%                                           \mathsf{if}\ v = v_1\ \mathsf{then}\ x \hpts v_2, r = \mathsf{true}\\
+%                                           \mathsf{else}\ x \hpts v_1,
+%                                           r = \mathsf{false})
+%                                           \end{array}  
+% \end{array}
+% \]
+%
+Another representative of the $\mathsf{RMW}$ class is the atomic
+\emph{fetch-and-increment} functions, which we will employ in
+Appendix~\ref{sec:ticketed}, defined as follows:
+%
+\[
+\begin{array}{c}
+\text{FAI}_{x} \eqdef
+\mathsf{RMW}^{\mathsf{nat}~\mathsf{nat}}_{x~\mathsf{inc}~\mathsf{id}}, \text{where}   
+\\ \\
+\mathsf{inc} (v) =  v + 1 ~~~~
+\mathsf{id} (v) = v
+\end{array}
+\]
+
+
+\begin{definition}[Operational action] 
+\label{def:opact}
+%
+An action $a$ is \emph{operational} if its erasure corresponds to one
+of the atomics, \ie, if there exists $b \in \set{\mathsf{Read}^A_x, \mathsf{Write}\ x\ v, \mathsf{Skip},
+\mathsf{RMW}^{A~B}_{x~f~g}}$ such that
+{\small
+\[
+\flatten{\sigma_a} \subseteq \sigma_b \aand 
+\forall h \in \flatten{\sigma_a}\ h'\ r\ldot (h, h', r) \in \flatten{\mu_a} \implies (h, h', r) \in \mu_b
+\]}
+\end{definition}
+In our examples we only consider operational actions, though the
+inference rules and the implementation in Coq don't currently enforce
+this requirement (the operationality of actions in the examples has
+been proved by hand).
+
+Let $U = ({\cal L}, {\cal W}, \tau, {\cal E})$. The action $a = (U, A,
+\sigma, \mu)$ is required to satisfy the following properties.
+{\small
+\[
+\begin{array}{rcl}
+\textit{Coherence} & : & w \in \sigma \implies w \in {\cal W}\\
+\textit{Safety monotonicity} & : & w \zag t \in \sigma \implies w \zig t \in \sigma\\
+\textit{Step safety} & : & (w, w', r) \in \mu \implies w \in \sigma\\
+\textit{Internal stepping} & : & (w, w', r) \in \mu \implies (w, w') \in \tau\\
+%\mathsf{step_Z} & : & s.other = s'.other \implies \hbox{}\\
+%& & \quad (s \zag t, s' \zag t, v) \in \mathsf{step}_a \implies (s \zig t, s' \zig t, v) \in \mathsf{step}_a\\
+\textit{Framing} & : & w \zag t \in \sigma \implies (w \zig t, w', r) \in \mu \implies \hbox{}\\
+& & \quad \exists w''\ldot w' = w'' \zig t \aand  (w \zag t, w'' \zag t, v) \in \mu\\
+\textit{Erasure} & : &  \mathsf{defined} (\flatten w \hunion h) \implies \flatten w \hunion h = \flatten{w'} \hunion h' \implies \hbox{}\\
+& &  (w, w_1, r) \in \mu \implies (w', w'_1, r') \in \mu \implies \hbox{}\\
+& &  r = r' \aand \flatten w_1 \hunion h = \flatten{w'_1} \hunion h'\\
+\textit{Totality} & : & \forall w\ldot w \in \sigma \implies \exists w'\ v\ldot (w, w', v) \in \mu
+\end{array}
+\]}
+The properties of Coherence, Step safety and Internal stepping are
+straightforward.  
+%
+Safety monotonicity states that if the action is safe in a state with
+a smaller \self component (because the other component is enlarged by
+$t$), the action is also safe if we increase the \self component by
+$t$.
+%The property is analogous to the equally named property in
+%abstract separation logic.
+%
+
+Framing property says that if $a$ steps in a state with a large \self
+component $w \zig t$, but is already safe to step in a state with a
+smaller \self component $w \zag t$, then the result state and value
+obtained by stepping in $w \zig t$ can be obtained by stepping in $w
+\zag t$, and moving $t$ afterwards.
+
+The Erasure property shows that the behavior of the action on the
+concrete input state obtained after erasing the auxiliary fields and
+the logical partition, doesn't depend on the erased auxiliary fields
+and the logical partition. In other words, if the input state have
+\emph{compatible} erasures (that is, erasures which are subheaps of a
+common heap), then executing the action in the two states results in
+equal values, and final states that also have compatible
+erasures. This is a standard property proved in concurrency logics
+that deal with auxiliary state and
+code~\cite{Owicki-Gries:CACM76,Brookes:TCS07}.
+
+The Totality property shows that an action whose safety predicate is
+satisfied always produces a result state and value. It doesn't loop
+forever, and more importantly, it doesn't crash. We will use this
+property of actions in the semantics of programs to establish that if
+the program's precondition is satisfied, then all of the
+approximations in the program's denotation are either done stepping,
+or can actually make a step (i.e., they make progress).
+
+So far, the actions are defined in a so-called \emph{large footprint}
+style, \eg, the definition of the action $\mathsf{release}$ in
+Section~\ref{sec:logic} mentions existentially-quantified heap $\hL$
+explicitly,
+%
+To enable writing various actions in a \emph{small footprint} style,
+we also enforce the property {\small
+\[
+\begin{array}[t]{rcl}
+\textit{Locality} & : & w.\mathother = w'.\mathother \implies (w \zag t, w' \zag t, v) \in \mu \implies (w \zig t, w' \zig t, v) \in \mu
+\end{array}
+\]}
+%This property corresponds to what we have taken up calling
+%\emph{locality}, though it's not at all equivalent to locality in the
+%The property is \emph{not} provable from the rest, unless we require
+%that each action is deterministic (which right now seems
+%unecessary). Thus, if we want it, it has to be required as primitive,
+%which is what we have done.
+Curiously, if the default use of the logic is in a large footprint
+notation, then this property is not necessary as it is not used in any
+proofs.
+%
+%However, I just realized that the property is not used \emph{anywhere}
+%in the development. It's unused in the model, and it's unused in the
+%always lemmas. Thus, I'm suppressing it here.
+%
+%On the other hand, the similar locality property for
+%\emph{transitions} is useful in the always lemmas, as alredy
+%commented!}
+%\end{comment}
+
+
+\section{Self/Environment Stepping and Stability}
+\label{sec:stability}
+
+\begin{definition}[Self-stepping (Guarantee)]
+\label{def:guarantee}
+
+Given a concurroid $U = ({\cal L}, {\cal W}, \tau, {\cal E})$, the
+\emph{environment stepping} relation $\guar{U}$ of $U$ unions its
+internal and all external transitions of $U$, and then takes a
+transitive closure.
+
+{\small
+\[
+  \guar{U} = (\tau_U \cup \bigcup_{h, (\alpha, \rho)\in {\cal E}_X} (\alpha~h) \cup (\rho~h))^*.
+\]
+}
+\end{definition}
+
+
+\begin{definition}[Environment stepping (Rely)]
+\label{def:rely}
+
+Given a concurroid $U = ({\cal L}, {\cal W}, \tau, {\cal E})$, the
+\emph{environment stepping} relation $\rely{U}$ of $U$ unions the
+transposed versions of the internal and all external transitions of
+$U$, and then takes a transitive closure.
+{\small
+\[
+\rely{U} = (\tau^\top \cup \bigcup_{h, (\alpha, \rho)\in {\cal E}}\ (\alpha\ h)^\top \cup (\rho\ h)^\top)^*
+\]}
+\end{definition}
+
+
+\begin{definition}[Stability]
+An assertion (\ie, a predicate over states) $p$ is \emph{stable}
+under concurroid $U$ iff for every $w, w'$ such that $(w, w') \in
+\rely{U}$, $w \models p \implies w' \models p$.
+\end{definition}
+
+\begin{comment}
+We require two further properties of actions, requiring stability of
+the safety and stepping action components wrt. to the associated
+concurroid $V$.\an{I separate these, because they are not actually
+  implemented in Coq. However, I think that if we impose them, the
+  section on logic will be easier to present.}
+{\small
+\[
+\begin{array}{rcl}
+\mathsf{safe}_{ST} & : & \mathsf{safe}_a\ i \implies (i, j) \in \mathsf{env\_steps}_V \implies \mathsf{safe}_a\ j\\
+\mathsf{step}_{ST} & : & (i, j) \in \mathsf{step}_a \implies (j, k) \in \mathsf{env\_steps}_V \implies \hbox{}\\
+                  &   & (i, k) \in \mathsf{step}_a
+\end{array}
+\]}
+\end{comment}
+
+
+\section{Properties of $\Phi$ Functions from the Hiding Rule}
+\label{sec:phi-properties}
+
+The abstraction function $\Phi$ is a user-specified annotation on the
+hide command. It maps values $g : G$ (where $G$ is also user
+specified) to assertions, that is, predicates over states
+(equivalently, sets of states) of a concurroid $V$. For the soundness
+of the hiding rule, $\Phi$ is required to satisfy the following
+properties.  {\small
+\[
+\begin{array}[t]{lcl}
+\textit{Coherence} & : & w \in \Phi(g) \implies w \in {\cal W}_V\\
+\textit{Injectivity} & : & w \in \Phi(g_1) \implies w \in \Phi(g_2) \implies g_1 = g_2\\
+%& : & i \in \mathsf{coh}\ W \arrow \exists g, i \in \Phi(g)\\
+\textit{Surjectivity} & : & w_1 \in \Phi(g_1) \implies w_2 \in {\cal W}_W \implies w_1.\mathother = w_2.\mathother \implies \exists g_2\ldot w_2 \in \Phi(g_2)\\
+\textit{Guarantee} & : & w_1 \in \Phi(g_1) \implies w_2 \in \Phi(g_2) \implies w_1.\mathother = w_2.\mathother\\
+\textit{Precision} & : & w_1 \in \Phi(g) \implies w_2 \in \Phi(g) \implies \flatten {w_1} \hunion h_1 = \flatten {w_2} \hunion h_2 \implies w_1 = w_2
+\end{array}
+\]}
+Coherence and Injectivity are obvious. Surjectivity states that for
+every state $w_2$ of the concurroid $W$ one can find an image $g$,
+under the condition that the \other component of $w_2$ is well-formed
+according to $\Phi$ (typically, that the \other component is equal to
+the unit of the PCM-map monoid for $W$). Guarantee is the property
+stated in the paper at the end of Section~\ref{sec:reasoning}, but
+through assertions, rather than semantically. This property formalizes
+that environment of $\mathsf{hide}$ can't interference on $V$, as $V$
+is installed locally. Thus, whatever the environment does, it can't
+influence the \other component of the states $w$ described by $\Phi$.
+
+Precision is a technical property common to separation-style logics,
+though here it has a somewhat different flavor. Precision ensures that
+for every value $g$, $\Phi(g)$ precisely describes the underlying
+heaps of its circumscribed states; that is, each state $\Phi(g)$ is
+uniquely determined by its heap erasure.
+
+\section{Definition of Hoare Ordering %
+  $(p_1, q_1) \sqsubseteq (p_2, q_2)$}
+\label{sec:ordering}
+
+Given preconditions $p_1, p_2$ and postconditions $q_1, q_2$, the
+judgment $(p_1, q_1) \sqsubseteq (p_2, q_2)$ generalizes the usual
+Hoare logic side conditions on the rule of consequence about
+strengthening the precondition $p_2\,{\implies}\,p_1$ and weakening
+the postcondition $q_1\,{\implies}\,q_2$.  The generalization is
+required in \SCST because of the local scope of logical variable. In
+first order Hoare logics, the logical variables have global scope, so
+the above implications over $p_1, p_2$ and $q_1, q_2$ suffice. In
+\SCST, the logical variables have scope locally over Hoare triples,
+and this scope has to be reflected in the semantic definition of
+$\sqsubseteq$ by introducing quantifiers. The definition is similar to
+the one of Kleymann~\cite{Kleymann:FAC99}.
+%
+{\small
+\[
+\begin{array}{l}
+(p_1, q_1) \sqsubseteq (p_2, q_2) \iff \hbox{}\\
+\qquad \forall w\ w'\ldot \begin{array}[t]{l}
+(w \models \exists \bar{v}_2\ldot p_2 \implies w \models \exists \bar{v}_1\ldot p_1) \aand \hbox{}\\
+((\forall \bar{v}_1\ \result\ldot w \models p_1 \implies w' \models q_1) \implies (\forall \bar{v}_2\ \result\ldot w \models p_2 \implies w' \models q_2))
+\end{array}
+\end{array}
+\]}
+where $v_i = \mathsf{FLV}(p_i, q_i)$ are the free logical variables.
+%
+The definition makes it apparent that the Hoare triple
+$\stconc{p}{c}{q}{U}$ is essentially a syntactic sugar for a different
+kind of Hoare triple, which may be written as:
+{\small
+\[
+\stconc{w\ldot\exists \bar{v}\ldot w \models p}{c}{\result\ w\ w'\ldot \forall \bar{v}\ldot w \models p \implies w' \models q}{U}
+\]}
+where $v = \mathsf{FLV}(p,q)$. In this alternative Hoare triple, the
+postconditions are predicates ranging over input and output states $w$
+and $w'$ (they are thus called binary postconditions). The advantage
+of the alternative Hoare triple is that the logical variables are
+explicitly bound, making their scoping explicit. In our Coq
+implementation we use this alternative formulation of Hoare triples.
+

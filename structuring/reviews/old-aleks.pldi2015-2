@@ -1,0 +1,85 @@
+########################################################################
+Aleks' draft
+########################################################################
+
+We have already responded to reviews 1-3 in the first phase.
+
+- Review 4 is concerned that our logic is not new, as it has already
+been presented at ESOP'14, together with its inference rules and
+semantics.
+
+Indeed, the logic is not new, but the point of this paper is to
+present and evaluate the *implementation* of the logic in Coq.  The
+implementation was a very serious and highly non-trivial endeavor. It
+involved a lot of proof engineering, and it was never presented or
+evaluated before.
+
+In our opinion, a program logic only works, if the implementation
+empirically confirms that in practice, via metrics such
+lines-of-code. Also, it is the implementation that enables different
+formal logics to be properly compared via such metrics. As ours is the
+first implementation of a logic for fine-grained concurrency, we see
+this paper as a starting point for other efforts in this direction.
+
+Let us also reiterate the point we made in the related work section,
+and in our response in the first phase. Our proof of the spanning tree
+algorithm is absolutely novel, and is significant beyond mere
+correctness of the algorithm. The proof illustrates a new method for
+reasoning about data structures *with sharing* (i.e., with pointer
+aliasing) such as graphs. The related logics (Hobor and Villard,
+CoLoSL) attack this problem in a completely different manner, as we
+outlined in the related work section: they rely on an operator for
+overlapping separating conjunction.
+
+This is where we have a novel approach. At first we thought we should
+follow the related work and also implement overlapping conjunction in
+FCSL. But then we realized that the infrastructure we already had in
+FCSL (PCMs, self/other dichotomy) suffices: new operator is
+unnecessary! Because of this, we think that our method is conceptually
+and logically much simpler than the related work. One befit of the
+simplicity is that it enabled us to prove the full correctness of the
+algorithm. In contrast, the related work only proves that the ending
+graph is a tree, but not a spanning one; the last step presumably
+causing a blowup in complexity.
+
+- Reviewer 5 asks that "-" means we didn't need to use the concurroid.
+
+A: Yes.
+
+
+- Both R5 and R6 point out that we didn't present the formal details
+of FCSL, which significantly diverge from the tradition of separation
+logic (e.g., we don't even use separating conjunction).
+
+We apologize for that, but unfortunately, without this omission we
+couldn't fit within the space limits (as noted by Reviewer 5).
+
+We don't use separating conjunction *, because, in the implementation
+*in Coq*, we have found it unnecessary. One can define it, but then
+constantly has to unfold its definition, and "destruct" the
+operator. This point has been explained in detail in an earlier paper
+by Nanevski et al. [POPL'10], in the sequential case, and remains
+valid in the concurrent case. Fortunately, one can work quite
+comfortably without *, using PCMs only.
+
+Moreover, the omission of * is only a small fraction of the
+significant proof engineering that went into the implementation.  How
+this proof engineering is carried out in Coq follows the inference
+rules of FCSL presented in the previous work [ESOP'14], but will not
+be directly apparent without additional explanation. We tried to
+provide some explanations, and give a taste of this proof engineering
+in Section 5, but the section had to be significantly shortened to
+save space.
+
+Should the paper be accepted, we can follow the suggestion of Reviewer
+6, and provide *in the presentation* a broader overview of the
+necessary concepts behind FCSL, such as PCMs and self/other
+dichotomy. We can also present the proof for span in the more
+traditional format of a proof outline, to further clarify the formal
+underpinnings of the proof.
+
+[Aleks: Ilya, do you think you can type up the proof outline in time
+for rebuttal deadline?]
+
+
+

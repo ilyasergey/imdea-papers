@@ -1,0 +1,670 @@
+\section{Formal proof structures}
+\label{sc:formal}
+
+\def\histx{\hist_\x}
+\def\histy{\hist_\y}
+\def\histp{\hist_p}
+\def\ordlist{L}
+\renewcommand{\tleq}{\mathrel{\leq_\ordlist}}
+\renewcommand{\tle}{\mathrel{<_\ordlist}}
+\newcommand{\E}{E}
+\newcommand{\C}{C}
+\newcommand{\sx}{S_\x}
+\newcommand{\sy}{S_\y}
+\newcommand{\spp}{S_p}
+\newcommand{\sss}{S_s}
+\newcommand{\wx}{W_\x}
+\newcommand{\wy}{W_\y}
+\newcommand{\wpp}{W_p}
+\newcommand{\admissible}{\mathsf{fine}}
+
+% Names for writer/scanner-states
+\def\toff{t_{\mathsf{off}}}
+\newcommand{\wInit}{\mathsf{W_{off}}}
+\newcommand{\wWrite}{\mathsf{New}}
+\newcommand{\wDirty}{\mathsf{NeedsFwd}}
+\newcommand{\wClean}{\mathsf{Done}}
+\newcommand{\sOn}{\mathsf{S_{on}}}
+\newcommand{\sOff}{\mathsf{S_{off}}}
+
+%% \gad{ Leave the beginning of the section as it is up to the auxiliary
+%%   state, and then introduce Jayanti's FPs. Then follow to describe how
+%%   we are implementing them and how they relate to
+%%   Invariants~\ref{inv:forward},~\ref{inv:scanner}
+%%   and~\ref{inv:redzone}.}
+
+\paragraph*{Specification.}
+%
+For the purposes of specification and proof, we record a history of
+the snapshot object as a set of entries of the form $t \mapsto (p,
+v)$. The entry says that at time $t$ (a natural number), the value $v$
+was written into the pointer $p$. Notice that we identify a write
+event with a \emph{single} moment in time $t$, in contrast to
+linearizability which keeps a time interval. As we shall see,
+internally, our proofs record intervals too, but we hide the interval
+end-points from the clients. Also, unlike linearizability, we do not
+need to (though we could) keep track of scan events. Scans do not
+modify the object state in ways observable by clients, and may thus be
+omitted from specifications. These two points illustrate the
+improvement in information hiding over linearizability that we
+mentioned in Section~\ref{sc:intro}.
+
+%Unlike in the linearizability proof of the snapshot structure, we keep
+%only write events in the history. The scan events do not modify the
+%abstract state of the structure observable by clients, and can thus be
+%omitted to simplify the reasoning process.
+
+The auxiliary variables $\histS$ and $\histO$, which are local to the
+specification, record the \emph{finished} write events of each
+procedure, and of the interfering environment, respectively.  We also
+have a local variable $\histJ$, which records the set of write events
+\emph{in progress}. When a call to {\tt write} is initiated, an
+auxiliary code places a write entry into $\histJ$; when a call
+finishes, the entry is moved from $\histJ$ to $\histS$.
+%
+%When one thread changes its own $\histS$, this immediately changes
+%every other thread's $\histO$---a discipline provided automatically by
+%FCSL. 
+%
+We name by $\hist$ the union $\histS \hunion \histO \hunion \histJ$,
+which is the history of the overall snapshot data structure. This is a
+\emph{disjoint union}, enforcing that $\histS$, $\histO$ and $\histJ$
+do not contain common timestamps.
+
+The timestamps in $\hist$ determine the \emph{real-time} ordering of
+write events. We record the \emph{logical} ordering in another
+auxiliary variable $\ordlist$, whose type is list (i.e., mathematical
+sequence). This list stores the permutation of timestamps from
+$\hist$, and we write $t_1 \tleq t_2$ if $t_1$ appears before $t_2$ in
+$\ordlist$. The list $\ordlist$ is the ``linking-in-time'' for the
+snapshot algorithm, and can be dynamically modified by the threads.
+%
+%In this sense, $\ordlist$ is the linkage in time for the snapshot
+%algorithm, and it will be dynamically modified. 
+%
+The order $\tleq$ is total (i.e., a chain), but as $\tleq$ is dynamic,
+we introduce further notation, and name by $\jleq{\ordlist}$ a \emph{partial
+  suborder} of $\tleq$ that is \emph{stable}, i.e., it can only grow
+over time to add new relations, but cannot change the old ones. 
+%
+For example, in Figure~\ref{fig:reorder}, the initial value of $\tleq$ is
+(in lattice notation) $5{-}0{-}2{-}3{-}1$, which changes to $5{-}0{-}2{-}1{-}3$. Stable
+order $\jleq{\ordlist}$ is the lattice
+$5{-}0{-}2{<}\!\!\!\begin{array}[c]{c}1\\ 3\end{array}\!\!\!$: $1$ and $3$ are unrelated.
+
+We will formally define $\jleq{\ordlist}$ later, but we can already use it to
+give Hoare triples for {\tt write} and {\tt scan}. In fact, it will be
+important for client reasoning (Section~\ref{sec:clients}) to keep the
+definition of $\jleq{\ordlist}$ \emph{hidden}, so that different snapshot
+algorithms can provide different definitions, without influencing the
+clients.
+%
+\input{specs}
+%% \begin{equation}
+%% \begin{array}{l}
+%% \mathtt{write}\ (p : \mathtt{ptr}, n : \mathtt{int}) : 
+%% \!\!\!\begin{array}[t]{l}
+%% \{\hists = \hempty \wedge h \subseteq \histO
+%%            \wedge \omega \subseteq {\jleq{\ordlist}}\}\\[3pt]
+%% \{\exists t\ldot\, \hists = t \mapsto (p, n) \wedge h \subseteq \histO \wedge
+%%   \omega \subseteq {\jleq{\ordlist}}\,{\wedge}\, h \subseteq H^{\hbox{}\sqsubsetneq_\ordlist t}\}
+%% \end{array}\\
+%% %
+%% \mathtt{scan} : 
+%% \!\!\!\begin{array}[t]{l}
+%% \{\hists = \hempty \wedge\, h \subseteq \histO \wedge\,
+%%           \omega \subseteq {\jleq{\ordlist}}\}\\[3pt]
+%% \{\hists = \hempty \wedge\, h \subseteq \histO \wedge\, \omega \subseteq {\jleq{\ordlist}} \wedge\, \exists\, t\ldot\, %
+%%            h \subseteq H^{\hbox{}\sqsubseteq_\ordlist t} \wedge\,
+%%            \mathsf{chain}\ H^{\hbox{}\sqsubseteq_\ordlist t} \wedge\, r = \mathsf{eval}\ {H^{\hbox{}\sqsubseteq_\ordlist t}}\}
+%% \end{array}
+%% \end{array}
+%% \label{eq:specs}
+%% \end{equation}
+%
+Figure~\ref{fig:specs} presents our specifications for {\tt write} and
+{\tt scan}. These are partial correctness Hoare triples, describing
+how the program changes the state from the precondition (first braces)
+to the postcondition (second braces), possibly influencing the return
+result $r$. %, in the postcondition of {\tt scan}.
+%
+The expression $H^{\hbox{}\jleq{\ordlist} t}$ selects the entries in the history
+$H$ \emph{up to and including} the timestamp $t$, according to the
+ordering $\jleq{\ordlist}$. Likewise, $H^{\hbox{}\sqsubsetneq_\ordlist t}$ is
+defined to exclude $t$.
+%
+We describe the specifications next, before commenting on their
+relationship to linearizability.
+
+The specification for {\tt write} says the following. We start with
+the empty self history indicating that the procedure did not yet make
+any writes. We use the variable $h$ to name an arbitrary subset of the
+initial value of $\histO$ (hence, of \emph{completed} write events of
+\emph{all other threads}), and the variable $\omega$ for a subset of
+the initial ordering $\jleq{\ordlist}$. The postcondition says that when {\tt
+  write} terminates, one write event $t \mapsto (p, v)$ has finished,
+and is hence placed into $\histS$.  $\histO$ and $\jleq{\ordlist}$ may have
+changed from the previous values, due to interference, but they still
+include $h$ and $\omega$ as subsets. That is, $\histO$ could only
+grow, because other threads could create new write events, and
+similarly for $\jleq{\ordlist}$. Lastly, the conjunct $h \subseteq
+H^{\hbox{}\sqsubsetneq_\ordlist t}$ says that the write events that
+have been completed before the call to {\tt write} (and are hence
+stored in $h$) will be \emph{ordered before} the event $t$ in $\jleq{\ordlist}$,
+no matter how $L$ is permuted by interfering threads. In other words,
+we cannot logically reorder past events, which is a basic soundness
+requirement. But notice how stating it requires that $\histO$ is in
+scope, thus directly relating {\tt write} to the interfering threads.
+
+The specification for {\tt scan} starts with the same precondition. In
+the postcondition, it says that $\histS$ is empty, because {\tt scan}
+itself does not create write events. However, by the time {\tt scan}
+returns the pair $r$ as a snapshot, we know that there exists a
+timestamp $t$ in the collective history $H$ at which the snapshot
+\emph{appears} to be taken. First, the conjunct $h \subseteq
+H^{\hbox{}\jleq{\ordlist} t}$ indicates that the snapshot is taken \emph{after}
+the call to {\tt scan}, because the finished events stored in $h$ are
+ordered before (or at best, at) timestamp $t$.
+%
+%% Second, the set $H^{\hbox{}\sqsubseteq_\ordlist t}$ is
+%% a subchain in $\sqsubseteq_\ordlist$ (technically, all its entries are
+%% ordered in $\sqsubseteq_\ordlist$).
+%
+%
+Second, the timestamps from $H^{\hbox{}\jleq{\ordlist} t}$ form a sub-chain in
+$\jleq{\ordlist}$,  % (\ie, $\forall\, a,b \in H^{\hbox{}\sqsubseteq_\ordlist
+%  t}\ldot\ a \sqsubseteq_{\ordlist} b \vee b \sqsubseteq_{\ordlist}
+%a$.
+%
+encoding how the writes progressed logically in time up to the
+snapshot moment $t$. Moreover, since $\jleq{\ordlist}$ is stable, this view
+of the time will not change in the future to invalidate the result $r$
+as a snapshot. Finally, if the chain of writes is evaluated in the
+order given by $\jleq{\ordlist}$, it produces $r$.
+
+%\gad{Actually, proving that chain is stable entails proving something
+%  stronger: that the sub-chain $H^{\hbox{}\sqsubseteq_\ordlist t}$ is
+%  ``maximal'' or complete i.e. that no more entries are going to be
+%  added to that sub-history. This is (will be) proven by the fact that
+%  in the atomic moment after we have executed re-link,
+%  $H^{\hbox{}\sqsubseteq_\ordlist t}$ defines a green prefix from the
+%  very beginning up to the timestamp t, and such prefixes are stable.}
+
+Notice how these specifications directly capture what linearizability
+would have given us: in both procedures we get a time moment $t$ at
+which the procedure executed \emph{logically instantaneously}, as part
+of a larger \emph{sequence} $H$. Additionally, {\tt write} performed a
+write event at $t$, and {\tt scan} returned a snapshot consistent with
+scanning at $t$. In the case of linearizability, the last property
+requires showing a simulation between the concurrent implementations
+of {\tt write} and {\tt scan}, and some sequential equivalents. If we
+then want to verify Hoare triples of clients, we need to establish
+Hoare triples for the sequential equivalents. In our method, the
+process is streamlined by immediately giving Hoare triples for the
+concurrent implementations, avoiding intermediary sequential
+equivalents and simulation proofs.
+
+\paragraph*{Internal auxiliary state.} 
+The proofs of {\tt write} and {\tt scan} require further auxiliary
+state, which does not feature in the specifications, and is hence
+hidden from clients.
+
+First, we track the point of execution in which {\tt write} and {\tt
+  scan} are, but instead of line numbers in the code, we use
+datatypes, to encode extra information in the constructors.
+%
+For example, the scanner's state is a triple $(\sss, \sx,
+\sy)$. $\sss$ is drawn from $\{ \sOn, \sOff\, t\}$. If $\sOn$, then
+the scanner is in lines 8--10 in Figure~\ref{fig:jayanti-snapshot}. If
+$\sOff\ t$, the the scanner reached line 11 at time $t$, and is now in
+11--15.  $\sx$ is a boolean, set when the scanner clears $\fx$ in
+line~9, and reset upon scanner's termination (dually for $\sy$ and
+$\fy$).
+%
+Writers' state for $x$ is tracked by the auxiliary $\wx$ (dually,
+$\wy$). These are drawn from $\{\wInit, \wWrite\ t, \wDirty\ t,
+\wClean\ t\}$, where $t$ marks the beginning of the write. If
+$\wInit$, then no write is in progress. If $\wWrite\ t$, then the
+writer is in line~2. If $\wDirty\ t$, then $b$ has been set in line~3,
+triggering forwarding. If $\wClean\ t$, the writer is free to exit.
+
+Second, like in linearizability, we record the ending times of
+events. We use the auxiliary variable $\E$, which is a function
+mapping a timestamp $t$ of a \emph{finished} write event from $\hist$,
+to a timestamp identifying the event's \emph{ending time}. Events
+$t_1$ and $t_2$ which are non-overlapping (i.e., $E(t_1) < t_2$ or
+$E(t_2) < t_1$), will never be reordered, thus {\tt write} and {\tt
+  scan} cannot modify the past history.
+
+%Formally, the
+%following is an invariant of the algorithm.
+%\vspace{-2mm}
+
+\begin{proposition}\label{inv:overlap}%
+%The logical order $\tle$ preserves the real time order of {\it
+%  non-overlapping} past write events. Formally, 
+$\forall t_1 \in \dom{E}, t_2 \in \dom{\hist}$, if $E(t_1) < t_2$
+  then $t_1 \tle t_2$.
+\end{proposition}
+
+Third, we track the rearrangement status of write events wrt.~an
+ongoing \emph{active} scan, by \emph{colors}. A scan is \emph{active}
+if it has cleared the forwarding pointers in line~9, and is ready to
+read $x$ and $y$. The auxiliary variable $\C$ is a function mapping
+each timestamp in $\hist$ to a color, as follows.
+%
+%% It is always relative to the ongoing scan, or the last finished one,
+%% if no scans are active.
+%
+\begin{itemize}
+\item {\sf Green} timestamps identify events whose position in the
+  logical order is fixed in the following sense: if $\C(t_1) =
+  \mathsf{green}$ and $t_1 \tle t_2$, then $t_1 <_{\ordlist'} t_2$ for
+  every $\ordlist'$ to which $\ordlist$ may step by auxiliary code
+  execution (Section~\ref{sc:implementation}). For example, since we
+  only reorder overlapping events, and only the scanner reorders
+  events, every event that finished before the active scan started
+  will be green. Also, a green timestamp never changes the color.
+\item {\sf Yellow} timestamps identify events whose order is not fixed
+  yet (i.e., they are not linearized), but which \emph{may} be
+  manipulated by the ongoing active scan, as follows.  The scan can
+  \emph{push} a yellow timestamp in logical time, \emph{past} another
+  green or yellow timestamp, but not past a red one. \emph{This is the
+    only way the logical ordering can be modified.}
+
+\item {\sf Red} timestamps identify events whose order is not fixed
+  yet, but which will \emph{not} be manipulated by the active scan,
+  and are left for the next one.
+%
+%% They
+%% will be put after the green ones.
+\end{itemize}
+%
+
+There is a number of invariants that relate colors and timestamps. For
+brevity, we only list the most important ones, and defer to the Coq
+code for the others~\cite{CoqFiles}. In the sequel, we use
+$\histp$ to denote the set of writes into the pointer $p$ that appear
+in the history $\hist$.
+
+% Color invariant
+\begin{proposition}[Color Invariant]\label{inv:color}%
+The colors of $\histp$ are described by the regular expression $\GYR$:
+there is a non-empty prefix of green timestamps, followed by \emph{at
+  most} one yellow, and arbitrary number of reds.
+\end{proposition}
+
+This proposition identifies, by the yellow color, the write event for
+$p$ that is the unique candidate for reordering by the ongoing active
+scan. Moreover, all the writes into $p$ prior to the yellow one, will
+have already been painted green (i.e., fixed in time, linearized),
+whether they overlapped with the scanner or not.
+
+\begin{comment}
+\begin{proposition}[First Forwarding Principle]\label{inv:fwd1}%
+If the scanner state is $\sss = \sOff\ \toff, \spp = \TT$, then
+$\forall\ t \in \histp\ldot\ t \leq \E(t)< \toff \implies \C(t)=
+\mathsf{green}$.
+\end{proposition}
+%
+The above is our mathematical formulation approximating the
+equally-named, but only informally stated property of
+Jayanti~\cite{Jayanti:STOC05}, which says that if {\tt scan} misses
+the value of a concurrent write in line~10 of
+Figure~\ref{fig:jayanti-snapshot}, but the write finishes before the
+scanner goes through line~11 (the scan's linearization point), then
+the scanner will catch the value in the forwarding pointer in
+line~12. In our setting, this is captured by saying that a write event
+that finished before $\toff$, is green. The write event may have been
+yellow in the past, but the act of forwarding will paint it green. We
+will see in Section~\ref{sc:implementation} that auxiliary code for
+forwarding will do just that.
+
+%It is easy to see how this proposition corresponds to Jayanti's First
+%Forwarding Priciple: in our seeting a write event which is visible,
+%ergo never going to be missed is {\sf green}. Then the Proposition
+%above says that any write event that finished strictly before $\toff$
+%will be green. This means that in the case that a write event was
+%committed to memory after the scanner read in line 10-- in which case
+%it was originally painted {\sf yellow} ---it must have been forwarded,
+%as forwarding paints entries from yellow to green. As for the Second
+%Forwarding Principle, we capture it through the two following
+%propositions:
+
+Conversely, Jayanti's Second Principle states that any non-$\bot$
+value read in line~12 comes from a write event that is concurrent with
+the scan. Moreover, any later write to the same pointer will finish
+after the linearization point of {\tt scan} in line 11, and hence will
+be missed by the scanner. While we do not formally capture exactly
+this property, we approximate it with the following two invariants,
+which are sufficient.
+
+\end{comment}
+
+%% %% Key Inv for fp
+\begin{proposition}[Green/Yellow Forwarded Values]\item\label{inv:readFP} 
+If $\sss= \sOff\ \toff$ and $\spp = \TT$ (i.e., scanner is in lines
+12--14), and a value $v \neq \bot$ has been forwarded to $p$ (i.e.,
+$\mathit{fp} = v$), then the event of writing $v$ into $p$ is in the
+history, i.e., exists $t$ such that $t \mapsto (p, v) \in
+\histp$. Moreover, $t$ is the last green, or the yellow timestamp in
+$\histp$.
+%(It can then be
+%derived that $t$ must be overlapping with the scan).
+\end{proposition}
+
+This proposition restricts the set of events that could have forwarded
+a value to the scanner, to only two: the event with the (unique)
+yellow timestamp, or the one with the last green timestamp. By
+Proposition~\ref{inv:color}, the two timestamps are consecutive in
+$\histp$.
+ 
+%% RedZone invariant
+\begin{proposition}[Red-Zone Invariant]\label{inv:redzone}%
+If $\sss = \sOff\ \toff, \sx = \TT, \sy = \TT$, then $\hist$ satisfies
+the $\RZ$ pattern. Moreover, for every $t' \in \mathsf{dom}(H)$:
+%
+\begin{itemize}
+\item $\C(t') = \mathsf{green} \implies t' \leq \toff$
+\item $\C(t') = \mathsf{yellow} \implies t' \leq \toff \leq \E (t')$
+\item $\C(t') = \mathsf{red} \implies \toff < t'$  
+\end{itemize}
+\end{proposition}
+
+This proposition restricts the global history $\hist$ (not the
+projections $\histp$). First, the red events in $H$ do not mix with
+the green and yellow ones. Thus, when a scanner pushes a yellow event
+past a green or yellow event, it will not ``jump over'' any reds, thus
+keeping the invariant that ordering on reds is not manipulated by the
+scan. Second, the proposition relates the colors to the time $\toff$
+at which the scanner was turned off (in line~11,
+Figure~\ref{fig:jayanti-snapshot}). This moment is important for the
+algorithm; e.g., it is the linearization point for {\tt scan} in
+Jayanti's proof~\cite{Jayanti:STOC05}.
+%
+In our proof, the inequalities wrt.~$\toff$ are used to prove that the
+events reordered by the scanner \emph{do} overlap, as per
+Proposition~\ref{inv:overlap}.
+
+\begin{comment}
+Proposition~\ref{inv:readFP} states that any non-$\bot$ value read
+from the forwarding pointer $\mathit{fp}$ at line 12 might have been
+written to $p$ after the scanner cleared the forwarding pointers, and
+and hence, be newer than the values read in line 10. This captures the
+essence of the first part of Jayanti's Second forwarding principle.
+%
+Proposition~\ref{inv:redzone} states that when the scanner is in
+between lines 12-15 in Figure~\ref{fig:jayanti-snapshot}, then $\hist$
+can be partitioned into a non-empty prefix with yellow and/or green
+timestamps, and a reds-only suffix. Moreover, if a new write event $t$
+occurs at this point, with $ \toff < t <= \E (t)$, it will be colored
+red and hence ignored by the current scanner. This later fact captures
+the last part of the second Forwarding Principle. Later on, this
+proposition will be crucial into proving that relink does not affect
+the order of write events that are meant to missed, by keeping them in
+the red suffix, and also that those being reordered are overlapping.
+
+\gad{Explain better? The second part of this invariant might also be
+  connected to Jayanti's ``Correctness'' Theorem, Lemma 5 in his
+  Appendix. I'm not sure however if I need to express its connection
+  here.}
+\end{comment}
+
+We can now define the stable logical order $\jleq{\ordlist}$, which relies on
+the internal auxiliary state.
+%
+\begin{definition}[Logical Order]\label{def-jleq}
+%\begin{equation*}
+$t_1 \jleq{\ordlist} t_2 \eqdef t_1 = t_2 \vee E\,(t_1) < t_2 \vee (t_1 \tle t_2 \wedge \C(t_1) = \mathsf{green})$.
+%\end{equation*}
+\end{definition}
+The proposition $t_1 \jleq{\ordlist} t_2$ is stable (i.e., invariant under
+interference), since threads do not change the ending times $E$, the
+color of green events, or the order of green events in $\tle$.
+
+%Stability holds because the first two disjuncts do not relate mutable
+%values, and the third is stable because green timestamps are not
+%reordered nor recolored.
+%\gad{Explain stability here}
+%
+%\gad{Add some comment about Forwarding Principles back in, either here
+%  or in Related Work.}
+%
+%\gad{Add instantiation of the ideal $H^{\hbox{}\sqsubseteq_\ordlist t}
+%  $ w.r.t Figures~\ref{fig:weird:exec} and~\ref{fig:reorder}}
+
+%% %
+%% \gad{I've changed the definition so that it is closer to its
+%%   implementation in the Coq development.}
+
+%% \begin{equation}
+%%  t_1 \jleq{\ordlist} t_2  = (t_1 = t_2) \vee (E\,(t_1) < t_2) \vee
+%%  (t_1\tle t_2 \wedge \C(t_1) = \mathsf{green}) \label{def-jleq}
+%% \end{equation}
+%
+
+%% \gad{Introduce Jayanti's forwarding principles and how we implement
+%%   them with the colors.  Use this to motivate the invariants in
+%%   particular~\ref{inv:wrtP},~\ref{inv:readFP}, and~\ref{inv:redzone},
+%%   which are the ones that correspond closely to the forwarding
+%%   principles.}
+
+%% \paragraph*{Forwarding Principles}
+%% Jayanti introduces two {\it Forwarding
+%%   Principles}~\cite{Jayanti:STOC05} that guide the design of his
+%% snapshot algorithm and provide an intuition for the correctness of the
+%% proof of their linearizability. In essence, the First Principle says
+%% that, in Figure~\ref{fig:jayanti-snapshot} if {\tt scan} misses the
+%% value of a concurrent write when reads in line~10, if the said writer
+%% finishes before line~11 (the scanner method's linearization point),
+%% the scanner will catch it by reading the forwarding pointer in
+%% line~12.
+
+
+%% The Second Principle then dually states that any non-$\bot$
+%% value read in the latter line comes from a write event's timestimap
+%% $t$ concurrent with {\tt scan} and that for any other write event such
+%% that $ t < t'$, $t'$ finishes after line 11 in {\tt scan}, and thus
+%% has to be missed. We capture the essence of these forwarding
+%% principles through a series of propositions and invariants expressed
+%% in terms of the auxiliary state described above:
+
+%% %% Formalizing the Forwarding Principles in full detail requires keeping
+%% %% track of otherwise unnecesary scanner events in the history. Instead,
+%% %% we capture their essence with the following three propositions, based
+%% %% on the colors of the write events and the scanner state.
+
+%% %
+%% \gad{We actually don't have this statement in the development, but we
+%%   can prove it out of the refined colorinvariant color\_inv and
+%%   Proposition~\ref{inv:redzone} below. I will add it to the Coq files
+%%   to-do list.}
+
+%% It is easy to see how this proposition corresponds to Jayanti's First
+%% Forwarding Priciple: in our seeting a write event which is visible,
+%% ergo never going to be missed is {\sf green}. Then the Proposition
+%% above says that any write event that finished strictly before $\toff$
+%% will be green. This means that in the case that a write event was
+%% committed to memory after the scanner read in line 10-- in which case
+%% it was originally painted {\sf yellow} ---it must have been forwarded,
+%% as forwarding paints entries from yellow to green. As for the Second
+%% Forwarding Principle, we capture it through the two following
+%% propositions:
+
+%% \begin{comment}
+%% %%%%%%%%%  
+%%  Jayanti's Forwarding Principles: in quote:
+%%  '' The first principle ensures that if the scanner misses a Write
+%%  at A[i], then it will catch that Write at B[i]. More precisely:
+
+%%   Forwarding Principle 1:Suppose that a Scan operation S misses
+%%   aWrite(i, v)operation W because S reads A[i] before W writes in
+%%   A[i]. If W completes before S performs Line 7, then W will have
+%%   surely informed S of v by writing v in B[i].
+
+%%   The second principle ensures that any non-\bot value that the
+%%   scanner may find in B[i]is current. More precisely:
+
+%%   Forwarding Principle 2:Suppose that a Scan opera- tion S reads at
+%%   Line 9 a non-\bot value written in B[i]by some Write(i, v)operation
+%%   W.Then, (1) W is concurrent with S, and (2) If W′ is any Write(i,
+%%   ∗)operation thatis executed after W,then W′ completes only after S
+%%   performs Line 7. (...)''
+%% %%%%%%%%
+%% \end{comment}
+
+%% %% Key Inv for P
+%% \begin{proposition}[Green/Yellow Writes]\item\label{inv:wrtP}%
+%% For each of $\histx, \histy$, if the scanner state is $\sss= \sOn,
+%% \spp = \TT$, i.e., it is in lines 9--11 in
+%% Figure~\ref{fig:jayanti-snapshot}, and $ \mathit{p} = v$ in the
+%% physical state, then this is recorded by $\histp$: $\exists t\ldot t
+%% \mapsto (p, v) \in \histp$. Moreover, $t$ will be considered by the
+%% scanner, i.e., $t$ is the last green or the yellow timestamp in
+%% $\histp$.
+%% \end{proposition}
+
+%% \gad{I'm not sure Proposition~\ref{inv:wrtP} is helpful here}
+  
+
+%% \gad{We might need to explain the new part of the red-zone invariant
+%%   i.e. the one that explains the relation between the timestamps of
+%%   the writes and $t_{\mathsf{off}}$. This is important for
+%%   establishing that re-link only changes the order of overlapping
+%%   events.}
+
+%% In order to prove the correctness of these specs, we introduce the
+%% invariants imposed on our axiliary state, as well as the
+%% implementation in FCSL of the algorithm, decorated with auxiliary
+%% code:
+
+%% \paragraph*{Invariants}%
+%% The following are (selected) properties relevant to the proof of the
+%% specs, that the state (real and auxiliary) of the snapshot algorithm
+%% satisfies throughout execution.
+%% \an{Some are mostly obvious
+%%   book-keeping properties, but some are essential. We should present
+%%   only the important ones.}
+
+%% % Self/other histories record finish
+%% writes.  \item\label{inv:gapless} $\hist$ is gapless, i.e.,
+%% contains all the timestamps between $0$ and the maximal
+%% one. Moreover, each timestamp is associated with either the pointer
+%% $x$ or the pointer $y$; if we denote by $\histx$ and $\histy$ the
+%% entries in $\hist$ writing into $x$ and $y$ respectively, then
+%% $\hist = \histx \hunion \histy$. \an{removable?} \gad{yes}
+
+%% % Self/other histories record finish
+%% writes.  \item\label{inv:finished} $\histS$ and $\histO$ record
+%% finished writes: $\dom{E} = \dom{\histS \hunion
+%% \histO}$. \an{removable?} \gad{yes}
+
+% Color invariant
+%% \item\label{inv:color} The colors of the timestamps in each of
+%%   $\histx$ and $\histy$ can be described by the regular expression
+%%   $\GYR$: They have a non-empty prefix consisting of green timestamps,
+%%   followed by \emph{at most} one yellow timestamp, and zero or more
+%%   red timestamps in the tail.
+%%   %
+%%   %% Importantly, there is always a (green)
+%%   %%  entry describing the initial write into each $x$ and $y$.
+%
+%  i.e. the coloring of each of the pointer-view histories satisfies
+%  the pattern: many (at least one) green, at most one yellow, zero or
+%  more red. \gad{Will I need the refinements?}. This pattern entails
+%  that there is an initial value in each of $\histx$ and $\histy$ and,
+%  moreover, that initial write is {\bf green}. One of those initial
+%  timestamps will be $0$, i.e. $C(0)= green$. In addition, each
+%  pointer-view history is sorted in real time -- naturally sorted--
+%  and its elements don't overlap.
+
+%% Non-Overlapping are sorted
+%% \item\label{inv:overlap} The ending real time of a finished event
+%%   appears after the initial real time: $\forall\, t \in
+%%   \dom{E}\ldot\ t \leq E(t)$. \an{removable?}  Moreover, events that
+%%   do not overlap in real time are ordered in logical time: $\forall
+%%   t_1 \in \dom{E}, t_2 \in \dom{\hist}$, if $E(t_1) < t_2$ then $t_1
+%%   \tle t_2$.
+  
+%% %% Last keys
+%% \item\label{inv:lastkey} The entry of the last timestamp in $\histx$
+%%   contains the physical value of $\x$: $\x = \histx (\mathsf{last}\,
+%%   \histx)$. Similarly for $y$. \an{removable?} \gad{yes}.
+
+%% %% Key Inv for fp
+%% \item\label{inv:forward} If the scanner has cleared $\mathit{fx}$
+%%   ($\sx = \TT$) but a non-$\bot$ value $v$ has been forwarded since
+%%   ($\mathit{fx} = v$), then this is recorded by $\histx$:
+%%   $\exists t\ldot t \mapsto (x, v) \in \histx$. Moreover, $t$ will be
+%%   considered by the scanner, i.e., $t$ is the last green or the yellow
+%%   timestamp in $\histx$. Dually for $\y$.
+
+%% %  For each $\mathtt{p} \in \{\mathtt{x},\mathtt{y}\}$, if $(S_p \wedge
+%% %  \mathtt{f\_of\ p}= v)$ then exists $t_p$ such that $t_p \hpts (p,v)
+%% %  \in \hist$ and $t_p$ is the last green or yellow timestamp of
+%% %  $\hist_{\mathtt{p}}$ i.e. $t_x = \mathsf{last\_green}\ \histx \vee
+%% %  t_p = \mathsf{yellow\_ts}\ \hist_{\mathtt{p}}$. This property
+%% %  entails that after the scanner has cleared the forwarding pointers,
+%% %  if some new value has been forwarded, its timestamp is the last
+%% %  green or the yellow of the pointer's view-history.
+
+%% %% Key Inv for p
+%% \item\label{inv:scanner} If the scanner has cleared $\mathit{fx}$
+%%   ($\sx = \TT$), but still has not turned off $\s$ (i.e., it is in
+%%   lines 9-11 in Figure~\ref{fig:jayanti-snapshot}), and $\x = v$ in
+%%   physical state, then this is recorded by $\histx$:
+%%   $\exists t\ldot t \mapsto (x, v) \in \histx$. Moreover, $t$ will be
+%%   considered by the scanner, i.e., $t$ is the last green or the yellow
+%%   timestamp in $\histx$. Dually for $\y$.
+
+%  For each $\mathtt{p} \in \{\mathtt{x},\mathtt{y}\}$, if $(S_p
+%  \wedge \mathtt{S})$ then exists $t_p$ such that $t_p \hpts (p,v) \in
+%  \hist$ and $t_p$ is, again, the last green or yellow timestamp of
+%  $\hist_{\mathtt{p}}$ i.e. $t_x = \mathsf{last\_green}\ \histx \vee
+%  t_p = \mathsf{yellow\_ts}\ \hist_{\mathtt{p}}$. This property
+%  entails that after the in the scanner has cleared the forwarding
+%  pointers and before it unsets the scanner bit {\tt S}, the current
+%  value of the pointer was committed by the last green or the yellow
+%  timestamp of the pointer's view-history.
+
+%% %% RedZone invariant
+%% \item\label{inv:redzone} 
+%% %
+%% If $\s = \FF, \sx = \TT, \sy = \TT$, i.e., the scanner is in lines
+%% 12-15 in Figure~\ref{fig:jayanti-snapshot}, then $\hist$ satisfies the
+%% $\RZ$ pattern. In other words, if a new write events occur at this
+%% point, it will be colored red, and hence ignored by the scanner.
+
+%If $\wstate{S} = (\FF,\TT,\TT)$ then $\hist$ satisfies the $\RZ$
+%coloring pattern: if there is a red timestamp in $\hist$, then then
+%the {\sf first} red timestamp partitions $\hist$ so that everything
+%before it is yellow or green and everything starting from it is red.
+  
+%\end{enumerate}
+%\gad{to do: I'm not sure how deep I should get into the invariants?
+%  Won't know for sure until I finish with the proof sketch. We might
+%  cut down on them later.}
+
+%\gad{Also: I'm thinking of pushing the invariants down together with
+%  the proof sketch, or even fork them together as a separate section
+%  sketching the ``correctness'' of our approach}
+
+%% Jayanti's Forwarding Principles are guidelines for the design of the
+%% algorithm and also the definition of the Linearization
+%% Points. Instead, our implementation of them, as provided by
+%% Propositions~\ref{inv:fwd1},~\ref{inv:readFP}, and~\ref{inv:redzone},
+%% are formally implemented as invariants of the auxiliary state of the
+%% data structure--- or {\it concurrent resource} in FCSL's jargon. In
+%% the following we present the atomic auxiliary code operations that
+%% implement {\tt write} and {\tt scan} in FCSL. These will be required
+%% to satisfy the propositions introduced above, amongst other
+%% requirements.
+
+%% \an{Should we make the point that the auxiliary code constructivelly
+%%   builds and evolves the various total and partial orderings that are
+%%   abstracted by the specifications. It is thus an inherent component
+%%   of the proof, in the same way that in type theory, existentials
+%%   require a witness. There's probably no space to bring type theory
+%%   into the mix.}
+
+

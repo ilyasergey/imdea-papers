@@ -1,0 +1,744 @@
+\section{Client reasoning}
+\label{sc:clients}
+
+%% \gad{The following paragraph has to change to incorporate the
+%%   rebuttal to R.1. We've also a similar discussion open in
+%%   Section~\ref{sc:discussion}, so we need to unify these two. For
+%%   instance, we are not making here a connection with the sequential
+%%   spec which we introduce in the discussion section.}
+
+\subparagraph*{Comparison with linearizability specifications.}
+%
+In linearizability one would specify \jywrite\ and \jyscan\ by
+relating them, via a simulation argument, to sequential programs for
+writing and scanning, respectively. On the face of it, such specs are
+indeed simpler than ours above, as they merely state that \jywrite\
+writes and \jyscan\ scans. Our specs capture this property with one
+conjunct in each postcondition. The remainders of the postconditions
+describe the relative order of the atomic events, \emph{observed} by
+threads, including explicit prohibition on reordering non-overlapping
+events, which is itself inherent in the definition of linearizability.
+
+However, the additional specifications are not pointless, and they
+become useful when it comes to reasoning about
+clients. Linearizability tells us that we can simplify a fine-grained
+client program by replacing the occurrences of \jywrite\ and
+\jyscan\ with the atomic and sequential equivalents, thus turning the
+client into an equivalent coarse-grained concurrent program. However,
+linearizability is not directly concerned with verifying that
+coarse-grained equivalent itself.
+%
+%\gad{Removing what was offensive to R.1}
+%
+%% One has to develop separate methods for such client reasoning, which
+%% may very well re-introduce histories and orderings into the logic.
+%
+Then, if one is interested in proving client properties which involve
+timing and/or ordering properties of such events, it is likely that
+the simple sequential spec described above do not suffice, and extra
+auxiliary state is still required.
+
+On the other hand, if one wants to reason about such clients using a
+Hoare logic, then our specs are immediately useful. Moreover, in our
+setting, client reasoning depends solely on the API for scan and
+write, regardless of the different linearizations of a program. In the
+sequel, we illustrate this claim by deriving interesting client timing
+properties out of the specs of \jywrite\ and \jyscan.
+
+%% For example, in the
+%% sequel, we illustrate how to derive interesting client timing
+%% properties out of the specs of \jywrite\ and \jyscan.
+
+Moreover, because we use separation logic, our approach easily
+supports reasoning about programs with a dynamic number of threads,
+and about programs that transfer state ownership. In fact, as we
+already commented in Section~\ref{sc:formal}, our proofs rely on
+transferring write events from $\histJ$ (joint ownership) to $\histS$
+(private ownership), upon \jywrite's termination.
+%
+This is immediate in FCSL, as reasoning about histories inherits the
+infrastructure of the ordinary heap-based separation logic, such as
+framing and, in this case, ownership transfer.
+%
+In contrast, Linearizability is usually considered for a fixed number
+of threads, and its relationship with ownership transfer is more
+subtle~\cite{GotsmanY12+CONCUR12, CeroneGY+ICALP14}.
+
+An additional benefit of specifying the event orders by Hoare triples
+at the user level, is that one can freely combine methods with
+different event-ordering properties, that need not respect the
+constraints of linearizability~\cite{SergeyNBD+OOPSLA16}.
+
+%% \begin{draft}
+%% GAD: While talking to Artem over the Xmas break, I pitched him the
+%% ``linearizability does not provide you with reasonable infrastructure
+%% to reason with clients'' argument. He agreed with me that the
+%% linearizability of the data structure alone was not enough to verify a
+%% parallel composition client, and promised to take a look at the
+%% section.
+
+%% On our next meeting, he said that he read the section but that he
+%% was a bit disappointed in the fact that the specs we prove for the
+%% clients don't have anything extra other than the order of
+%% events. He reckons that a producer consumer-like example e.g.
+
+%% $$ \mathbf{hide}\ ( \mathsf{push}\ 4 ||  t1 \tbnd \mathsf{pop}) $$
+
+%% similar to the one we use in the rebuttal would make a more compelling
+%% case.
+%% \end{draft}
+%%\gad{Check the first half.}
+
+\subparagraph*{Example clients.}
+
+We first consider the client $e$, defined as follows:
+%
+\[
+\hfill\begin{array}{l||l||l}
+        \begin{array}{c}
+         \esc{write}~(x,2);\\ 
+         \esc{write}~(y,1)~ 
+        \end{array}~
+& ~\esc{scan}~()~ &~\esc{write}~(x,3)  
+\end{array}\hfill
+\]
+%
+It is our running example from Figure~\ref{fig:weird:code}. We will
+show that it satisfies the spec below. In the sequel we omit the STS
+$C$, as it never changes.
+
+%\begin{figure}[t]
+\[
+\!\!\!\begin{array}{l}
+e : 
+  \tsPre{\{ \histS = \hempty \}}
+\!\!\begin{array}[t]{l}
+  \tsPos{\{ r\ldot \exists t_1\, t_2\, t_3\, t_s \ldot\,
+    \histS' = t_1 \hpts (y,1) \hunion t_2 
+    \hpts (x,2) \hunion t_3 \hpts (x,3)\wedge
+    \dom{\hist} \subseteq \ideal{\stableorderP}{t_s}\wedge\!}\\
+%    \hist \subseteq \histP \wedge 
+%    \stableorder \subseteq \stableorderP \wedge}\\
+  \tsPos{\hphantom{\{ r\ldot \exists t_1\, t_2\, t_3\, t_s \ldot}\, 
+    \dom{\histO} \subseteq \sideal{\stableorderP}{t_2},
+    \sideal{\stableorderP}{t_3} \wedge 
+%
+%    \histO \subseteq \sideal{\stableorderP}{t_3} \wedge}\\
+%  \tsPos{\hphantom{\{ r\ldot\, \exists t_1\, t_2\, t_3\, t_s \ldot}\, 
+    t_2\ {\stableorderP}\ t_1 \wedge r = \eval\ t_s\ \stableorderP\ \histP \}}\\
+\end{array}
+\end{array}
+\]
+
+The spec of $e$ states that (1) $\esc{write}~(x,2)$, timestamped
+$t_2$, occurs sequentially before $\esc{write}~(y,1)$ which is
+timestamped $t_1$, (2) the remaining write, timestamped $t_3$, and the
+scan, timestamped $t_s$, are not temporally constrained, and (3) the
+writes that terminated before the client started are ordered before
+$t_2$ (and thus before $t_1$), $t_3$ and $t_s$. The example
+illustrates how to track timestamps and their order, but does not
+utilize the properties of $\scanned{\stableorder}$. We illustrate the
+latter in another example at the end of this section.
+
+We first verify the subprograms $\esc{scan}~()~\parallel
+\esc{write}~(x,3)$ and $\esc{write}~(x,2);\ \esc{write}~(y,1)$
+separately, and then combine them into the full proof. As proof
+outlines show intermediate, in addition to pre- and post-state, we
+cannot quite utilize VDM notation in them. As a workaround, we
+explicitly introduce logical variables $h$ and $h_o$ to name (subsets
+of) the initial global and other history.
+%
+%
+{
+\[
+\!\!\!\!\!\begin{array}{l c} \num{1} &
+ {\specK{\{ \histS = \hempty \wedge h \subseteq \hist \wedge h_o
+                           \subseteq \histO \}}} \\[3pt]
+% \num{2} & \specK{\{ ( \histS = \hempty) \mathrel{\circledast} ( \histS = \hempty \wedge h = \hist \wedge w = \stableorder)\}}\\ 
+& \!\!\!\!\!\! \begin{tabular}{l || l}
+     \begin{array}[t]{l l}
+       \num{2a} &
+       \specK{\{ \histS = \hempty \wedge h \subseteq \hist \wedge h_o \subseteq \histO \}}\\
+       \num{3a} & \multicolumn{1}{c}{\esc{scan}~()} \\
+       \num{4a} &
+       \specK{\{ r\ldot\, \exists\, t_s\ldot
+         \histS = \hempty \wedge  \dom{h} \subseteq \ideal{\stableorder}{t_s} \wedge \hbox{}}\\
+       &
+       \specK{\phantom{\{r\ldot\, \exists\, t_s\ldot}\,
+         r = \eval\, t_s\, \stableorder\, \hist\}}
+     \end{array}~&~
+     \!\!\!\begin{array}[t]{r l}
+       \num{2b} &
+       \specK{\{ \histS = \hempty \wedge h \subseteq \hist \wedge h_o \subseteq \histO \}} \\       
+       \num{3b} & \multicolumn{1}{c}{\esc{write}~(x,3)}\\
+       \num{4b} &
+       \specK{\{ \exists\, t_3\ldot
+         \histS = t_3 \hpts (x,3) \wedge \hbox{}}\\
+       & \specK{\phantom{\{\exists\, t_3\ldot}\,
+         \dom{h_o} \subseteq \sideal{\stableorder}{t_3}\}}
+     \end{array}
+   \end{tabular}\\[3pt]
+%  \num{6} & \specK{\{ r\ldot}\\
+%          & \specK{\phantom{\{}
+%          (\exists t_s\ldot
+%         \histS = \hempty\! \wedge\! h \subseteq \hist \wedge\!
+%         w \subseteq\! \stableorder \wedge\!
+%         h \subseteq\! \ideal{\stableorder}{t_s} \wedge\!
+%         t_s \in \scanned\, \stableorder \wedge\!
+%         r = \eval\, t_s\, \stableorder\, \hist)}\\
+%   & \specK{\phantom{\{}~~~
+%     \mathrel{\circledast}
+%      (\exists\, t_3\ldot
+%         \histS = t_3 \hpts (x,3) \wedge
+%         h \subseteq \hist \wedge
+%         w \subseteq \stableorder \wedge
+%         \dom{h_{\othersub}} \subseteq \sideal{\stableorder}{t_x})\}}\\
+  \num{5} & \hfill {\specK{\{ r\ldot\, \exists t_3\, t_s\ldot\,
+    \histS = t_3 \hpts (x,3) \wedge
+%    \hist \subseteq \hist \wedge
+%    \stableorder \subseteq \stableorder \wedge
+    \dom{h_o} \subseteq \sideal{\stableorder}{t_3} \wedge 
+    \dom{h} \subseteq \ideal{\stableorder}{t_s} \wedge
+    r = \eval\ t_s\ \stableorder\ \hist\}}} \hfill
+\end{array}
+\]}
+
+The proof applies the rule for parallel composition of FCSL. This rule
+is described in Appendix~\ref{sc:background}.
+%
+Here, we just mention that, upon forking, the rule distributes the
+value of $\histS$ of the parent thread, to the $\histS$ values of its
+children; in this case, all these are $\hempty$. Dually, upon joining,
+the $\histS$ values of the children in lines 4a and 4b, are collected,
+in line 5, into that of the parent. The other assertions in 4a and 4b
+directly follow from the specs of \jyscan\ and \jywrite\ and the
+Invariants~~\ref{inv:mono}.\ref{inv:mono:hist}
+and~~\ref{inv:mono}.\ref{inv:mono:stable}, and directly transfer to
+line 5.
+%
+While the proof outline does not establish how
+\jyscan\ and \jywrite\ interleaved, it establishes that $t_3$ and $t_s$
+both appear after the writes that are prior to the client's call.
+{
+\[
+\begin{array}{r l}
+  \num{1} & \specK{\{ \histS = \hempty \wedge h \subseteq \hist \wedge
+    h_o \subseteq \histO \}} \\ %\wedge w \subseteq \stableorder \}} \\
+%  \num{2} & \specK{\{ \histS = \hempty \wedge h = \histP \wedge w = \stableorder \}}\\
+  \num{2} & \esc{write}~(x,2);\\
+  \num{3} & \specK{\{ \exists\, t_2 \ldot\, \histS = t_2 \hpts (x,2) \wedge \dom{h_{\othersub}} \subseteq \sideal{\stableorder}{t_2} \}} \\
+%  \num{5} & \specK{\{ \exists\, t_2 \ldot\,
+%    \histS = t_2 \hpts (x,2) \wedge j = \hist \wedge
+%    h \subseteq j \wedge  s = \stableorder \wedge w \subseteq s \wedge
+%    \dom{h_{\othersub}} \subseteq \sideal{s}{t_2} \}} \\
+%  \num{6} & \specK{\{ \exists\, t_2 \ldot\,
+%    ( \histS = \hempty \wedge
+%    h \subseteq j \wedge   w \subseteq s)\mathrel{\circledast}}\\
+%    & \specK{\phantom{\{ \exists\, t_2 \ldot}\quad
+%    (\histS = k = t_2 \hpts (x,2) \wedge
+%      h \subseteq j \wedge   w \subseteq s \wedge
+%    \dom{h_{\othersub}} \subseteq \sideal{s}{t_2}) \}} \\
+  \num{4} & \esc{write}~(y,1)\\
+%  \num{8} & \specK{\{ \exists\, t_1\, t_2\ldot\, 
+%    (\histS = t_1 \hpts (y,1) \wedge
+%    h \subseteq j \subseteq \hist \wedge
+%    w \subseteq s  \subseteq \stableorder \wedge
+%    \dom{j_{\othersub} \hunion k} \subseteq \sideal{\stableorder}{t_1})
+%       \mathrel{\circledast}}\\
+%   & \specK{\phantom{\{\exists\, t_1\, t_2\ldot}\,
+%    (\histS = t_2 \hpts (x,2) \wedge
+%    h \subseteq j \subseteq \hist \wedge
+%    w \subseteq s \subseteq \stableorder \wedge
+%    \dom{h_{\othersub}} \subseteq \sideal{\stableorder}{t_2}) \}} \\
+  \num{5} & \specK{\{ \exists\, t_1\, t_2\ldot\, 
+    \histS = t_1 \hpts (y,1) \hunion t_2 \hpts (x,2) \wedge %\hbox{}}\\
+%    & \specK{\hphantom{\{ \exists\, t_1\, t_2\ldot}\, 
+    \dom{h_{\othersub}} \subseteq \sideal{\stableorder}{t_2} \wedge 
+    t_2\ {\stableorder}\ t_1\}}
+\end{array}
+\]}
+%%
+
+The second proof outline starts with the same precondition. Then line
+$3$ directly follows from the spec of \jywrite, using $h_o
+\subseteq \histO$. To proceed, we need to apply FCSL
+\emph{framing}: the precondition of \jywrite\ requires $\histS =
+\emptyset$, but we have $\histS = t_2 \mapsto (x, 2)$.
+%%
+The frame rule is explained in Appendix~\ref{sc:background}.
+%
+Here we just mention that framing modifies the spec of \jywrite\ by
+joining $t_2 \mapsto (x, 2)$ to $\histS$, $\histSP$ \emph{and}
+$\histO$ as follows.
+\[
+\mathtt{write}\ (p, v) : 
+\begin{array}[t]{l}
+\tsPre{\{\histS = t_2 \mapsto (x, 2)\}}\
+\tsPos{\{\exists t\ldot \histS' = t \mapsto (p, v) \hunion t_2 \mapsto (x, 2) \wedge \hbox{}}\\
+\tsPos{\hphantom{\{\histS = t_2 \mapsto (x, 2)\}\ \{\exists t\ldot}
+    \dom {\histO \hunion t_2 \mapsto (x, 2)} \cup \scanned\, \stableorder
+       \subseteq \sideal{\stableorderP}{t}\}}
+\end{array}
+\]
+
+Such a framed spec for \jywrite\ gives us that after line 4: (1)
+$\histS = t_1 \hpts (y,1) \hunion t_2 \hpts (x,2)$, and (2)
+$\dom{h_{\othersub} \hunion t_2 \mapsto (x, 2)} \subseteq
+\sideal{\stableorder}{t_1}$. From Invariants~\ref{inv:mono}, we also
+obtain that (3) $\dom{h_{\othersub}} \subseteq
+\sideal{\stableorder}{t_2}$, which simply transfers from line 3. Now,
+in the presence of (2), we can simplify (3) into
+$t_2\ {\stableorder}\ t_1$, thus obtaining the postcondition in line
+5.
+
+The final step applies the rule for parallel composition to the two
+derivations, splitting $\histS$ upon forking, and collecting it upon
+joining:
+%
+
+\[
+e : \begin{array}[t]{l}
+    \specK{\{\histS = \hempty \wedge h \subseteq \hist \wedge h_o \subseteq \histO\}}\\
+ \specK{\{r\ldot \exists\, t_1\, t_2\, t_3\, t_s \ldot 
+    \histS = t_1 \hpts (y,1) \hunion t_2 \hpts (x,2) \hunion t_3 \hpts
+        (x, 3) \wedge  \dom{h} \subseteq \ideal{\stableorder}{t_s} \wedge \hbox{}}\\
+\specK{\hphantom{\{r\ldot \exists\, t_1\, t_2\, t_3\, t_s \ldot }
+\dom{h_{\othersub}} \subseteq \sideal{\stableorder}{t_2}, \sideal{\stableorder}{t_3} \wedge 
+ t_2\ {\stableorder}\ t_1 \wedge 
+%   t_s \in \scanned\, \stableorder \wedge 
+     r = \eval\, t_s\, \stableorder\, \hist\}}
+\end{array}
+\]
+
+From here, the VDM spec of $e$ is derived by priming the Greek letters
+in the postcondition, and choosing $h = \hist$ and $h_o = \histO$.
+
+The spec of $e$ can be further used in various contexts. For example,
+to recover the context from Section~\ref{sc:overview}, where $e$ is
+invoked with $x = 5$, $y = 0$, we can frame $e$ wrt.~$\histS = t_5
+\hpts (x, 5) \hunion t_0 \hpts (y, 0)$ to make explicit the events
+that initialize $x$ and $y$. Then, 
+%
+%by enumerating all the
+%possibilities for $\stableorder$ that satisfy the constraints of the
+%postcondition, 
+%
+it is possible to derive in FCSL that if $e$ executes without
+interference (\ie, if $\hist = \histO = \histP = \histOP = \hempty$),
+then the result at the end must be $r \in \{(5,0), (2,0), (3,0),
+(2,1), (3,1)\}$. As expected, $r \neq (5, 1)$, because the write of
+$2$ sequentially precedes the write of $1$.
+
+We next illustrate the use of Invariants~\ref{lem:scanned}, which are
+required for clients that use $\esc{scan}$ in \emph{sequential
+  composition}. We consider the program
+%
+\[
+\hfill{
+e' = r \tbnd \esc{scan} ;\, \esc{write}\, (x,v);\, {\small{\kw{return}}}\, r 
+}\hfill
+\]
+%
+and prove that $e'$ can be ascribed the following spec:
+\[
+\hfill
+e' : \tsPre{\{ \histS = \hempty \}} \
+\begin{array}[t]{l}
+     \tsPos{\{ \exists\, t_s\ t_x\ldot\,
+       \histSP = t_x \hpts (x, v) \wedge
+       t_s \in \sideal{\stableorderP}{t_x} \wedge %\hbox{}}\\
+%     \tsPos{\hphantom{\{\exists\, t_s\ t_x\ldot\,} 
+           r = \eval\ t_s\ \stableorderP\ \histP \}}
+\end{array}\hfill
+\]
+
+The spec says that the write event ($t_x$) is subsequent to the scan
+($t_s$), as one would expect. In particular, the snapshot $r$ remains
+valid, \ie, the write does not change the order $\stableorder$ and
+history $\hist$ in a way that makes $r$ cease to be a valid snapshot
+in $\stableorderP$ and $\histP$. The proof outline follows, with the
+explanation of the critical steps.
+%
+\[
+\!\begin{array}{r l}
+% \num{1} & \specK{\{ \histS = \hempty \}} \\
+ \num{1} & \specK{\{ \histS = \hempty \}}\\ %\wedge
+%                        h \subseteq \hist \wedge
+%                        w \subseteq \stableorder \}} \\
+ \num{2} & r \tbnd \esc{scan};\\
+ \num{3} & \specK{\{ \exists\, t_s, w'(=\stableorder), h'(=\hist)\ldot 
+       \histS = \hempty \wedge 
+       %w \subseteq \stableorder \wedge
+%      \dom{h} \subseteq \ideal{\stableorder}{t} \wedge}\\
+        t_s \in \scanned{w'}  \wedge r = \eval\ t_s\ w'\ h'\}}\\
+%\num{5} & \specK{\{ \exists\, t_s\ldot\,
+%       \histS = \hempty \wedge j = \hist \wedge h \subseteq j \wedge
+%       s = \stableorder \wedge w \subseteq s \wedge
+%      \dom{h} \subseteq \ideal{s}{t} \wedge }\\
+%          & \specK{\hphantom{\{\ \exists\, t_s\ldot}\,
+%        t \in \scanned s \wedge r = \eval\, t_s\, s\, j\}}\\
+ \num{4} & \esc{write}\, (x,v);\\
+% \num{7} & \specK{\{ \exists\, t_s\, t_x \ldot\,
+%           \histS = t_x \hpts (x, v) \wedge \hbox{}}\\
+%           h \subseteq j \subseteq \hist \wedge
+%           w \subseteq s \subseteq \stableorder \wedge}\\
+%          & \specK{\hphantom{\{\ \exists\, t_s\, t_x\ldot}\,
+%           \dom{h} \subseteq \ideal{s}{t} \wedge
+%           \scanned\, s \subseteq \sideal{\stableorder}{t_x} \wedge
+%           t_s \in \scanned s \wedge}\\
+%         & \specK{\hphantom{\{\ \exists\, t_s\, t_x\ldot}\,
+%             \ideal{s}{t_s} = \ideal{\stableorder}{t_s} \wedge\
+%             r = \eval\, t_s\, s\, j\}}\\
+ \num{5} & \specK{\{ \exists\, t_s\, t_x\ldot\,
+               \histS = t_x \hpts (x, v) \wedge t_s \in \sideal{\stableorder}{t_x} \wedge t_s \in \scanned{\stableorder} \wedge
+%               \dom{h} \subseteq \sideal{\stableorder}{t_x} \wedge
+               r = \eval\ t_s\ \stableorder\ \hist\}}\\
+ \num{6} & \kw{return}\ r
+% \num{10} & \specK{\{ \exists\, t_s\, t_x\ldot\,
+%               \histS = t_x \hpts (x, v) \wedge
+%               w \subseteq \stableorder \wedge
+%               h \subseteq \hist \wedge
+%}\\
+%          & \specK{\hphantom{\{ \exists\, t_s\, t_x\ldot}\,
+%               t_s \in \scanned\, \stableorder \wedge
+%               r = \eval\, t_s\, \stableorder\, \hist \wedge
+%               t_s \in \sideal{\stableorder}{t_x}\}}
+ %% \num{11} & \specK{\{ \exists\, t_s\ t_x\ldot\,
+ %%               \histSP = t_x \hpts (x, v) \wedge
+ %%               \hist \subseteq \histP \wedge
+ %%               \stableorder \subseteq \stableorderP \wedge
+ %%               \dom{\hist} \subseteq \sideal{\stableorderP}{t_x} \wedge}\\
+ %%          & \specK{\hphantom{\{ \exists\, t_s\ t_x\ldot}\,
+ %%               t_s \in \scanned\, \stableorderP \wedge
+ %%               r = \eval\, t_s\, \stableorderP\, \histP \wedge
+ %%               t_s \in \sideal{\stableorderP}{t_x}\}}
+\end{array}
+\]
+
+Line 3 is a direct consequence of the spec of \jyscan, where we
+omitted the conjunct $\dom{\hist} \subseteq
+\ideal{\stableorderP}{t_s}$, as we do not need it for the subsequent
+derivation. We also introduce explicit names $w'$ and $h'$ for the
+current values of $\stableorder$ and $\hist$.
+%
+Now, to derive line 5, by the spec of \jywrite, we know there exists a
+timestamp $t_x$ corresponding to the write, such that (1) $\histS =
+t_x \hpts (x, v)$, which is a conjunct in line 5, and also (2)
+$\dom{\histO} \cup \scanned{w'} \subseteq
+\sideal{\stableorder}{t_x}$. Furthermore, (3) $t_s \in \scanned{w'}$,
+and (4) $r = \eval\ t_s\ w'\ h'$, simply transfer from line 3. From
+(2) and (3), we infer that $t_s \in \sideal{\stableorder}{t_x}$. To
+complete the derivation of line 5, it remains to show that $t_s \in
+\scanned{\stableorder}$ and $r = \eval\ t_s\ \stableorder\ \hist$. For
+this, we use (3), (4) and the Invariants~\ref{inv:mono}
+and~\ref{lem:scanned}, as follows.  First, by
+Invariant~\ref{inv:mono}.\ref{inv:mono:ideal}, and because $t_s \in
+\scanned{w'}$, we get $\ideal{w'}{t_s} =
+\ideal{\stableorder}{t_s}$. By
+Invariant~\ref{inv:mono}.\ref{inv:mono:stable}, this gives us $t_s \in
+\scanned{\stableorder}$ as well. By
+Invariant~\ref{inv:mono}.\ref{inv:mono:hist}, $h' \subseteq \hist$,
+and then by Invariant~\ref{lem:scanned}.\ref{lem:scanned:eval}, $r =
+\eval\ t_s\ w'\ h' = \eval\ t_s\ \stableorder\ \hist$, completing the
+deduction of line 5.
+
+%Finally, the desired postcondition immediately follows after the
+%return, by priming $\stableorder$ and $\hist$ to switch to the VDM
+%notation.
+
+Observe that the main role of $\scanned$ in proofs is to enable
+showing \emph{stability} of values obtained by $\eval$, using
+Invariant~\ref{lem:scanned}.\ref{lem:scanned:eval}. The remaining
+Invariants~\ref{lem:scanned}.\ref{lem:scanned:total}
+and~\ref{lem:scanned}.\ref{lem:scanned:wkn} allow us to replace a
+number of conjuncts about $\scanned$ by a single one that expresses
+the membership of the largest timestamp in the current $\scanned$ set.
+
+\begin{comment}
+
+\begin{figure}
+\[
+\begin{array}{r l}
+  \num{1} & \specK{\{\ \histS = \hempty \}} \\
+  \num{2} & \specK{\{\ \histS = \hempty \wedge
+    w = \stableorder \wedge h = \hist \}} \\
+  \num{3} & r_1 \tbnd \esc{scan};\\
+   \num{4} & \specK{\{ \exists\, t_1\ldot\,
+       \histS = \hempty \wedge h \subseteq \hist \wedge
+       w \subseteq \stableorder \wedge
+      \dom{h} \subseteq \ideal{\stableorder}{t_1} \wedge}\\
+          & \specK{\hphantom{\{ \exists\, t_1\ldot}\,
+        t_1 \in \scanned{\stableorder}  \wedge
+        r_1 = \eval\, t_s\, \stableorder\, \hist\}}\\
+   \num{5} & \specK{\{ \exists\, t_1\ldot\,
+       \histS = \hempty \wedge j = \hist \wedge h \subseteq j \wedge
+       s = \stableorder \wedge w \subseteq s \wedge
+      \dom{h} \subseteq \ideal{s}{t} \wedge }\\
+          & \specK{\hphantom{\{\ \exists\, t_1\ldot}\,
+        t_1 \in \scanned s \wedge r_1 = \eval\, t_1\, s\, j\}}\\
+  \num{6} & r_2 \tbnd \esc{scan};\\
+  \num{7} & \specK{\{ \exists\, t_1\, t_2\ldot\,
+     \histS = \hempty \wedge
+     h \subseteq j \subseteq \hist \wedge
+      w \subseteq s  \subseteq \stableorder \wedge
+      \dom{h} \subseteq \ideal{s}{t_1} \wedge}\\
+      & \specK{\hphantom{\{ \exists\, t_1\, t_2\ldot}\,
+      t_1 \in \scanned s \wedge r_1 = \eval\, t_1\, s\, j \wedge
+      \wedge \ideal{s}{t_1} = \ideal{\stableorder}{t_1}\wedge}\\
+      & \specK{\hphantom{\{ \exists\, t_1\, t_2\ldot}\,
+      \dom{j} \subseteq \ideal{\stableorder}{t_2} \wedge
+      t_2 \in \scanned \stableorder \wedge
+      r_2 = \eval\, t_2\, \stableorder\, \hist \}}\\
+  \num{8} & \specK{\{ \exists\, t_1\, t_2\ldot\,
+     \histS = \hempty \wedge h \subseteq \hist \wedge
+      w \subseteq \stableorder \wedge
+      \dom{h} \subseteq \ideal{\stableorder}{t_2} \wedge
+      t_1 \in \scanned \stableorder \wedge}\\
+      & \specK{\hphantom{\{ \exists\, t_1\, t_2\ldot}\,
+      r_1 = \eval\, t_1\, \stableorder\, \hist \wedge
+      t_1 \mathrel{\stableorder} t_2 \wedge
+      t_2 \in \scanned \stableorder \wedge
+      r_2 = \eval\, t_2\, \stableorder\, \hist \}}\\
+  \num{9} & \kw{return}\, (r_1, r_2) \\
+ \num{10} & \specK{\{ \exists\, t_1\, t_2\ldot\,
+     \histS = \hempty \wedge h \subseteq \hist \wedge
+      w \subseteq \stableorder \wedge
+      \dom{h}\! \subseteq \ideal{\stableorder}{t_2} \wedge
+      t_1 \in \scanned \stableorder \wedge}\\
+      & \specK{\hphantom{\{ \exists\, t_1\, t_2\ldot}\,
+      r_1 = \eval\, t_1\, \stableorder\, \hist \wedge
+      t_1 \mathrel{\stableorder} t_2 \wedge
+      t_2 \in \scanned \stableorder \wedge
+      r_2 = \eval\, t_2\, \stableorder\, \hist \}}
+  %% \num{11} & \specK{\{ \exists\, t_1\ t_2\ldot\,
+  %%              \histSP = \hempty \wedge\
+  %%              \hist \subseteq \histP \wedge\
+  %%              \stableorder \subseteq \stableorderP \wedge
+  %%             \dom{\hist} \subseteq \ideal{\stableorderP}{t_2} \wedge
+  %%                t_2 \in \scanned\, \stableorderP \wedge}\\
+  %%         & \specK{\phantom{\{ \exists\, t_1\ t_2 \ldot}\,  
+  %%              r_1 = \eval\, t_1\, \stableorderP\, \histP \wedge
+  %%              t_1 \mathrel{\stableorderP} t_2 \wedge
+  %%              t_2 \in \scanned\, \stableorderP \wedge
+  %%             r_2 = \eval\, t_2\, \stableorderP\, \histP \}}
+\end{array}
+\]
+\caption{\label{proof:seq-clientSS}A proof outline for a client with two
+  sequential calls to \jyscan}
+  
+\end{figure}
+
+Figure~\ref{proof:seq-clientSS} presents the proof outline for the
+second sequential client, which also starts with an empty self
+history. In line~2, $h$ and $w$ bind the current values of $\hist$ and
+$\stableorder$ before the first call to \jyscan\ in line~3. After the
+first call to \jyscan, we have in line~4 that $t_1$ is the scan event
+that determines the snapshot $r_1$ in the current state, and that this
+captures the complete history before the call to scan--- $\dom{h}
+\subseteq \ideal{\stableorder}{t_1}$. Before the second call to
+$\jyscan$ in line~6, we bind the current $\hist$ and $\stableorder$ by
+$j$ and, respectively, $s$. Now, in line~7, we have that $t_2$ is the
+scan even that captures the new snapshot $r_2$, and it is such that
+has witnessed all events in $j$, $\dom{j} \subseteq
+\ideal{\stableorder}{t_1}$. We also have that prefix from the previous
+scan call has been preserved---\ie ${s}{t_1} =
+\ideal{\stableorder}{t_1}$. By Lemma~\ref{lem:scan:prefix}, we assert
+in line~8 that $t_1 \in \scanned\, \stableorder$, \ie that it is still
+a valid scan event. This latter fact, together with the snapshot
+preservation lemma~(Lemma~\ref{lem:scan:eval}), allows us to infer
+that the snapshot $r_1$ is still valid, \ie $r_1 = \eval\, t_1\,
+\stableorder\, \hist$. Finally, by transitivity and subset inclusion
+we infer that $\dom{h}\! \subseteq \ideal{\stableorder}{t_2}$ and $
+t_1 \mathrel{\stableorder} t_2$. Again, the last step is trivial as it
+just returns the collected snapshots.
+
+\gad{ I'm not sure we should keep both clients, they are very
+  similar. In any case, we might also want to consider switching the
+  order between them.}
+
+\subparagraph*{Sequential Clients}
+%
+In order to illustrate the points made above, we consider are toy
+sequential clients which illustrate how to work with our specs,
+specially the particulars about how to reason out of $\scanned$ and
+$\eval$ assertions:
+%
+\[
+\begin{array}[t]{l l}
+\begin{array}[t]{l}
+  \tsPre{\{ \histS = \hempty \}} \\
+  r \tbnd \esc{scan} ;\, \esc{write}\, (x,v);\, \kw{return}\, r\\
+  \tsPos{\{ \exists\, t_s\ t_x\ldot\,
+               \histSP = t_x \hpts (x, v) \wedge
+               \hist \subseteq \histP \wedge}\\
+  ~~~~\tsPos{
+             \stableorder \subseteq \stableorderP \wedge
+             t_s \in \scanned\, \stableorderP \wedge}\\
+  ~~~~\tsPos{
+    \dom{\hist} \subseteq \sideal{\stableorderP}{t_x} \wedge
+     t_s \in \sideal{\stableorderP}{t_x} \wedge}\\
+  ~~~~\tsPos{ r = \eval\, t_s\, \stableorderP\, \histP \}}
+\end{array}
+&
+\begin{array}[t]{l}
+  \tsPre{\{ \histS = \hempty \}} \\
+  r_1 \tbnd \esc{scan} ;\ r_1 \tbnd \esc{scan};\, \kw{return}\, (r_1,r_2)\\
+  \tsPos{\{ \exists\, t_1\ t_2\ldot\,
+               \histSP = \hempty \wedge
+               \hist \subseteq \histP \wedge
+               \stableorder \subseteq \stableorderP \wedge}\\
+  ~~~~\tsPos{ \dom{\hist} \subseteq \ideal{\stableorderP}{t_2}\wedge
+               t_1 \mathrel{\stableorderP} t_2 \wedge}\\
+  ~~~~\tsPos{t_1 \in \scanned\, \stableorderP \wedge\!
+             r_1 = \eval\, t_1\, \stableorderP\, \histP \wedge}\\
+  ~~~~\tsPos{ t_2 \in \scanned\, \stableorderP \wedge\!
+              r_2 = \eval\, t_2\, \stableorderP\, \histP \}}
+\end{array}
+\end{array}
+\]
+%
+The first client performs a call to \jyscan\ followed by a call to
+\jywrite. We are interested in proving that the snapshot returned by
+\jyscan\ is still valid further down and, moreover, that the write
+event $t_x$ that has been produced is fresh with regard to $t_s$, that
+is that $ t_s \in \sideal{\stableorder}{t_x}$.
+%
+The second client illustrates the interaction between subsequent calls
+to \jyscan. The purpose of this exercise is to show that the second
+call to \jyscan\ returns a newer snapshot--- \ie $ t_1
+\mathrel{\stableorderP} t_2$--- and that both are valid snapshots of
+the memory.
+%
+Since we intend to keep the definition of $\stableorder$, $\eval$ and
+$\scanned$ opaque to clients, we first need to provide an interface to
+reason with them. The latter consist of a sequence of lemmas regarding
+those assertion. All of this lemmas have been proved in our Coq
+development~\cite{CoqFiles}.
+
+%The first thing we need to establish is the stability of all the
+%assertion which appears in Figure~\ref{fig:specs}:
+
+%% \an{Hum, don't understand why we need to talk about stability here?
+%%   That should not be used in these simple clients. We need other
+%%   lemmas here, namely those that show how $\scanned{\stableorder}$
+%%   relate to $\sideal{\stableorder}{t}$.} \gad{We do need the
+%%   stability when the two clients return the scanned values, right?
+%%   In any case, it would be weird to first present the rules, then
+%%   clients and leave the stability for the end.} \gad{I know I'm
+%%   missing some other lemmas.}
+
+%% \begin{lemma}[Stability of Assertions I]\label{lem:menvs}
+%% If by environment stepping the auxiliary state projections
+%% $\ordlist, \stableorder, \chi, \kappa, \ldots,$ evolve to
+%% $\ordlist', \stableorder', \chi', \kappa', \ldots$, then:
+%% %
+%% \begin{enumerate}
+%%  \item\label{lem:menvs:jleq}
+%%  $ \stableorder \subseteq \stableorder'$ \ie the logical ordering is
+%%  monotone. The same holds for the sub-orders imposed by the ideals
+%%  $\sideal{\stableorder}{t}$ and $\ideal{\stableorder}{t}$.
+
+%%  \item \label{lem:menvs:hist} $ \hist \subseteq \hist'$
+%%   \ie histories grow monotonically.
+
+%%  \item \label{lem:menvs:scann} If $ t \in \scanned\ \stableorder$ then
+%%    $ t \in \scanned\ \stableorderP$ and $\ideal{\stableorder}{t} =
+%%    \ideal{\stableorderP}{t}$ \ie, environment steps preserve scanned
+%%    prefixes.
+   
+%%  \item \label{lem:menvs:eval} If $t \in \scanned\ \stableorder$ then
+%%    $\eval\ t\, \stableorder\, \hist = \eval\ t\, \stableorderP\,
+%%    \histP$ \ie the result of a previous scan is invariant under
+%%    environment interference.
+%% \end{enumerate}
+%% \end{lemma}
+%% \begin{proof}
+%% We have proven the correctness of these lemmas in our Coq
+%% development. They are in most cases carried out by induction on the
+%% number of steps the environment performs, and the base cases are
+%% provided by the action of the auxiliary code described before in
+%% Section~\ref{sc:implementation}, on the transposition of the state
+%% (see~\cite{NanevskiLSD+ESOP14} for further details). In the online
+%% appendices~\cite{CoqFiles}, Appendix~\ref{sc:coq-code} gives some
+%% insight into the most interesting details of such proofs. \qed
+%% \end{proof}
+
+
+%%\gad{I'm not sure if these are good names at all. Perhaps I should
+%%  better enumerate them.}
+
+
+%% The first client performs a call to \jyscan\ followed by a call to
+%% \jywrite. We are interested in proving that the snapshot returned by
+%% \jyscan\ is still valid further down and, moreover, that the write
+%% event $t_x$ that has been produced is fresh with regard to $t_s$, that
+%% is that $ t_s \in \sideal{\stableorder}{t_x}$. We present the proof
+%% in a traditional Hoare logic proof outline:
+
+\begin{figure}
+\[
+\!\begin{array}{r l}
+ \num{1} & \specK{\{ \histS = \hempty \}} \\
+ \num{2} & \specK{\{ \histS = \hempty \wedge
+                        h = \hist \wedge
+                        w = \stableorder \}} \\
+ \num{3} & r \tbnd \esc{scan};\\
+ \num{4} & \specK{\{ \exists\, t_s\ldot\,
+       \histS = \hempty \wedge h \subseteq \hist \wedge
+       w \subseteq \stableorder \wedge
+      \dom{h} \subseteq \ideal{\stableorder}{t} \wedge}\\
+          & \specK{\hphantom{\{ \exists\, t_s\ldot}\,
+        t \in \scanned{\stableorder}  \wedge
+        r = \eval\, t_s\, \stableorder\, \hist\}}\\
+\num{5} & \specK{\{ \exists\, t_s\ldot\,
+       \histS = \hempty \wedge j = \hist \wedge h \subseteq j \wedge
+       s = \stableorder \wedge w \subseteq s \wedge
+      \dom{h} \subseteq \ideal{s}{t} \wedge }\\
+          & \specK{\hphantom{\{\ \exists\, t_s\ldot}\,
+        t \in \scanned s \wedge r = \eval\, t_s\, s\, j\}}\\
+ \num{6} & \esc{write}\, (x,v);\\
+ \num{7} & \specK{\{ \exists\, t_s\, t_x \ldot\,
+           \histS = t_x \hpts (x, v) \wedge
+           h \subseteq j \subseteq \hist \wedge
+           w \subseteq s \subseteq \stableorder \wedge}\\
+          & \specK{\hphantom{\{\ \exists\, t_s\, t_x\ldot}\,
+           \dom{h} \subseteq \ideal{s}{t} \wedge
+           \scanned\, s \subseteq \sideal{\stableorder}{t_x} \wedge
+           t_s \in \scanned s \wedge}\\
+         & \specK{\hphantom{\{\ \exists\, t_s\, t_x\ldot}\,
+             \ideal{s}{t_s} = \ideal{\stableorder}{t_s} \wedge\
+             r = \eval\, t_s\, s\, j\}}\\
+ \num{8} & \specK{\{ \exists\, t_s\, t_x\ldot\,
+               \histS = t_x \hpts (x, v) \wedge
+               h \subseteq \hist \wedge
+               \dom{h} \subseteq \sideal{\stableorder}{t_x} \wedge
+               w \subseteq \stableorder \wedge}\\
+          & \specK{\hphantom{\{ \exists\, h\, w\, t_s\, t_x\ldot}\,
+               t_s \in \scanned\, \stableorder \wedge
+               r = \eval\, t_s\, \stableorder\, \hist \wedge
+               t_s \in \sideal{\stableorder}{t_x}\}}\\
+ \num{9} & \kw{return}\ r \\
+ \num{10} & \specK{\{ \exists\, t_s\, t_x\ldot\,
+               \histS = t_x \hpts (x, v) \wedge
+               w \subseteq \stableorder \wedge
+               h \subseteq \hist \wedge
+}\\
+          & \specK{\hphantom{\{ \exists\, t_s\, t_x\ldot}\,
+               t_s \in \scanned\, \stableorder \wedge
+               r = \eval\, t_s\, \stableorder\, \hist \wedge
+               t_s \in \sideal{\stableorder}{t_x}\}}
+ %% \num{11} & \specK{\{ \exists\, t_s\ t_x\ldot\,
+ %%               \histSP = t_x \hpts (x, v) \wedge
+ %%               \hist \subseteq \histP \wedge
+ %%               \stableorder \subseteq \stableorderP \wedge
+ %%               \dom{\hist} \subseteq \sideal{\stableorderP}{t_x} \wedge}\\
+ %%          & \specK{\hphantom{\{ \exists\, t_s\ t_x\ldot}\,
+ %%               t_s \in \scanned\, \stableorderP \wedge
+ %%               r = \eval\, t_s\, \stableorderP\, \histP \wedge
+ %%               t_s \in \sideal{\stableorderP}{t_x}\}}
+\end{array}
+\]
+\caption{\label{proof:seq-clientSW} A proof outline for a client with
+  sequential calls to \jyscan\ and \jywrite.}
+\end{figure}
+\end{comment}

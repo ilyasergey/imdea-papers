@@ -1,0 +1,672 @@
+\section{Overview}
+\label{sec:overview}
+
+%\paragraph{Example background.}
+
+We introduce the main ideas behind our method via an example:
+concurrent exchanger from the $\mathtt{java.util.concurrent}$
+library~\cite{Scherer-al:SCOOL05,ExchangerClass}. This example
+previously motivated the introduction of a new correctness criteria of
+concurrency-aware linearizability~\cite{Hemed-Rinetzky:PODC14}. The
+exchanger cannot be related by linearizability to a set of
+\emph{sequential} histories, as its behavior crucially depends on
+concurrent interaction with interfering threads.
+%
+CAL works around this restrictions by employing new
+\emph{concurrency-aware} (CA) histories as a specification set
+instead.
+%
+In contrast, we here show how to specify and verify the exchanger
+using Hoare-style pre- and postconditions in FCSL, and rely on
+subjectivity to capture the interaction between the exchanger and the
+interfering threads.
+
+%
+%\an{Some of this should be put into intro? FCSL will provide a syntactic verification method (something not
+%currently available for CAL), and enable client-side reasoning out of
+%Hoare-style specs, as we illustrate in Section~\ref{sec:cal}. In the
+%case of linearizability, client-side reasoning is justified by a
+%theorem that linearizability implies contextual refinement
+%(Mijajlovic, O'Hearn, et al.); thus a client can replace the
+%fine-grained concurrent program with a simpler atomic, typically
+%sequential program. However, a contextual refinement result is also
+%not currently available for CAL.}
+%
+%\is{Instead of linearizability wrt \emph{sequential program}, let's
+%  talk about linearizability wrt \emph{sequential set of
+%    histories}. This is more accurate and follows the story from the
+%  intro. Speking of seuqntial programs also puts us under risk of
+%  getting someone Gotsman-like who will tell us to use linearizablity
+%  wrt. \emph{non-sequential program} (as he mentioned to me once), and
+%  god knows what it is.
+%    %
+%  How about just saying that one cannot specify it using sequential
+%  histories and hence, need to adopt new specification set (\ie,
+%  CA-histories), then making the clients aware of this fact (and
+%  nobody has seen it done, so here we come, client-friendly, as will
+%  be shown).}
+
+\subsection{Exchanger program} 
+\label{sec:exchanger}
+
+\newcommand{\Unmatched}{{\mathsf{U}}}
+\newcommand{\Matched}[1]{{\mathsf{M}\ #1}}
+\newcommand{\Retired}{{\mathsf{R}}}
+
+{
+\setlength{\belowcaptionskip}{-10pt} 
+\begin{figure}
+\centering
+\[
+{\small{
+\begin{array}{rl}
+ \Num{1} & \esc{exchange}~(v : A) : \esc{option}~A~=~\{ 
+\\ 
+ \Num{2} & ~~~~ p \Asgn \esc{alloc}(v, \Unmatched);\\
+ \Num{3} & ~~~~ b \Asgn \esc{CAS}(g, \esc{null}, p);\\
+ \Num{4} & ~~~~ \kw{if}~~b~\esc{==}~\esc{null}~~\kw{then}\\
+ \Num{5} & ~~~~ ~~~~ \esc{sleep}(50);\\
+ \Num{6} & ~~~~ ~~~~ x \Asgn \esc{CAS}(p\esc{+}1, \Unmatched, \Retired);\\
+ \Num{7} & ~~~~ ~~~~ \kw{if}~~x~~\kw{is}~~\Matched w~~\kw{then}~~\kw{return}~~(\esc{Some}~w)\\
+ \Num{8} & ~~~~ ~~~~ \kw{else}~~\kw{return}~~\esc{None}\\
+ \Num{9} & ~~~~ \kw{else}\\
+\Num{10} & ~~~~ ~~~~ \esc{dealloc}~~p;\\
+\Num{11} & ~~~~ ~~~~ cur \Asgn !g;\\
+\Num{12} & ~~~~ ~~~~ \kw{if}~~cur~\esc{==}~\esc{null}~~\kw{then}~~\kw{return}~{\esc{None}}\\
+\Num{13} & ~~~~ ~~~~ \kw{else}\\
+\Num{14} & ~~~~ ~~~~ ~~~~ x \Asgn \esc{CAS}(cur\esc{+}1, \Unmatched, \Matched v);\\
+\Num{15} & ~~~~ ~~~~ ~~~~ \esc{CAS}(g, cur, \esc{null});\\
+\Num{16} & ~~~~ ~~~~ ~~~~ \kw{if}~~x~~\kw{is}~~\Unmatched~~\kw{then}~~w\Asgn !cur;\kw{return}~(\esc{Some}\ w)\\
+\Num{17} & ~~~~ ~~~~ ~~~~ \kw{else}~~\kw{return}~\esc{None}\}
+\end{array}
+}}
+\]
+%\vspace{-10pt}  
+\caption{Elimination-based exchanger procedure.}
+\label{fig:exchanger}
+\end{figure} 
+}
+
+The exchanger program is presented in a higher-typed ML-style
+pseudo-code in Figure~\ref{fig:exchanger}. It takes a value $v : A$
+and creates an \emph{offer} from it. An offer is a pointer $p$ to two
+consecutive locations in the heap.\footnote{In our Coq sources, we use
+  a pointer to a pair, but for presentation here, we adopt a more
+  standard style with consecutive memory locations.} The first
+location stores $v$, and the second is a ``hole'' which the
+interfering thread try to fill with a matching value. The hole is
+drawn from the type
+$\esc{hole}\,{=}\,\Unmatched\,{\mid}\,\Retired\,{\mid}\,\Matched
+w$. Constructor $\Unmatched$ signals that the offer is unmatched;
+$\Retired$ that the exchanger retired (\ie, withdrew) the offer, and
+does not expect any matches on it; and $\Matched w$ that the offer has
+been matched with a value $w$.
+
+The global pointer $g$ stores the latest offer proposed for
+matching. The exchanger first allocates an offer $p$ (line 2), and
+tries to propose it for matching by making $g$ point to $p$ via \code{CAS}
+(line 3). We assume that \code{CAS} returns the value read, which can be used
+to determine if it failed or succeeded. If \code{CAS} succeeds, exchanger
+waits a bit, then checks if the offer has been matched by some $w$
+(lines 6, 7). If so, $\esc{Some}\ w$ is returned (line 7). Otherwise,
+the offer is retired by storing $\Retired$ into its hole (line
+6). Notice that the exchanger leaves the offer allocated, and thus
+exhibits a memory leak. This is a common idiom in concurrent data
+structures, introduced to avoid the ABA
+problem~\cite{Herlihy-Shavit:08,Treiber:TR}, and the exchanger is
+similar in this respect.
+%
+If the exchanger fails to link $p$ into $g$ in line 3, it deallocates
+the offer $p$ (line 10), and instead tries to match the offer $cur$
+that is current in $g$. If no offer is current, perhaps because
+another thread already matched the offer that made the \code{CAS} in line 3
+fail, the exchanger returns $\mathsf{None}$ (line 12). Otherwise, the
+exchanger tries to make a match, by changing the hole of $cur$ into
+$\Matched v$ (line 14). If successful (line 16), it reads the value $w$
+stored in $cur$ that was initially proposed for matching, and returns
+it. In any case, it unlinks $cur$ from $g$ (line 15) to make space for
+other offers.
+%
+%\an{The proof has actually been done this way, because I got lazy to
+%  work around the details of using \code{CAS}. Do we want to keep the
+%  presentation like this? It may cause reviewers to complain, so I may
+%  just as well change the code to use \code{CAS} instead of \code{CAS}', at the
+%  expense of one more read. I'm not sure it's worth it, however. If
+%  someone decides to criticize us on being unrealistic, there will be
+%  other properties of our memory model that one can complain about
+%  (e.g., that we assume \code{CAS} to work over pointers storing arbitrary
+%  types).}
+%%
+%\is{I think, the issue you describe is not an issue at all, as \code{CAS}
+%  returns the previous value (\ie, ($w$, U)), so you just spend an
+%  extra line or two to do the pattern matching on the \code{CAS}'s result and
+%  return Some ... or None depending on it.}  
+%%
+%\an{I didn't understand the point of \code{CAS} returning the previous
+%  value. The first \code{CAS} that's reading a pointer for being null returns
+%  a boolean, doesn't it? So the two \code{CAS}-es used in this program are
+%  different. Reading on Wikipedia: the boolean-returning version is
+%  called compare-and-set, the old-value-returning version is called
+%  compare-and-swap (I didn't know this). Both abbreviated as
+%  \code{CAS}. Either way, the two are different. Should I make that explicit
+%  by different naming? Or make the first return the old pointer, and
+%  then branch on that pointer being null. Or, have both return a bool,
+%  and then have an extra read.}
+
+\subsection{Exchanger invariants and specification}
+
+To specify the example, we first decorate the state space of the
+program with auxiliary state. Our state will be \emph{subjective} in
+the sense that we will keep \emph{thread-local} auxiliary variables
+which name, within the scope of each thread, the thread's private
+state (aka.~\emph{self} state), but also the private state of all
+other threads combined (aka.~\emph{other} state). This subjective
+division will suffice to specify and verify the exchanger in Hoare
+logic, without relying on CAL, and will be essential for reasoning
+about the clients in Section~\ref{sec:cal}.
+%
+%In Section~\ref{sec:counting}, we show how the approach directly
+%scales to naturally specify programs that have heretofore only been
+%addressed using quiescent and quantitative quiescent consistency.
+
+The subjective state for each thread in this example consists of three
+groups of two components: (1) thread-private heap $\heaps$ of the
+thread, and of the environment $\heapo$, (2) a set of outstanding
+offers $\perms$ created by the thread, and by the environment
+$\permo$, and (3) a time-stamped history of values $\hists$ that the
+thread exchanged so far, and dually $\histo$ for the environment.  In
+addition to the subjective state, which is private to the specified
+thread or to the environment, we need shared (aka.~\emph{joint})
+state. The exchanger requires two joint components: a heap $\heapj$
+and a map of ``matched offers'' $\pending$.
+
+We next describe the intuition behind all these variables, and how the
+proof of the exchanger manipulates them. In the description, we
+overload the notation for maps, and write $x \mapsto y$ for a
+singleton map, no matter its type. For example, in the case of
+time-stamped histories, $t \mapsto b$ denotes that at time-stamp $t$,
+some abstract behavior $b$ took place. In the case of heaps, $x
+\mapsto v$ for a singleton heap with a pointer $x$ storing value
+$v$. We also overload the operator $\hunion$ for disjoint union, and
+apply it to histories, heaps, and set of offers, uniformly. Thus, each
+history or heap will be a disjoint union of a number of singleton
+entries, and we use $x \subseteq y$ to say that the map $x$ is a
+submap (or subheap, or subhistory) of $y$.
+
+The behavior of the exchanger on decorated state is as follows. 
+%
+First, $\heapj$ is a heap that serves as the ``staging'' area for the
+offers. It includes the global pointer $g$. Whenever a thread wants to
+make an offer, it allocates a pointer $p$ in $\heaps$, and then tries
+to move $p$ from $\heaps$ into $\heapj$, simultaneously linking $g$ to
+$p$.
+
+Second, $\perms$ and $\permo$ are sets of offers (hence, sets of
+pointers) that determine offer ownership. A thread that has the offer
+$p \in \perms$ is the one that created it, and thus has the
+\emph{sole} right to retire $p$, or to collect the value that $p$ was
+matched with. Upon collection or retirement, $p$ is removed from
+$\perms$.
+
+%To ensure that only one thread has such a right, one of the important
+%state invariants of the exchanger is that $\perms$ and $\permo$ are
+%disjoint sets.
+
+Third, $\hists$ and $\histo$ are histories, each mapping a time-stamp
+(isomorphic to nats), to a pair of exchanged values. A singleton
+history $t \mapsto (v, w)$ symbolizes that a thread having this
+singleton as a subcomponent of $\hists$, has exchanged $v$ for $w$ at
+time $t$. Histories have been used in FCSL
+before~\cite{Sergey-al:ESOP15}, but only on linearizable examples,
+where each time-stamp $t$ ``stored'' an atomic operation performed at
+time $t$. In the exchanger example, which is not linearizable, a
+time-stamp $t$ stores only a \emph{half} of an atomic operation, \ie,
+a pair $(v, w)$ signaling that a thread exchanged $v$ for $w$. The
+most important invariant of the exchanger is that each such half-entry
+is matched by a symmetric half-entry, to capture that another thread
+must have simultaneously exchanged $w$ for $v$.
+
+Fourth, $\pending$ is a map storing the offers that were matched, but
+not yet collected. A singleton entry in $\pending$ has the form $p
+\mapsto (t, v, w)$ and denotes that offer $p$, initially storing $v$,
+was matched at time $t$ with $w$. A singleton entry is entered into
+$\pending$ when a thread on the one end of matching, matches $v$ with
+$w$. Such a thread also places the \emph{twin} entry $\twin{t} \mapsto
+(w, v)$, with inverted order of $v$ and $w$, into its own private
+history $\hists$, where:
+\[
+\twin{t} = \left\{%
+\begin{array}{ll}
+t+1 & \mbox{if $t$ is odd}\\
+t-1 & \mbox{if $t > 0$ and $t$ is even}
+\end{array}\right.
+\]
+For technical reasons, $0$ is not a valid time-stamp, and has no
+distinct twin. The pending entry for $p$ resides in $\pending$ until
+the thread that created the offer $p$ decides to ``collect'' it. It
+removes $p$ from $\pending$, and simultaneously adds the entry $t
+\mapsto (v, w)$ into its own $\hists$, thereby logically completing
+the exchange. Since twin time-stamps are consecutive nats, a history
+cannot contain entries \emph{between} twins.
+
+Thus, two twin entries in the combined history, including $\pending$,
+jointly represent a single exchange, as if it occurred
+\emph{atomically}. CA-histories~\cite{Hemed-Rinetzky:PODC14} capture
+this by making the ends of an exchange occur as simultaneous
+events. We capture it via twin time-stamps. More formally, let $\hist
+= \hists \hunion \histo \hunion \mygather{\pending}$. The exchanger's
+main invariant is that $\hist$ always contains matching twin entries:
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:exchanging} 
+t \mapsto (v, w) \subseteq \hist \iff \twin t \mapsto (w, v) \subseteq \hist
+\]
+Here $\mygather{\pending}$ denotes the collection of all the entries
+in $\pending$. That is, $\mygather{\emptyset} = \emptyset$, and
+$\mygather {p \mapsto (t, v, w) \hunion \pending'} = t \mapsto (v, w)
+\hunion \mygather{\pending'}$.
+
+%One consequence of this property is that the history $\hist$ always
+%has an even number of entries. Thus, if $t$ is the smallest unused
+%time-stamp in $\hist$ (not counting $0$), then $t$ must be odd, and
+%hence $t < \twin t = t + 1$.
+
+\paragraph{Specification.}
+The following is the Hoare spec we desire.
+%
+\[
+\tag{\arabic{tags}}\refstepcounter{tags}\label{tag:exchangespec} 
+{\small{
+\begin{array}{c}
+\specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}\}}\\
+\esc{exchange}\ v\\
+  \spec{\!\!
+  \begin{array}{c}
+\heaps = \emptyset, \perms = \emptyset, \gist \subseteq
+  \histo \hunion \mygather{\pending}, \hbox{}\\[1pt]
+\mathsf{if}\ \res\ \mathsf{is}\ \mathsf{Some}\ w\ \mathsf{then}~\\[1pt]
+\exists t\ldot \hists = t \mapsto (v, w), \mathsf{last} (\gist) < t, \twin{t}
+~\mathsf{else}\ \hists = \emptyset 
+  \end{array}
+  \!\!}
+\end{array}
+}}
+\]
+%
+The precondition says that the exchanger starts with the empty private
+heap $\heaps$, set of offers $\perms$ and history $\hists$; hence by
+framing (see Section~\ref{sec:background} for details), it can start
+with any value for these components. The logical variable $\gist$
+names (a subset of) the initial history of all threads,
+$\histo \hunion \mygather{\pending}$. We use subset instead of
+equality in order to make the precondition stable under interference;
+that is, stable under other threads adding history entries to $\histo$
+or $\pending$.
+
+In the postcondition, the self heap $\heaps$ and the set of offers
+$\perms$ didn't change (hence, if $\mathtt{exchange}$ made an offer
+during its execution, it also collected or retired it by the end).
+%
+The history $\gist$ is still a subset of the ending value for $\histo
+\hunion \mygather{\pending}$, signifying that the environment history
+only grows by the interference. We will make a crucial use of this
+part of the spec when verifying a client of the exchanger in
+Section~\ref{sec:cal}.
+%
+If the exchange succeeded (either in line 7 or line 16 in
+Figure~\ref{fig:exchanger}), \ie, if the result $\mathsf{res}$ equals
+$\mathsf{Some}\ w$, then there exists a time-stamp $t$, such that
+self-history $\hists$ contains the entry $t \mapsto (v, w)$,
+symbolizing that $v$ and $w$ were exchanged at time $t$.  Observe that
+by invariant~(\ref{tag:exchanging}), it must be that the twin entry
+$\twin t \mapsto (w, v)$ belongs to $\histo \hunion
+\mygather{\pending}$ for the ending state.  Moreover, the exchange
+occurred \emph{after} the call to $\mathsf{exchange}$; that is,
+whichever subset $\gist$ we chose in the pre-state, both $t$ and
+$\twin t$ are larger than then the last time-stamp in $\gist$. If the
+exchange fails (\ie, $\mathsf{res}$ is $\mathsf{None}$), then
+$\hists$ remains empty.
+
+%\is{Okay, I liked the subsection above, as it seems to cover
+%  everything what's needed to state the specification.}
+%
+%\is{How about moving the rest of this section for after the background
+%section? Right now, I think, the reader got enough to be impressed
+%about the spec, so let's show him the formal rules of FCSL, and then
+%proceed with the rest of the exchanger protocol and its client.}
+%
+%\an{Hmm, that would make things a bit too schizophrenic, going back
+%  and forth all the time. I would like to at least squeeze the proof
+%  outline before going to background. So I need to introduce the least
+%  amount of info in order to be able to explain the proof outline. It
+%  seems, at the very least, I should cover the transitions, if not the
+%  spatial invariants.}
+
+\paragraph{Further invariants.}
+%
+The states in the exchanger state-space must satisfy other invariants
+in addition to (\ref{tag:exchanging}). All these properties naturally
+arise from our description of how the exchanger behaves on decorated
+state. Thus, we simply list them here without much commentary, so that
+we can refer to them further on. We abbreviate with $p \mapsto (x; y)$
+the heap $p \mapsto x \hunion p\!+\!1 \mapsto y$.
+
+\begin{enumerate}[label=(\roman*)]
+\item\label{exP} $\heapj$ contains a pointer $g$ and a number of
+  offers $p \mapsto (v; x)$, and $g$ points to either $\mathsf{null}$
+  or to some offer in $\heapj$.
+
+\item $\hists$, $\histo$ and $\mygather{\pending}$ contain only
+  disjoint time-stamps. Similarly, $\perms$ is disjoint from $\permo$.
+
+\item\label{matched} The offers in $\pending$ are all matched, and all
+  owned by some thread:
+\[
+\!\!\!\!\!\!
+{\small{
+\exists t\ldot p \mapsto (t, v, w) \subseteq \pending \iff p \in
+\perms \hunion \permo, p \mapsto (v; \Matched w) \subseteq \heapj.
+}}
+\]
+\item There is at most one unmatched offer; it is the one linked
+  from~$g$. It is owned by someone:
+\[
+{\small{
+p \mapsto (v; \Unmatched) \subseteq \heapj \Longrightarrow p \in \perms \hunion
+\permo, g \mapsto p \subseteq \heapj.
+}}
+\]
+\item Retired offers are not owned: $p \mapsto (v; \Retired)
+  \subseteq \heapj \Rightarrow p \notin \perms \hunion \permo$.
+
+\item The outstanding offers are included in the joint heap, \ie, if
+  $p \in \perms \hunion \permo$ then $p \in \mathsf{dom}\ \heapj$.
+
+\item\label{ex:gapless} The combined history $\hists \hunion \histo \hunion
+  \mygather{\pending}$ is gapless, that is, if it contains a
+  time-stamp $t$, it also contains all the smaller time-stamps (sans
+  0).
+
+\end{enumerate}
+
+%\an{There's nothing I can really say here as to the relevance of the
+%  various properties. It may be possible to remove this section later
+%  on. Let's see if I need any of these properties when describing the
+%  proof outline.}
+
+\begin{comment}
+\paragraph{Temporal invariants.}
+The proof of $\mathtt{exchange}$ also requires limiting the kind of
+interference that the threads can make. In particular, we require that
+the each threads can only make the following transitions on the
+state-space of the exchanger. We will show in
+Section~\ref{sec:background} how those are formally captured in FCSL.
+All the transitions correspond to performing at most one atomic
+operation on a real state (reading/writing/allocating/deallocating a
+pointer), while also allowing for arbitrary changes to the auxiliary
+state, or changing of ownership a pointer.
+\begin{itemize}
+\item $\mathsf{install\_trans}\ p\ v$ takes a pointer $p$ and an offer
+  represented as $p \mapsto (v; \Unmatched)$, moves the offer into
+  $\heapj$.  It requires that $g \mapsto \mathsf{null}$ in
+  $\heapj$. It adds $p$ to $\perms$, and sets $g \mapsto p$. More
+  succinctly, the transition changes $[\,\heaps\,{:}\,p \mapsto (v;
+    \Unmatched)\,{\mid}\,\perms\,{:}\,\emptyset\,{\mid}\,\heapj\,{:}\,g
+    \mapsto \mathsf{null}\,]$ into
+  $[\,\heaps\,{:}\,\emptyset\,{\mid}\,\perms\,{:}\,\{p\}\,{\mid}\,\heapj\,{:}\,g
+    \mapsto p \hunion p \mapsto (v; \Unmatched)\,]$, allowing that by
+  framing each of these components can be enlarged by a value that
+  remains invariant upon transition.
+%$\mathsf{match\_trans}\ v\ w$ 
+%starts in a heap $\heapj$ in which $g$ points to some offer $p$, such
+%that $p \mapsto (v, \Unmatched)$ is also in $\heapj$. It atomically
+%changes the contents of $p$ to $(v, \Matched w)$. It also modifies the
+%auxiliary state as follows. It adds the history entry $t \mapsto (w,
+%v)$ to $\hists$, where $t$ is the next unused timestamp in $\hists
+%\hunion \histo \hunion \mygather(\pending)$. It also places the entry
+%$p \mapsto (t+1 , v, w)$ into $\pending$.
+\item $\mathsf{match\_trans}\ v\ w$ encodes matching of the offer
+  pointed to by $g$ with $w$, and the appropriate changes to the
+  auxiliary state. It changes $[\,\heapj\,{:}\,g \mapsto p \hunion p
+    \mapsto (v; \Unmatched)\,{\mid}\,\hists\,{:}\,\emptyset\,{\mid}\,\pending\,{:}\,\emptyset\,]$
+  to $[\,\heapj\,{:}\,g \mapsto p \hunion p \mapsto (v; \Matched
+    w)\,{\mid}\, \hists\,{:}\,t \mapsto (w, v)\,{\mid}\,
+    \pending\,{:}\,p \mapsto (t+1, v, w)\,]$. Here $t$ is the next
+  unused time-stamp in $\hists \hunion \histo \hunion
+  \mygather{\pending}$. Thus, a history entry $t \mapsto (w, v)$ is
+  placed into $\hists$, and $p \mapsto (t+1, v, w)$ is placed into
+  $\pending$, to be collected later by the thread that made the offer
+  $p$.
+\item $\mathsf{retire\_trans}\ p\ v$ modifies $[\,\heapj\,{:}\,p
+  \mapsto (v; \Unmatched)\,{\mid}\,\perms\,{:}\,\{p\}\,]$ into
+  $[\,\heapj\,{:}\,p \mapsto (v; \Retired)\,{\mid}\,\perms\,{:}\,\emptyset\,]$. Thus, an offer $p$ is
+  retired, but it can only be done so by a thread that installed it,
+  \ie, a thread that contains $p$ in $\perms$. Upon retirement, $p$
+  is removed from $\perms$.
+\item $\mathsf{collect\_trans}\ p$ modifies
+  $[\,\perms\,{:}\,\{p\}\,{\mid}\,\pending\,{:}\,p \mapsto (t, v,
+  w)\,{\mid}\,\hists\,{:}\,\emptyset\,]$ to
+  $[\,\perms\,{:}\,\emptyset\,{\mid}\,\pending\,{:}\,\emptyset\,{\mid}\,\hists\,{:}\,t
+  \mapsto (v, w)\,]$. Thus, an entry left in $\pending$ by a thread
+  which achieved matching is collected and moved to the self history
+  $\hists$ of a thread that originally installed the offer $p$.
+\item $\mathsf{unlink\_trans}$ unlinks the current offer from $g$. It
+  changes $[\,\heapj\,{:}\,g \mapsto p \hunion p \mapsto (v; x)\,]$ to
+  $[\heapj\,{:}\,g \mapsto \mathsf{null} \hunion p \mapsto (v; x)\,]$,
+  but only if $x \neq \Unmatched$. Unmatched offers can't be unlinked.
+
+%\item $\mathsf{match\_trans}\ v\ w$ starts in a heap $\heapj$ in which
+%  $g$ points to some offer $p$, such that $p \mapsto (v, \Unmatched)$
+%  is also in $\heapj$. It atomically changes the contents of $p$ to $(v,
+%  \Matched w)$. It also modifies the auxiliary state as follows. It
+%  adds the history entry $t \mapsto (w, v)$ to $\hists$, where $t$ is
+%  the next unused timestamp in $\hists \hunion \histo \hunion
+%  \mygather(\pending)$. It also places the entry $p \mapsto (t+1 , v,
+%  w)$ into $\pending$.
+%
+%\item $\mathsf{retire\_trans}\ p\ v$ starts in a heap $\heapj$ in which
+%  $p \mapsto (v, \Unmatched)$. Moreover, $p \in \perms$, \ie, a thread
+%  that wants to perform the transition has a permission to do so; it
+%  has $p$ in its self set of offers, so it is the thread that
+%  installed the offer in the first place. The transition removes $p$
+%  from $\perms$ and changes $p \mapsto (v, \Retired)$.
+%
+%\item $\mathsf{collect\_trans}\ p$ starts in a state in which $p \in
+%  \perms$ as well as $p \in dom (\pending)$. By invariant (blah) from
+%  above, the second propery means that $p$ has been matched by some
+%  thread, and thus $p \mapsto (t, v, w) \in \pending$, where $v$ was
+%  the original offer. The transition removes $p$ from $\perms$ and
+%  $\pending$, and adds the history entry $t \mapsto (v, w)$ to
+%  $\hists$.
+%
+%\item $\mathsf{unlink\_trans}$ starts in a state in which exists $p$,
+%  $v$, $x$, such that $g \mapsto p$ and $p \mapsto (v, x)$ are in
+%  $\heapj$. Moreover, $x$ is either $\Matched w$ or
+%  $\Retired$, but not $\Unmatched$. Hence, unmatched
+%  offers can't be unlinked. It simply sets $g \mapsto null$, without
+%  changing any auxiliary state. 
+\end{itemize}
+ 
+%\paragraph{Atomic actions.}
+%
+%Atomic actions are primitive programs that are obtained as ``linear
+%combinations'' of transitions. They generalize the atomic concurrency
+%primitives from the original program, with auxiliary code.  Here we
+%present the 5 primitive actions that we use in the exchanger via their
+%Hoare logic specs. We omit the proofs that the actions actually
+%satisfy the provided Hoare specs, and that the specs are stable under
+%interference of other threads that respect the transitions listed
+%above. These could be found in our Coq sources.
+%
+%The first action is $\mathsf{tryinstall}$, with the following spec. 
+%%\[
+%%\begin{array}{c}
+%%\{\heaps = p \mapsto (v, \Unmatched) \aand \perms = \emptyset \aand \hists = \emptyset \aand
+%%        \gist \subseteq \histo \hunion \mygather{\pending}\}\\
+%%\mathsf{tryinstall}\\
+%%\{\hists = \emptyset \aand \gist \subseteq \histo \hunion \mygather(\pending) \aand \hbox{} \\
+%%  \mathsf{if}\ \res\ \mathsf{then}\ \heaps = \emptyset \aand \perms = \{p\} \aand
+%%         \exists x\ldot p \mapsto (v, x) \in \heapj \aand \mathsf{bounded} p (\mathsf{last}\ \gist) (\pending) \\
+%%\mathsf{else} \heaps = p \mapsto (v, \Unmatched) \aand \perms = \emptyset\}
+%%\end{array}
+%%\]
+%
+%Intuitively, when the auxiliary state is erased, $\mathsf{tryinstall}$
+%corresponds to the \code{CAS} operation from line (blah) in Figure (blah). In
+%the presence of auxiliary state, $\mathsf{tryinstall}$ either takes
+%the $\mathsf{install\_transition}$ (corresponds to the situation when
+%the \code{CAS} succeeds), or an idle transition (corresponds to the sitaution
+%when the \code{CAS} fails). The postcondition says that under any
+%interference, there will always be an entry $x$, such that $p \mapsto
+%(v, x)$. $x$ may initially $\Unmatched$, but may later be
+%moved to $\Matched w$, if some environment thread matches the
+%offer $p$. At any rate, is such a match is achieved, and an entry $p
+%\mapsto (t, v, w)$ stored into $\pending$, the timestamps $t$ and
+%$\twin t$ will be larger than $\mathsf{last}$ timestamp in $\gist$.
+%
+
+\end{comment}
+
+
+{
+%\setlength{\belowcaptionskip}{-10pt} 
+\begin{figure}
+\centering
+\[
+{\small{
+\begin{array}{rl}
+ \Num{1} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending} \}}
+\\ 
+ \Num{2} & ~~~~ p \Asgn \esc{alloc}(v, \Unmatched);\\
+ \Num{3} & \specK{\{\heaps = p \mapsto (v; \Unmatched), \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending} \}}\\
+ \Num{4} & ~~~~ b \Asgn \esc{CAS}(g, \esc{null}, p);\\
+ \Num{5} & ~~~~ \kw{if}~~b~\esc{==}~\esc{null}~~\kw{then}\\
+ \Num{6} & ~~~~ ~~~~ \esc{sleep}(50);\\
+ \Num{7} & \specK{\{\heaps = \emptyset, \perms = \{p\}, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}, \esc{bounded}\ p\ v\ \gist \}}\\
+ \Num{8} & ~~~~ ~~~~ x \Asgn \esc{CAS}(p\esc{+}1, \Unmatched, \Retired);\\
+ \Num{9} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending},\hbox{}} \\
+\Num{10} & \specK{\hphantom{\}}x = \Matched w \implies \exists t\ldot \hists = t \mapsto (v, w), \mathsf{last}(\gist) < t, \twin t,}\\
+\Num{11} & \specK{\hphantom{\}}x = \Unmatched \implies \hists = \emptyset \}}\\
+\Num{12} & ~~~~ ~~~~ \kw{if}~~x~~\kw{is}~~\Matched w~~\kw{then}~~\kw{return}~~(\esc{Some}~w)\\
+\Num{13} & ~~~~ ~~~~ \kw{else}~~\kw{return}~~\esc{None}\\
+\Num{14} & ~~~~ \kw{else}\\
+\Num{15} & \specK{\{\heaps = p \mapsto (v; \Unmatched), \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}\}}\\
+\Num{16} & ~~~~ ~~~~ \esc{dealloc}~~p;\\
+\Num{17} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}\}}\\
+\Num{18} & ~~~~ ~~~~ cur \Asgn !g;\\
+\Num{19} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending},}\\
+\Num{20} & \specK{\hphantom{\}}cur = \esc{null} \vee cur \mapsto (w; -) \subseteq \heapj\}}\\
+\Num{21} & ~~~~ ~~~~ \kw{if}~~cur~\esc{==}~\esc{null}~~\kw{then}~~\kw{return}~{\esc{None}}\\
+%& \specK{\{ \mbox{obvious} \}}\\
+\Num{22} & ~~~~ ~~~~ \kw{else}\\
+\Num{23} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending},}\\
+\Num{24} & \specK{\hphantom{\}} cur \mapsto (w; -) \subseteq \heapj\}}\\
+\Num{25} & ~~~~ ~~~~ ~~~~ x \Asgn \esc{CAS}(cur\esc{+}1, \Unmatched, \Matched v);\\
+\Num{26} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}, cur \mapsto (w; y) \subseteq \heapj,} \\
+\Num{27} & \specK{\hphantom{\}}x = \Unmatched \implies y = \Matched v, \exists t\ldot \hists = t \mapsto (v, w), \mathsf{last}(\gist) < t, \twin t}\\
+\Num{28} & \specK{\hphantom{\}}x \neq \Unmatched \implies \hists = \emptyset, y \neq \Unmatched \}}\\
+\Num{29} & ~~~~ ~~~~ ~~~~ \esc{CAS}(g, cur, \esc{null});\\
+\Num{30} & \specK{\{\mbox{same as above; the state satisfies (iv) because $y \neq \Unmatched$}\}}\\
+%& \specK{\{\heaps = \emptyset, \perms = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}, 
+%    \exists w hw. cur \mapsto (w, hw) \in \heapj,} \\
+%& \specK{x = \Unmatched, hw = \Matched v, \exists t. \hists = t \mapsto (w, v), last \gist < t, \twin t}\\
+%& \specK{x \neq \Unmatched, \hists = \emptyset, hw \neq \Unmatched \}}\\
+\Num{31} & ~~~~ ~~~~ ~~~~ \kw{if}~~x~\esc{==}~\Unmatched~~\kw{then}~~w\Asgn !cur;\kw{return}~(\esc{Some}\ w)\\
+\Num{32} & \specK{\{ \heaps = \emptyset, \perms = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}, \res=\esc{Some}\ w}, \\
+\Num{33} & \specK{\hphantom{\}}\exists t. \hists = t \mapsto (w, v), \mathsf{last}(\gist) < t, \twin t\}}\\
+\Num{34} & ~~~~ ~~~~ ~~~~ \kw{else}~~\kw{return}~\esc{None}\}\\
+\Num{35} & \specK{\{\heaps = \emptyset, \perms = \emptyset, \hists = \emptyset, \gist \subseteq \histo \hunion \mygather{\pending}, \res=\esc{None}\}} 
+\end{array}
+}}
+\]
+%\vspace{-10pt}  
+\caption{Proof outline for the exchanger.}
+\label{fig:exchanger_proof}
+\end{figure} 
+}
+
+\subsection{Proof outline for the exchanger}
+\label{sec:exproof}
+
+The proof outline for the spec~\eqref{tag:exchangespec} is given in
+Figure~\ref{fig:exchanger_proof}, and we proceed to explain it.
+%
+We start with the desired precondition, and after allocation in line
+2, $\heaps$ stores the offer $p$ in line 3.
+
+If the \code{CAS} at line 4 succeeds, the program ``installs'' the
+offer; that is, the state (real and auxiliary) is changed
+simultaneously to the modification of $g$. In particular, $p$ is added
+to $\perms$, and the offer $p$ changes ownership, to move from
+$\heaps$ to $\heapj$.  Since $b$ will be bound to $\mathsf{null}$,
+this leads us to the assertion in line 7. We explain in
+Section~\ref{sec:background} how these kinds of changes to the
+auxiliary state, which are supposed to occur simultaneously with some
+atomic operation (in this case, \code{CAS}), are specified and
+verified in FCSL. The assertion in line 7 further states
+$\mathsf{bounded}\ p\ v\ \gist$. We do not formally define
+$\mathsf{bounded}$ here (it is in the Coq scripts, accompanying the
+paper), but it says that $p$ has been moved to $\heapj$, \ie,
+$p \mapsto (v; -) \subseteq \heapj$, and that any time-stamp $t$ at
+which another thread may match $p$, and thus place the entry
+$p \mapsto (t, v,-)$ into $\pending$, must satisfy
+$\mathsf{last}(\gist) < t, \twin{t}$. Intuitively, this property is
+valid, and stable under interference, because entries in $\pending$
+can be added only by generating fresh time-stamps wrt.~the collective
+history $\histo \hunion \mygather{\pending}$, and $\gist$ is a subset
+of it.
+%
+If the \code{CAS} in line 4 fails, then nothing changes, and we simply move
+to the spec in line 15.
+
+At line 8, the \code{CAS} succeeds if $x\,{=}\,\Unmatched$, and fails if
+$x\,{=}\,\Matched w$. Notice that $x$ cannot be $\Retired$; since we
+own $p \in \perms$, no other thread could retire $p$.
+%
+If \code{CAS} fails, then the offer has been matched with~$w$. \code{CAS}
+simultaneously ``collects'' the offer as follows. By invariant (iii),
+and $\mathsf{bounded}\ p\ v\ \gist$, the auxiliary map $\pending$
+contains an entry $p \mapsto (t, v, w)$, where $\mathsf{last}(\gist) <
+t, \twin{t}$. The auxiliary state is changed to remove $p$ from
+$\pending$, and simultaneously place $t \mapsto (v, w)$ into $\hists$.
+%
+If \code{CAS} succeeds, the offer was unmatched, and is ``retired'' by
+removing $p$ from $\perms$.
+
+Lines 12 and 13 branch on $x$, and select either the assertion 10 or
+11. Either way, the desired postcondition directly follows.
+
+%Deallocation in line 16 removes the offer $p$ from the heap $\heaps$.
+
+After reading $cur$ in line 18, by invariant (i), we know that $cur$
+either points to $\mathsf{null}$, or to some offer $p \mapsto (w; -)
+\subseteq \heapj$.
+
+%The null-check in line 21, together with line 19, directly establishes
+%the postcondition.
+
+At line 25, the \code{CAS} succeeds if $x = \Unmatched$ and fails
+otherwise. If \code{CAS} succeeded, then it ``matches'' the offer in $cur$;
+that is, it writes $\Matched w$ into the hole of $cur$, and changes the
+auxiliary state as follows. It takes $t$ to be the smallest unused
+time-stamp in the history $\hist = \hists \hunion \histo \hunion
+\mygather{\pending}$. Thus $\mathsf{last}(\hist) < t$, and because
+$\hist$ has even size by invariant~(\ref{tag:exchanging}), $t$ must be
+odd, and hence $t < \twin t = t+1$. The $t \mapsto (v, w)$ is placed
+into $\hists$, giving us assertion 27.  To preserve the invariant
+(iii), \code{CAS} simultaneously puts the entry $p \mapsto (t, w, v)$ into
+$\pending$, for future collection by the thread that introduced offer
+$cur$. But, we do not need to reflect this in line 27.
+%
+If the \code{CAS} fails, the history $\hists$ remains empty, as no matching is
+done. However, the hole $y$ associated with $cur$ cannot be
+$\Unmatched$, as then \code{CAS} would have succeded.
+%
+Therefore, it is sound in line 29 to ``unlink'' $cur$ from $g$, as the
+unlinking will not violate the invariant (iv), which says that an
+unmatched offer must be pointed to by $g$.
+%
+Finally, lines 31 and 34 select the assertion 27 or 28, and either
+way, directly imply the desired postcondition.
+
+
+

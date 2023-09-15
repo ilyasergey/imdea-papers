@@ -1,0 +1,109 @@
+\section{Related Work}\label{sec:related}
+
+\SCST builds on the previous work on subjective auxiliary state and
+SCSL logic~\cite{LeyWild-Nanevski:POPL13}. The SCSL logic contained
+the distinction between \self and \other views, which was essential
+for compositional implementation of \emph{auxiliary state}. However,
+it contained exactly one coarse-grained resource, with no ability to
+create and dispose new resources. In contrast, \SCST can introduce any
+number of fine-grained resources in a scoped way.
+
+The work on Concurrent Abstract Predicates
+(CAP)~\cite{DinsdaleYoung-al:ECOOP10} introduces a notion of
+\emph{shared region} that serves a similar purpose as concurroids, in
+that regions circumscribe a chunk of shared heap with a protocol
+governing its evolution. A \emph{protocol} is defined by a set of
+atomic actions, which are RG-style transitions on private state and a
+region. In addition to heaps, regions may contain abstract
+capabilities that identify enabled actions. Thus there is a subtle
+mutual recursion in a protocol definition between an action and the
+capability to perform the action. A recurring pattern for this
+approach is quantification over \emph{all} possible capabilities and
+placing them in a shared region, to be used up if needed in the
+execution of the protocol. The CAP framework could atomically change
+only one region; a restriction lifted in the recent work on
+Views~\cite{DinsdaleYoung-al:POPL13} and
+HOCAP~\cite{Svendsen-al:ESOP13} that introduced \emph{view shifts} to
+synchronize changes in several~regions.
+%
+Once allocated, CAP's regions have dynamically-scoped lifetime, and
+they can be disposed by a particular thread if it collects all
+corresponding region's capabilities. To the best of our knowledge,
+HOCAP does not allow the removal or scoped hiding of a shared~region.
+%
+% To the best of our knowledge, neither CAP nor HOCAP allow the removal
+% or scoped hiding of a shared region.
+
+In contrast with CAP and their successors, \SCST does not require
+capabilities to perform actions, as these are naturally represented in
+the \self and \other views associated with a resource (and can also be
+seen as auxiliary state). Such auxiliary state is simpler than
+capabilities; it is not subject to ownership transfer, and there is no
+need to quantify over all capabilities. In our experience, this
+simplicity extends to the specification of invariants and transitions,
+and to the proofs of stability. In \SCST, synchronizing changes over a
+number of concurroids is achieved directly at the level of transitions
+by means of entanglement, and at the level of programs by allowing
+actions to be defined over any concurroid, including entangled
+ones. Thus, no view shifts are required.
+%
+The burden of stability proofs is further reduced in \SCST by
+formulating private heaps as a separate concurroid that one may, but
+need not, entangle with. Thus, when an action manipulates only the
+internal state of a resource, the attendant stability proofs can
+ignore private heaps, \eg, the \textsf{take} action of a ticketed
+lock~\cite{DinsdaleYoung-al:ECOOP10,fcsl-coqscripts}.
+%
+Moreover, the communication in \SCST makes it possible for concurroids
+to pass heaps between each other directly, rather than going through
+private state. While the current paper does not present examples that
+exploit this ability, we have found it useful when verifying in \SCST
+a more advanced example of readers-writers, which we will present in
+future~work.
+
+CaReSL~\cite{Turon-al:ICFP13} uses the same notion of shared region as
+CAP, though it specifies the transitions in a manner closer to \SCST,
+namely by means of STS's. CaReSL does not directly provide subjective
+\self and \other views of a resource, but it provides a notion of
+\emph{tokens}, whose ownership is exchanged between a thread and its
+environment. CaReSL assertions explicitly allow statements only about
+self-owned tokens, not \other-owned ones. Thus, reasoning about the
+lack of logical changes to environment-owned data has to be encoded
+with a level of indirection, potentially quantifying over all tokens,
+similar to CAP's quantification over capabilities. A frequent side
+condition in CaReSL rules is that various assertions are
+\emph{token-pure}, which does not have a direct correspondent in
+\SCST.
+%
+Similar to CAP, CaReSL currently allows actions that work over only a
+single region, and will require an extension akin to view shifts to
+enable synchronized updates. 
+%
+CaReSL does not consider removal or scoped hiding of shared regions,
+although it can be emulated by introducing an empty ``final'' protocol
+state.
+%
+Instead of stability checks in \SCST, in CaReSL one may stabilize
+assertions by composing them with environment stepping. In our
+experience, this does not change the proofs: the same obligations
+reappear in proofs out of stabilized hypotheses.
+%
+On the other hand, CaReSL can reason about fine-grained data structure
+by means of refinement (a generalization of linearizability). \SCST
+supports higher-order functions by means of shallow embedding into
+CiC~\cite{Bertot-Casteran:04,coq-team}, but we have not considered
+linearizability so far, which is future work.
+
+Feng's Local Rely-Guarantee (LRG)~\cite{Feng:POPL09} is, to the best
+of our knowledge, the first work that reconciled fine-grained
+reasoning in the style of RG with framing and hiding at the level of
+transitions (similar to our \textsc{Inject} and \textsc{Hide}). We
+differ from LRG in that we introduce communication and subjectivity
+into the mix; thus our injection and hiding rules take \self and
+\other views into account. The latter are a compositional form of
+auxiliary state, whereas LRG in practice has to use the classical,
+non-compositional form of auxiliary
+state~\cite{Owicki-Gries:CACM76,LeyWild-Nanevski:POPL13}.
+%
+% Additionally, \SCST parallel composition rule is in the style of
+% CSL, rather than RG.
